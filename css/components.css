@@ -712,6 +712,18 @@
   outline: none;
 }
 
+/* Auth Locked State (Before user selects profile and logs in) */
+body.auth-locked #app {
+  filter: blur(14px);
+  pointer-events: none;
+  user-select: none;
+  transition: filter 0.3s ease;
+}
+
+body.auth-locked #modal-select-user .sheet-handle {
+  display: none;
+}
+
 /* Modals & iOS Sheets */
 .modal-backdrop {
   position: fixed;

@@ -15,8 +15,8 @@
   <link rel="manifest" href="manifest.json">
   
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/style.css?v=20260918_v12">
-  <link rel="stylesheet" href="css/components.css?v=20260918_v12">
+  <link rel="stylesheet" href="css/style.css?v=20260918_v13">
+  <link rel="stylesheet" href="css/components.css?v=20260918_v13">
   
   <!-- Supabase JS CDN Library -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -271,11 +271,14 @@
       </div>
 
       <!-- App Version & Force Reload for iOS Home Screen PWAs -->
-      <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-glass); text-align: center;">
+      <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-glass); text-align: center; display: flex; flex-direction: column; gap: 8px; align-items: center;">
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-logout-user" style="font-size: 0.75rem; padding: 6px 14px; color: #fca5a5; border-color: rgba(239, 68, 68, 0.3); border-radius: 999px; display: none;">
+          <span>🚪</span> Auf diesem Gerät abmelden
+        </button>
         <button type="button" class="btn btn-secondary btn-sm" id="btn-force-reload-app" style="font-size: 0.75rem; padding: 7px 14px; border-color: rgba(255, 255, 255, 0.15); border-radius: 999px;">
           <span>🔄</span> App auf neuesten Stand aktualisieren
         </button>
-        <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 6px;">
+        <div style="font-size: 0.65rem; color: var(--text-muted);">
           Tippen, falls iOS noch eine alte Version anzeigt
         </div>
       </div>
@@ -713,8 +716,8 @@
   <div class="toast-container" id="toast-container"></div>
 
   <!-- JavaScript Scripts -->
-  <script src="js/supabase-config.js?v=20260918_v12"></script>
-  <script src="js/data.js?v=20260918_v12"></script>
-  <script src="js/app.js?v=20260918_v12"></script>
+  <script src="js/supabase-config.js?v=20260918_v13"></script>
+  <script src="js/data.js?v=20260918_v13"></script>
+  <script src="js/app.js?v=20260918_v13"></script>
 </body>
 </html>

@@ -39,10 +39,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function refreshActiveView() {
+    const isAuthed = store.isAuthenticated();
+    document.body.classList.toggle('auth-locked', !isAuthed);
     updateUserHeader();
     if (activeViewId === 'view-leaderboard') renderLeaderboard();
     if (activeViewId === 'view-events') renderEvents();
     if (activeViewId === 'view-members') renderMembers();
+    if (!isAuthed) {
+      openUserPickerModal();
+    }
   }
 
   // Global UI refresh hook for Realtime updates
@@ -76,14 +81,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function updateUserHeader() {
     const user = store.getCurrentUser();
-    if (!user) return;
     const avatarEl = document.getElementById('header-user-avatar');
     const nameEl = document.getElementById('header-user-name');
+    if (!user) {
+      if (avatarEl) setAvatarElement(avatarEl, '👤');
+      if (nameEl) nameEl.textContent = 'Anmelden';
+      return;
+    }
     if (avatarEl) setAvatarElement(avatarEl, user.avatar);
     if (nameEl) nameEl.textContent = user.name;
   }
 
   function openUserPickerModal() {
+    const isAuthed = store.isAuthenticated();
+    const modal = document.getElementById('modal-select-user');
+    if (!modal) return;
+
+    const closeBtn = modal.querySelector('.close-modal-btn');
+    const titleEl = modal.querySelector('.modal-title');
+    const subEl = modal.querySelector('.modal-header p');
+    const logoutBtn = document.getElementById('btn-logout-user');
+
+    if (!isAuthed) {
+      if (closeBtn) closeBtn.style.display = 'none';
+      if (titleEl) titleEl.textContent = '☀️ Wer bist du?';
+      if (subEl) subEl.textContent = 'Bitte wähle dein Profil aus und gib deine PIN ein:';
+      if (logoutBtn) logoutBtn.style.display = 'none';
+    } else {
+      if (closeBtn) closeBtn.style.display = 'block';
+      if (titleEl) titleEl.textContent = '👤 Profil wechseln';
+      if (subEl) subEl.textContent = 'Tippe auf ein Profil, um den aktiven Benutzer zu wechseln:';
+      if (logoutBtn) logoutBtn.style.display = 'inline-flex';
+    }
+
     const container = document.getElementById('user-picker-options');
     container.innerHTML = '';
     const members = store.getMembers();
@@ -115,10 +145,20 @@ document.addEventListener('DOMContentLoaded', () => {
       };
     }
 
-    document.getElementById('modal-select-user').classList.add('open');
+    modal.classList.add('open');
   }
 
   document.getElementById('btn-user-switcher').addEventListener('click', openUserPickerModal);
+
+  const btnLogoutUser = document.getElementById('btn-logout-user');
+  if (btnLogoutUser) {
+    btnLogoutUser.addEventListener('click', () => {
+      store.logout();
+      showToast('Auf diesem Gerät abgemeldet.', '👋');
+      closeAllModals(true);
+      refreshActiveView();
+    });
+  }
 
   const btnForceReloadApp = document.getElementById('btn-force-reload-app');
   if (btnForceReloadApp) {
@@ -166,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const pinInput = document.getElementById('pin-login-input');
     pinInput.value = '';
 
-    closeAllModals();
+    closeAllModals(true);
     document.getElementById('modal-pin-login').classList.add('open');
     setTimeout(() => pinInput.focus(), 150);
   }
@@ -196,8 +236,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const res = store.login(targetId, pin);
     if (res.success) {
-      closeAllModals();
-      showToast(`Willkommen, ${res.member.name}! 🔓`, res.member.avatar);
+      document.body.classList.remove('auth-locked');
+      closeAllModals(true);
+      showToast(`Willkommen, ${res.member.name}! ☀️`, res.member.avatar);
       refreshActiveView();
     } else {
       showToast(res.message, '❌');
@@ -1134,12 +1175,26 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.modal-backdrop').forEach(modal => {
     modal.addEventListener('click', (e) => {
       if (e.target === modal || e.target.classList.contains('close-modal-btn')) {
+        if (!store.isAuthenticated()) {
+          // If in PIN modal, return to user selection
+          if (modal.id === 'modal-pin-login') {
+            document.getElementById('modal-pin-login').classList.remove('open');
+            openUserPickerModal();
+            return;
+          }
+          // Do not allow closing user picker before authentication
+          return;
+        }
         closeAllModals();
       }
     });
   });
 
-  function closeAllModals() {
+  function closeAllModals(force = false) {
+    if (!force && !store.isAuthenticated()) {
+      openUserPickerModal();
+      return;
+    }
     document.querySelectorAll('.modal-backdrop').forEach(m => m.classList.remove('open'));
   }
 

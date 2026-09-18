@@ -368,8 +368,15 @@ class DataStore {
       const id = Number(stored);
       if (this.getMember(id)) return id;
     }
-    // Default to Lukas (id 1)
-    return 1;
+    return null;
+  }
+
+  isAuthenticated() {
+    return this.getCurrentUserId() !== null;
+  }
+
+  logout() {
+    localStorage.removeItem(CURRENT_USER_KEY);
   }
 
   getAdminAccount() {
@@ -380,10 +387,12 @@ class DataStore {
   }
 
   getCurrentUser() {
-    if (this.getCurrentUserId() === 'admin') {
+    const currentId = this.getCurrentUserId();
+    if (!currentId) return null;
+    if (currentId === 'admin') {
       return this.getAdminAccount();
     }
-    return this.getMember(this.getCurrentUserId());
+    return this.getMember(currentId);
   }
 
   setCurrentUser(id) {
@@ -547,6 +556,7 @@ class DataStore {
   // --- Role & Permissions Check ---
   canEditEvent(eventId, playerId = null) {
     const pId = playerId !== null ? playerId : this.getCurrentUserId();
+    if (!pId) return false;
     const evt = this.getEvent(eventId);
     if (!evt) return false;
     // If completed: only Admin can edit event details!
@@ -558,6 +568,7 @@ class DataStore {
   // Can score event: Organizer scores normally; Admin can also score or correct completed events!
   canScoreEvent(eventId, playerId = null) {
     const pId = playerId !== null ? playerId : this.getCurrentUserId();
+    if (!pId) return false;
     const evt = this.getEvent(eventId);
     if (!evt) return false;
     // Once completed: ONLY the Admin can correct the scores!
@@ -574,6 +585,9 @@ class DataStore {
   // 5. Cannot use Joker if event is completed!
   canSetJoker(eventId, playerId = null) {
     const pId = playerId !== null ? playerId : this.getCurrentUserId();
+    if (!pId) {
+      return { allowed: false, reason: 'Bitte melde dich zuerst mit deinem Profil an.' };
+    }
     if (pId === 'admin') {
       return { allowed: false, reason: 'Das Adminkonto nimmt nicht an der Spieler-Wertung teil.' };
     }
@@ -616,6 +630,9 @@ class DataStore {
   // Toggle my Joker for an upcoming event
   toggleMyJoker(eventId, playerId = null) {
     const pId = playerId !== null ? playerId : this.getCurrentUserId();
+    if (!pId) {
+      return { success: false, message: 'Bitte melde dich zuerst mit deinem Profil an.' };
+    }
     if (pId === 'admin') {
       return { success: false, message: 'Das Adminkonto kann keinen Joker setzen.' };
     }
