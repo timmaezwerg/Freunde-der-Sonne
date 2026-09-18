@@ -120,6 +120,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('btn-user-switcher').addEventListener('click', openUserPickerModal);
 
+  const btnForceReloadApp = document.getElementById('btn-force-reload-app');
+  if (btnForceReloadApp) {
+    btnForceReloadApp.addEventListener('click', () => {
+      showToast('App wird aktualisiert...', '🔄');
+      if ('caches' in window) {
+        caches.keys().then(names => {
+          names.forEach(name => caches.delete(name));
+        });
+      }
+      setTimeout(() => {
+        window.location.replace(window.location.origin + window.location.pathname + '?reload=' + Date.now());
+      }, 300);
+    });
+  }
+
   // --- 1c. PIN Login Controller ---
   function openPinLoginModal(memberId) {
     let targetId = memberId;
