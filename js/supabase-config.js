@@ -3,8 +3,8 @@
    ========================================================= */
 
 // Trage hier deine Supabase-Projekt-Daten ein (oder hinterlege sie in der App im Admin-Bereich):
-const DEFAULT_SUPABASE_URL = ''; // z. B. 'https://your-project.supabase.co'
-const DEFAULT_SUPABASE_ANON_KEY = ''; // z. B. 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+const DEFAULT_SUPABASE_URL = 'https://jxipxhxwjcbvafsvtnjx.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_tCz8ghzT0v4vRe9mpsKPGQ_YM05GMQm';
 
 const STORAGE_SUPABASE_URL_KEY = 'fds_supabase_url';
 const STORAGE_SUPABASE_KEY_KEY = 'fds_supabase_anon_key';
