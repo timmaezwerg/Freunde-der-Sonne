@@ -15,8 +15,8 @@
   <link rel="manifest" href="manifest.json">
   
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/style.css?v=20260918_v10">
-  <link rel="stylesheet" href="css/components.css?v=20260918_v10">
+  <link rel="stylesheet" href="css/style.css?v=20260918_v11">
+  <link rel="stylesheet" href="css/components.css?v=20260918_v11">
   
   <!-- Supabase JS CDN Library -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -192,7 +192,7 @@
           <!-- 8 Member Cards dynamically populated -->
         </div>
 
-        <div class="glass-card" style="margin-top: 14px;">
+        <div class="glass-card" id="card-data-management" style="margin-top: 14px; display: none;">
           <h4 class="section-title" style="font-size: 0.95rem; margin-bottom: 12px;">
             <span>⚙️</span> Daten & Verwaltung
           </h4>
@@ -267,7 +267,7 @@
           <span class="user-picker-name" style="color: #fca5a5; font-weight: 800;">Administrator</span>
           <span class="user-picker-sub">Spielleitung • Korrekturrechte</span>
         </div>
-        <span class="badge-admin-tag">Master-PIN (7777)</span>
+        <span class="badge-admin-tag">Spielleitung</span>
       </div>
     </div>
   </div>
@@ -317,7 +317,7 @@
         </div>
 
         <div style="margin-top: 14px; text-align: center; font-size: 0.72rem; color: var(--text-muted);">
-          🔑 Standard-PIN für alle: <strong>1234</strong> • Master-Admin: <strong>7777</strong>
+          🔑 Standard-PIN für Freunde: <strong>1234</strong>
         </div>
 
         <div style="margin-top: 16px; display: flex; gap: 10px;">
@@ -377,7 +377,7 @@
           Bitte gib die Master-Admin-PIN ein, um Spieltage zuzuteilen:
         </p>
         <div style="display: flex; gap: 8px;">
-          <input type="password" id="admin-gate-pin-input" class="form-input" placeholder="Admin-PIN (7777)" maxlength="6" inputmode="numeric">
+          <input type="password" id="admin-gate-pin-input" class="form-input" placeholder="Admin-PIN" maxlength="6" inputmode="numeric">
           <button type="button" class="btn btn-primary" id="btn-admin-gate-submit">Freischalten</button>
         </div>
       </div>
@@ -624,6 +624,16 @@
           <input type="text" id="edit-member-avatar" class="form-input" style="font-size: 1.4rem;" maxlength="8" placeholder="👑">
         </div>
 
+        <!-- Admin PIN Reset for forgotten PINs -->
+        <div id="admin-member-pin-reset-box" style="margin-top: 14px; padding: 10px 12px; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: var(--radius-sm); display: none;">
+          <div style="font-size: 0.75rem; color: var(--sun-gold); font-weight: 700; margin-bottom: 6px;">
+            🛡️ Spielleitung: PIN vergessen?
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm btn-block" id="btn-admin-reset-single-pin" style="color: #f59e0b; border-color: rgba(245, 158, 11, 0.4);">
+            <span>🔑</span> PIN auf Standard (1234) zurücksetzen
+          </button>
+        </div>
+
         <div style="margin-top: 18px; display: flex; gap: 10px;">
           <button type="button" class="btn btn-secondary btn-block close-modal-btn">Abbrechen</button>
           <button type="submit" class="btn btn-primary btn-block">Speichern</button>
@@ -693,8 +703,8 @@
   <div class="toast-container" id="toast-container"></div>
 
   <!-- JavaScript Scripts -->
-  <script src="js/supabase-config.js?v=20260918_v10"></script>
-  <script src="js/data.js?v=20260918_v10"></script>
-  <script src="js/app.js?v=20260918_v10"></script>
+  <script src="js/supabase-config.js?v=20260918_v11"></script>
+  <script src="js/data.js?v=20260918_v11"></script>
+  <script src="js/app.js?v=20260918_v11"></script>
 </body>
 </html>

@@ -410,7 +410,7 @@ class DataStore {
         this.setCurrentUser('admin');
         return { success: true, member: this.getAdminAccount() };
       }
-      return { success: false, message: 'Falscher Admin-PIN-Code! (Standard: 7777)' };
+      return { success: false, message: 'Falscher Admin-PIN-Code! Bitte erneut versuchen.' };
     }
 
     const member = this.getMember(memberId);

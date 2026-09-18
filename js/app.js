@@ -132,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const adminAcc = store.getAdminAccount();
       avatar = adminAcc.avatar;
       name = 'Administrator (Spielleitung)';
-      sub = 'Gib die 4-stellige Master-Admin-PIN ein (Standard: 7777)';
+      sub = 'Gib die 4-stellige Master-Admin-PIN ein';
     } else {
       const member = store.getMember(memberId);
       if (!member) return;
@@ -1104,6 +1104,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (adminPanelBtn) {
         adminPanelBtn.style.display = store.isAdmin() ? 'flex' : 'none';
       }
+
+      // Hide "Daten & Verwaltung" card if not admin
+      const dataMgmtCard = document.getElementById('card-data-management');
+      if (dataMgmtCard) {
+        dataMgmtCard.style.display = store.isAdmin() ? 'block' : 'none';
+      }
     }
   }
 
@@ -1224,6 +1230,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Reset file input
     const photoInput = document.getElementById('edit-member-photo-input');
     if (photoInput) photoInput.value = '';
+
+    // Show/hide Admin single PIN reset box
+    const pinResetBox = document.getElementById('admin-member-pin-reset-box');
+    if (pinResetBox) {
+      pinResetBox.style.display = isAdmin ? 'block' : 'none';
+    }
 
     document.getElementById('modal-edit-member').classList.add('open');
   }
@@ -1368,6 +1380,25 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshActiveView();
   });
 
+  // Admin Single PIN Reset inside Edit Member modal
+  const btnAdminResetSinglePin = document.getElementById('btn-admin-reset-single-pin');
+  if (btnAdminResetSinglePin) {
+    btnAdminResetSinglePin.addEventListener('click', () => {
+      const memberId = Number(document.getElementById('edit-member-id').value);
+      const member = store.getMember(memberId);
+      if (!member) return;
+
+      if (confirm(`Möchtest du die PIN für ${member.name} wirklich auf den Standard 1234 zurücksetzen?`)) {
+        const res = store.adminResetMemberPin(memberId, '1234');
+        if (res && res.success) {
+          showToast(`PIN für ${member.name} wurde auf 1234 zurückgesetzt!`, '🔑');
+        } else {
+          showToast((res && res.message) || 'Fehler beim Zurücksetzen der PIN', '❌');
+        }
+      }
+    });
+  }
+
   // --- Change PIN Controller ---
   document.getElementById('btn-open-change-pin').addEventListener('click', () => {
     document.getElementById('change-pin-old').value = '';
@@ -1440,7 +1471,7 @@ document.addEventListener('DOMContentLoaded', () => {
       renderAdminAllocations();
       showToast('Admin-Zugriff freigeschaltet! 🛡️', '✅');
     } else {
-      showToast('Falsche Admin-PIN (7777)', '❌');
+      showToast('Falsche Admin-PIN', '❌');
     }
   });
 
@@ -1708,6 +1739,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Supabase Cloud Settings Modal Controller ---
   function openSupabaseSettingsModal() {
+    if (!store.isAdmin()) {
+      showToast('Nur die Spielleitung kann die Cloud-Verbindung konfigurieren.', '🔒');
+      return;
+    }
     const creds = window.fdsSupabase ? window.fdsSupabase.getCredentials() : { url: '', anonKey: '' };
     const urlInput = document.getElementById('supabase-input-url');
     const keyInput = document.getElementById('supabase-input-key');
