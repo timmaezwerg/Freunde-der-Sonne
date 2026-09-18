@@ -1,0 +1,18 @@
+{
+  "name": "Freunde der Sonne",
+  "short_name": "FdS Sonne",
+  "description": "Spieltage, Wertung und Wintergrillen der Freunde der Sonne",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0a0d14",
+  "theme_color": "#0a0d14",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "assets/app_icon.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}

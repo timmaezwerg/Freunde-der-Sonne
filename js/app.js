@@ -1,0 +1,1788 @@
+/* =========================================================
+   Freunde der Sonne - Application Controller & View Logic
+   ========================================================= */
+
+document.addEventListener('DOMContentLoaded', () => {
+  const store = window.fdsStore;
+
+  // Cache DOM Elements
+  const navItems = document.querySelectorAll('.nav-item');
+  const viewPanels = document.querySelectorAll('.view-panel');
+  const toastContainer = document.getElementById('toast-container');
+
+  // Active filter state for events
+  let currentEventFilter = 'all';
+  let activeViewId = 'view-leaderboard';
+
+  // --- 1. Navigation Controller ---
+  navItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const targetViewId = item.getAttribute('data-target');
+      switchView(targetViewId);
+    });
+  });
+
+  function switchView(viewId) {
+    activeViewId = viewId;
+    navItems.forEach(nav => {
+      nav.classList.toggle('active', nav.getAttribute('data-target') === viewId);
+    });
+
+    viewPanels.forEach(panel => {
+      panel.classList.toggle('active', panel.id === viewId);
+    });
+
+    // Scroll to top of content
+    document.getElementById('main-content').scrollTop = 0;
+
+    refreshActiveView();
+  }
+
+  function refreshActiveView() {
+    updateUserHeader();
+    if (activeViewId === 'view-leaderboard') renderLeaderboard();
+    if (activeViewId === 'view-events') renderEvents();
+    if (activeViewId === 'view-members') renderMembers();
+  }
+
+  // Global UI refresh hook for Realtime updates
+  window.fdsRefreshUI = () => {
+    refreshActiveView();
+  };
+
+  // --- 1b. User Profile Header & Switcher ("Wer bist du?") ---
+  function isImageAvatar(avatarVal) {
+    if (!avatarVal || typeof avatarVal !== 'string') return false;
+    return avatarVal.startsWith('data:image') || 
+           avatarVal.startsWith('http') || 
+           avatarVal.startsWith('assets/') || 
+           avatarVal.startsWith('/') || 
+           avatarVal.startsWith('./') ||
+           /\.(png|jpe?g|webp|gif|svg)$/i.test(avatarVal);
+  }
+
+  function renderAvatar(avatarVal, extraClass = '') {
+    if (!avatarVal) return '<span class="avatar-fallback">👤</span>';
+    if (isImageAvatar(avatarVal)) {
+      return `<img src="${avatarVal}" alt="Avatar" class="avatar-img ${extraClass}" onerror="this.outerHTML='👤'">`;
+    }
+    return avatarVal;
+  }
+
+  function setAvatarElement(el, avatarVal) {
+    if (!el) return;
+    el.innerHTML = renderAvatar(avatarVal);
+  }
+
+  function updateUserHeader() {
+    const user = store.getCurrentUser();
+    if (!user) return;
+    const avatarEl = document.getElementById('header-user-avatar');
+    const nameEl = document.getElementById('header-user-name');
+    if (avatarEl) setAvatarElement(avatarEl, user.avatar);
+    if (nameEl) nameEl.textContent = user.name;
+  }
+
+  function openUserPickerModal() {
+    const container = document.getElementById('user-picker-options');
+    container.innerHTML = '';
+    const members = store.getMembers();
+    const currentId = store.getCurrentUserId();
+
+    members.forEach(m => {
+      const isCurrent = m.id === currentId;
+      const card = document.createElement('div');
+      card.className = `user-picker-card ${isCurrent ? 'active-user' : ''}`;
+      card.innerHTML = `
+        <div class="avatar-sm" style="font-size: 1.15rem; width: 38px; height: 38px;">${renderAvatar(m.avatar)}</div>
+        <div class="user-picker-info">
+          <span class="user-picker-name">${m.name}</span>
+          <span class="user-picker-sub">${m.nickname || 'Freund der Sonne'}</span>
+        </div>
+      `;
+      card.addEventListener('click', () => {
+        openPinLoginModal(m.id);
+      });
+      container.appendChild(card);
+    });
+
+    // Admin option card
+    const adminCard = document.getElementById('btn-admin-login-picker');
+    if (adminCard) {
+      adminCard.classList.toggle('active-user', currentId === 'admin');
+      adminCard.onclick = () => {
+        openPinLoginModal('admin');
+      };
+    }
+
+    document.getElementById('modal-select-user').classList.add('open');
+  }
+
+  document.getElementById('btn-user-switcher').addEventListener('click', openUserPickerModal);
+
+  // --- 1c. PIN Login Controller ---
+  function openPinLoginModal(memberId) {
+    let targetId = memberId;
+    let avatar = '👤';
+    let name = 'Mitglied';
+    let sub = 'Gib deine persönliche 4-stellige PIN ein';
+
+    if (memberId === 'admin' || String(memberId) === 'admin') {
+      targetId = 'admin';
+      const adminAcc = store.getAdminAccount();
+      avatar = adminAcc.avatar;
+      name = 'Administrator (Spielleitung)';
+      sub = 'Gib die 4-stellige Master-Admin-PIN ein (Standard: 7777)';
+    } else {
+      const member = store.getMember(memberId);
+      if (!member) return;
+      targetId = member.id;
+      avatar = member.avatar;
+      name = member.name;
+      sub = 'Gib deine persönliche 4-stellige PIN ein';
+    }
+
+    document.getElementById('pin-target-user-id').value = targetId;
+    setAvatarElement(document.getElementById('pin-login-avatar'), avatar);
+    document.getElementById('pin-login-name').textContent = name;
+    const subEl = document.querySelector('#modal-pin-login p');
+    if (subEl) subEl.textContent = sub;
+
+    const pinInput = document.getElementById('pin-login-input');
+    pinInput.value = '';
+
+    closeAllModals();
+    document.getElementById('modal-pin-login').classList.add('open');
+    setTimeout(() => pinInput.focus(), 150);
+  }
+
+  // Handle on-screen numeric keypad clicks
+  document.querySelectorAll('.pin-key').forEach(key => {
+    key.addEventListener('click', () => {
+      const val = key.getAttribute('data-key');
+      const pinInput = document.getElementById('pin-login-input');
+      if (val === 'clear') {
+        pinInput.value = '';
+      } else if (val === 'backspace') {
+        pinInput.value = pinInput.value.slice(0, -1);
+      } else {
+        if (pinInput.value.length < 6) {
+          pinInput.value += val;
+        }
+      }
+    });
+  });
+
+  document.getElementById('form-pin-login').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const rawTargetId = document.getElementById('pin-target-user-id').value;
+    const targetId = rawTargetId === 'admin' ? 'admin' : Number(rawTargetId);
+    const pin = document.getElementById('pin-login-input').value;
+
+    const res = store.login(targetId, pin);
+    if (res.success) {
+      closeAllModals();
+      showToast(`Willkommen, ${res.member.name}! 🔓`, res.member.avatar);
+      refreshActiveView();
+    } else {
+      showToast(res.message, '❌');
+      document.getElementById('pin-login-input').value = '';
+      document.getElementById('pin-login-input').focus();
+    }
+  });
+
+
+  // --- 2. Toast Notification Helper ---
+  function showToast(message, icon = '☀️') {
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    const iconHtml = isImageAvatar(icon)
+      ? `<img src="${icon}" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover; display: inline-block; vertical-align: middle;">`
+      : icon;
+    toast.innerHTML = `<span>${iconHtml}</span> <span>${message}</span>`;
+    toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+      toast.style.transition = 'all 0.3s ease';
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(-10px)';
+      setTimeout(() => toast.remove(), 300);
+    }, 2800);
+  }
+
+  // --- 3. View: Leaderboard & Wintergrillen ---
+  function renderLeaderboard() {
+    const leaderboard = store.getLeaderboard();
+    const completedEvents = store.getEvents().filter(e => e.status === 'completed');
+    const currentUserId = store.getCurrentUserId();
+    
+    // Update completed badge
+    const badge = document.getElementById('completed-rounds-badge');
+    if (badge) {
+      badge.textContent = `${completedEvents.length} / 8 Spieltage`;
+    }
+
+    // Rankings List (Rank 1 to 8 starts directly at the top)
+    const listContainer = document.getElementById('rankings-list-container');
+    listContainer.innerHTML = '';
+
+    leaderboard.forEach((player, index) => {
+      const rank = player.rank;
+      const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : rank === 8 ? 'rank-8' : '';
+
+      // Joker status badge: Secret Jokers rule!
+      let jokerBadgeHtml = '';
+      if (player.jokerInfo.status === 'used') {
+        jokerBadgeHtml = `<span class="joker-chip used" title="Joker eingesetzt bei Spieltag ${player.jokerInfo.round}">🔒 Joker genutzt</span>`;
+      } else if (player.jokerInfo.status === 'pending') {
+        if (player.id === currentUserId) {
+          jokerBadgeHtml = `<span class="joker-chip pending" title="Dein Joker ist gesetzt (noch geheim)">⚡ Joker aktiv (Du)</span>`;
+        } else {
+          // Keep secret from other players until matchday completes!
+          jokerBadgeHtml = `<span class="joker-chip available" title="Jahres-Joker noch verfügbar">🟢 Joker frei</span>`;
+        }
+      } else {
+        jokerBadgeHtml = `<span class="joker-chip available" title="Jahres-Joker noch verfügbar">🟢 Joker frei</span>`;
+      }
+
+      const card = document.createElement('div');
+      card.className = `ranking-card ${rankClass}`;
+      card.innerHTML = `
+        <div class="rank-left">
+          <div class="rank-position">
+            ${rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank === 8 ? '🥩' : rank + '.'}
+          </div>
+          <div class="avatar" style="width: ${rank === 1 ? '46px' : '40px'}; height: ${rank === 1 ? '46px' : '40px'}; font-size: ${rank === 1 ? '1.35rem' : '1.15rem'};">
+            ${renderAvatar(player.avatar)}
+          </div>
+          <div class="player-meta">
+            <div class="player-name-row">
+              <span class="player-name" style="${rank === 1 ? 'font-size: 1.05rem; font-weight: 800;' : ''}">${player.name}</span>
+              ${rank === 1 ? '<span class="my-event-badge" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: #000; font-weight: 800; font-size: 0.65rem; padding: 2px 7px;">👑 Sonnenkönig</span>' : ''}
+              ${rank === 8 ? '<span class="my-event-badge" style="background: var(--grill-fire); color: #fff; font-weight: 800; font-size: 0.65rem; padding: 2px 7px;">🔥 Platz 8</span>' : ''}
+            </div>
+            <div class="player-subinfo">
+              <span>${player.nickname || ''}</span>
+              <span>•</span>
+              ${jokerBadgeHtml}
+            </div>
+          </div>
+        </div>
+        <div class="rank-right">
+          <div class="player-points">
+            <div class="score-num">${player.totalPoints}</div>
+            <div class="score-unit">Pkt.</div>
+          </div>
+        </div>
+      `;
+
+      listContainer.appendChild(card);
+    });
+
+    // Wintergrillen Verlierer Spotlight (Rank 8)
+    const grillContainer = document.getElementById('grill-loser-container');
+    const loser = leaderboard[leaderboard.length - 1];
+    const seventhPlace = leaderboard[leaderboard.length - 2];
+    const deficit = seventhPlace ? Math.max(0, seventhPlace.totalPoints - loser.totalPoints) : 0;
+
+    if (loser) {
+      grillContainer.innerHTML = `
+        <div class="grill-loser-card">
+          <div class="grill-warning-badge">
+            <span>🔥</span> Drohendes Wintergrillen beim Verlierer
+          </div>
+          <div class="grill-card-body">
+            <div class="grill-user-info">
+              <div class="grill-avatar-wrapper">
+                <div class="avatar" style="width: 48px; height: 48px; font-size: 1.3rem;">${renderAvatar(loser.avatar)}</div>
+              </div>
+              <div>
+                <div style="font-weight: 800; font-size: 1.05rem; color: #ff9999;">
+                  ${loser.name} steht am Grill! 🌭🥩
+                </div>
+                <div class="grill-notice">
+                  Aktuell Letzter mit ${loser.totalPoints} Punkten (${deficit > 0 ? deficit + ' Pkt. Rückstand zu P7' : 'Punktgleich'})
+                </div>
+                <div class="grill-deficit">
+                  Am Saisonende lädt Platz 8 alle Freunde zum Grillen & Bier ein!
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Joker Radar Grid
+    const radarContainer = document.getElementById('joker-radar-container');
+    radarContainer.innerHTML = '';
+
+    const members = store.getMembers();
+    members.forEach(m => {
+      const jokerInfo = store.getJokerStatus(m.id);
+      let statusHtml = '';
+      if (jokerInfo.status === 'used') {
+        statusHtml = `<span class="joker-chip used" style="font-size: 0.65rem;">🔒 ST ${jokerInfo.round}</span>`;
+      } else if (jokerInfo.status === 'pending') {
+        if (m.id === currentUserId) {
+          statusHtml = `<span class="joker-chip pending" style="font-size: 0.65rem;">⚡ ST ${jokerInfo.round} (Du)</span>`;
+        } else {
+          // Secret Joker rule: keep anonymous until revealed
+          statusHtml = `<span class="joker-chip available" style="font-size: 0.65rem;">🟢 Bereit</span>`;
+        }
+      } else {
+        statusHtml = `<span class="joker-chip available" style="font-size: 0.65rem;">🟢 Bereit</span>`;
+      }
+
+      const item = document.createElement('div');
+      item.className = 'radar-item';
+      item.innerHTML = `
+        <div class="radar-player">
+          <div class="avatar-sm">${renderAvatar(m.avatar)}</div>
+          <span>${m.name}</span>
+        </div>
+        <div>${statusHtml}</div>
+      `;
+      radarContainer.appendChild(item);
+    });
+
+    // Populate 2025 History
+    renderHistory2025();
+  }
+
+  function renderHistory2025() {
+    const seasons = store.getHistoricalSeasons ? store.getHistoricalSeasons() : [];
+    const season2025 = seasons.find(s => s.year === 2025);
+    if (!season2025) return;
+
+    const list = document.getElementById('history-2025-list');
+    if (!list) return;
+    list.innerHTML = '';
+
+    season2025.scores.forEach(s => {
+      const row = document.createElement('div');
+      row.className = 'ranking-card';
+      row.style.padding = '8px 12px';
+      row.style.marginBottom = '6px';
+      row.innerHTML = `
+        <div class="rank-left">
+          <div class="rank-position" style="font-size: 0.85rem; min-width: 22px;">${s.rank === 1 ? '👑' : s.rank + '.'}</div>
+          <div class="avatar-sm" style="width: 32px; height: 32px; font-size: 0.95rem;">${renderAvatar(s.avatar)}</div>
+          <div class="player-meta">
+            <span class="player-name" style="font-size: 0.88rem; font-weight: 700;">${s.name}</span>
+            <span style="font-size: 0.68rem; color: var(--text-secondary);">Punkte je Spieltag: ${s.rounds.join(', ')}</span>
+          </div>
+        </div>
+        <div class="rank-right">
+          <div class="player-points">
+            <div class="score-num" style="font-size: 1.15rem; font-weight: 800; color: var(--sun-gold);">${s.points}</div>
+            <div class="score-unit">Pkt.</div>
+          </div>
+        </div>
+      `;
+      list.appendChild(row);
+    });
+
+    const toggle = document.getElementById('toggle-history-2025');
+    const content = document.getElementById('history-2025-content');
+    const chevron = document.getElementById('history-2025-chevron');
+    if (toggle && content && !toggle._hasClickListener) {
+      toggle._hasClickListener = true;
+      toggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        const isClosed = !content.style.display || content.style.display === 'none';
+        content.style.display = isClosed ? 'block' : 'none';
+        if (chevron) {
+          chevron.textContent = isClosed ? 'Schließen ▴' : 'Tabelle 2025 ▾';
+        }
+      });
+    }
+  }
+
+  // --- 4. View: Spieltage (Events) & Administration ---
+  function renderEvents() {
+    const eventsContainer = document.getElementById('events-list-container');
+    eventsContainer.innerHTML = '';
+
+    let events = store.getEvents();
+    const currentUserId = store.getCurrentUserId();
+
+    if (currentEventFilter === 'upcoming') {
+      events = events.filter(e => e.status !== 'completed');
+    } else if (currentEventFilter === 'completed') {
+      events = events.filter(e => e.status === 'completed');
+    }
+
+    // Find the next upcoming event to highlight
+    const nextUpcoming = store.getEvents().find(e => e.status !== 'completed');
+
+    events.forEach(evt => {
+      const organizer = store.getMember(evt.organizerId) || { name: 'Unbekannt', avatar: '👤' };
+      const isAdmin = store.isAdmin();
+      const isNext = nextUpcoming && nextUpcoming.id === evt.id;
+      // STRICT ORGANIZER CHECK: Only the designated organizer sees "Dein Spieltag"!
+      const isMyEvent = !isAdmin && evt.organizerId === currentUserId;
+      const isFrozen = store.isEventFrozen(evt);
+      const isCompleted = evt.status === 'completed';
+
+      // Status Badge
+      let statusBadge = '';
+      if (isCompleted) {
+        statusBadge = `<span class="event-status-badge status-completed">✓ Abgeschlossen</span>`;
+      } else if (isFrozen) {
+        statusBadge = `<span class="status-frozen">🔒 Gestartet (Joker gefreezt)</span>`;
+      } else if (isNext) {
+        statusBadge = `<span class="event-status-badge status-next">⚡ Nächster Spieltag</span>`;
+      } else {
+        statusBadge = `<span class="event-status-badge status-upcoming">Geplant</span>`;
+      }
+
+      // Organizer badge (Dein Spieltag vs Organisiert von ...)
+      let orgaBadgeHtml = '';
+      if (isAdmin) {
+        orgaBadgeHtml = `<span class="foreign-event-badge" style="border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;">👤 Orga: ${organizer.name}</span>`;
+      } else if (isMyEvent) {
+        orgaBadgeHtml = `<span class="my-event-badge">👑 Dein Spieltag</span>`;
+      } else {
+        orgaBadgeHtml = `<span class="foreign-event-badge">👤 Orga: ${organizer.name}</span>`;
+      }
+
+      // Freeze notice banner if active and not completed
+      let frozenBannerHtml = '';
+      if (isFrozen && !isCompleted) {
+        frozenBannerHtml = `
+          <div class="frozen-notice-banner">
+            <span>🔒</span>
+            <div><strong>Spieltag gestartet:</strong> Alle gesetzten Joker sind eingefroren (keine Änderungen mehr möglich).</div>
+          </div>
+        `;
+      }
+
+      // Secret Joker display (Pre-completion: names remain secret! Post-completion: revealed!)
+      let pendingJokersHtml = '';
+      if (!isCompleted) {
+        const pendingList = evt.pendingJokers || [];
+        if (pendingList.length > 0) {
+          const hasMyJoker = !isAdmin && pendingList.includes(currentUserId);
+          const count = pendingList.length;
+          pendingJokersHtml = `
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; align-items: center;">
+              ${hasMyJoker ? `<span class="my-joker-active-badge">⚡ Dein Joker ist aktiv (geheim)</span>` : ''}
+              <span class="secret-joker-badge">🎭 ${count} ${count === 1 ? 'geheimer Joker' : 'geheime Joker'} angemeldet (Auflösung am Ende)</span>
+            </div>
+          `;
+        }
+      } else {
+        // Completed: reveal jokers!
+        const revealedNames = (evt.scores || [])
+          .filter(s => s.jokerApplied)
+          .map(s => {
+            const m = store.getMember(s.playerId);
+            return m ? `${(m.avatar && !isImageAvatar(m.avatar)) ? m.avatar + ' ' : ''}${m.name}` : '';
+          })
+          .filter(Boolean);
+
+        if (revealedNames.length > 0) {
+          pendingJokersHtml = `
+            <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid var(--border-solar); border-radius: var(--radius-sm); padding: 8px 12px; margin-bottom: 12px; font-size: 0.78rem; color: var(--sun-gold); display: flex; align-items: center; gap: 8px;">
+              <span>🃏</span>
+              <div><strong>Gespielte Joker (Punkte x2 verdoppelt):</strong> ${revealedNames.join(', ')}</div>
+            </div>
+          `;
+        }
+      }
+
+      // Packing Checklist Tags
+      let packingHtml = '';
+      if (evt.packingList && evt.packingList.length > 0) {
+        const tags = evt.packingList.map((item, idx) => `
+          <label class="pack-tag" style="cursor: pointer;">
+            <input type="checkbox" style="accent-color: var(--sun-gold); cursor: pointer;" id="pack-${evt.id}-${idx}">
+            <span>${item}</span>
+          </label>
+        `).join('');
+
+        packingHtml = `
+          <div class="packing-box">
+            <div class="packing-box-title">
+              <span>🎒</span> Was mitnehmen:
+            </div>
+            <div class="packing-items-list">
+              ${tags}
+            </div>
+          </div>
+        `;
+      }
+
+      // Actions Builder
+      let actionsHtml = '';
+
+      if (isCompleted) {
+        if (isAdmin) {
+          // Admin can view, correct scores, edit details, or reopen!
+          actionsHtml = `
+            <button class="btn btn-secondary btn-sm btn-open-view-scores" data-event-id="${evt.id}">
+              <span>🏆</span> Wertung ansehen
+            </button>
+            <button class="btn btn-primary btn-sm btn-admin-correct-scores" data-event-id="${evt.id}" style="background: linear-gradient(135deg, #ef4444, #dc2626); border-color: #ef4444;">
+              <span>✏️</span> Wertung korrigieren
+            </button>
+            <button class="btn btn-secondary btn-sm btn-edit-event" data-event-id="${evt.id}">
+              <span>⚙️</span> Details
+            </button>
+            <button class="btn btn-secondary btn-sm btn-admin-reopen-event" data-event-id="${evt.id}" style="color: #fca5a5; border-color: rgba(239, 68, 68, 0.4);">
+              <span>🔓</span> Wiedereröffnen
+            </button>
+          `;
+        } else {
+          // Regular members: strictly read-only!
+          actionsHtml = `
+            <button class="btn btn-secondary btn-sm btn-open-view-scores" data-event-id="${evt.id}">
+              <span>🏆</span> Wertung ansehen
+            </button>
+            <span style="font-size: 0.72rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;">
+              ✓ Abgeschlossen
+            </span>
+          `;
+        }
+      } else {
+        // Open matchday
+        const freezeBtnHtml = `
+          <button class="btn btn-secondary btn-sm btn-toggle-freeze" data-event-id="${evt.id}">
+            <span>${isFrozen ? '🔓 Freeze aufheben' : '🔒 Spieltag starten & Joker einfrieren'}</span>
+          </button>
+        `;
+
+        if (isAdmin) {
+          // Admin view on upcoming event
+          actionsHtml = `
+            <button class="btn btn-primary btn-sm btn-edit-event" data-event-id="${evt.id}">
+              <span>⚙️</span> Orga bearbeiten
+            </button>
+            <button class="btn btn-primary btn-sm btn-open-score-modal" data-event-id="${evt.id}">
+              <span>⚖️</span> Wertung erfassen
+            </button>
+            ${freezeBtnHtml}
+            <span style="font-size: 0.72rem; color: #fca5a5; display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; background: rgba(239, 68, 68, 0.1); border-radius: var(--radius-sm);">
+              🛡️ Admin-Modus
+            </span>
+          `;
+        } else if (isMyEvent) {
+          // Designated Organizer
+          actionsHtml = `
+            <button class="btn btn-primary btn-sm btn-edit-event" data-event-id="${evt.id}">
+              <span>⚙️</span> Spieltag bearbeiten
+            </button>
+            <button class="btn btn-primary btn-sm btn-open-score-modal" data-event-id="${evt.id}">
+              <span>⚖️</span> Wertung erfassen
+            </button>
+            <span class="joker-blocked-chip" title="Kein Joker am eigenen Spieltag erlaubt">
+              🚫 Kein Joker am eigenen Spieltag
+            </span>
+            ${freezeBtnHtml}
+          `;
+        } else {
+          // Participant
+          let jokerActionBtn = '';
+          const isMyJokerPending = evt.pendingJokers && evt.pendingJokers.includes(currentUserId);
+
+          if (isFrozen) {
+            if (isMyJokerPending) {
+              jokerActionBtn = `
+                <span class="joker-chip pending" style="padding: 6px 12px; font-weight: 800;">
+                  🔒 Dein Joker ist eingefroren (x2)
+                </span>
+              `;
+            } else {
+              jokerActionBtn = `
+                <span class="joker-chip used" style="padding: 6px 10px;">
+                  🔒 Spieltag gestartet (Keine Joker mehr möglich)
+                </span>
+              `;
+            }
+          } else {
+            // Not frozen
+            if (isMyJokerPending) {
+              jokerActionBtn = `
+                <button class="btn btn-joker-active btn-sm btn-toggle-my-joker" data-event-id="${evt.id}">
+                  <span>⚡</span> Mein Joker gesetzt (Zurücknehmen)
+                </button>
+              `;
+            } else {
+              const check = store.canSetJoker(evt.id, currentUserId);
+              if (check.allowed) {
+                jokerActionBtn = `
+                  <button class="btn btn-joker btn-sm btn-toggle-my-joker" data-event-id="${evt.id}">
+                    <span>🃏</span> Meinen Joker setzen
+                  </button>
+                `;
+              } else {
+                jokerActionBtn = `
+                  <span class="joker-chip used" style="padding: 6px 10px;">
+                    🔒 ${check.reason || 'Joker nicht verfügbar'}
+                  </span>
+                `;
+              }
+            }
+          }
+
+          actionsHtml = `
+            ${jokerActionBtn}
+          `;
+        }
+      }
+
+      const card = document.createElement('div');
+      card.className = `event-card ${isNext ? 'featured' : ''}`;
+      card.innerHTML = `
+        <div class="event-header-row">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="event-round-badge">Spieltag ${evt.round} von 8</span>
+            ${orgaBadgeHtml}
+          </div>
+          ${statusBadge}
+        </div>
+
+        <h3 class="event-title">${evt.title}</h3>
+
+        <div class="event-organizer">
+          <div class="avatar-sm">${renderAvatar(organizer.avatar)}</div>
+          <span>Organisiert von <strong>${organizer.name}</strong></span>
+        </div>
+
+        <div class="event-meta-grid">
+          <div class="meta-item">
+            <span class="meta-label">📅 Datum & Zeit</span>
+            <span class="meta-value">${formatDate(evt.date)} • ${evt.time}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">📍 Treffpunkt</span>
+            <span class="meta-value" title="${evt.location}">${evt.location}</span>
+          </div>
+        </div>
+
+        ${evt.description ? `<p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.45;">${evt.description}</p>` : ''}
+
+        ${frozenBannerHtml}
+        ${pendingJokersHtml}
+        ${packingHtml}
+
+        <div class="event-actions-bar" style="flex-wrap: wrap;">
+          ${actionsHtml}
+        </div>
+      `;
+
+      eventsContainer.appendChild(card);
+    });
+
+    // Attach Event Listeners on event cards
+    document.querySelectorAll('.btn-edit-event').forEach(btn => {
+      btn.addEventListener('click', () => {
+        openEditEventModal(btn.getAttribute('data-event-id'));
+      });
+    });
+
+    document.querySelectorAll('.btn-open-score-modal').forEach(btn => {
+      btn.addEventListener('click', () => {
+        openScoreEventModal(Number(btn.getAttribute('data-event-id')));
+      });
+    });
+
+    document.querySelectorAll('.btn-admin-correct-scores').forEach(btn => {
+      btn.addEventListener('click', () => {
+        openScoreEventModal(Number(btn.getAttribute('data-event-id')), true);
+      });
+    });
+
+    document.querySelectorAll('.btn-admin-reopen-event').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const eventId = Number(btn.getAttribute('data-event-id'));
+        const evt = store.getEvent(eventId);
+        if (confirm(`Spieltag ${evt?.round} wirklich wiedereröffnen? Die Wertung wird zurückgesetzt und kann neu eingetragen werden.`)) {
+          const res = store.reopenEvent(eventId);
+          if (res.success) {
+            showToast(res.message, '🔓');
+            refreshActiveView();
+          } else {
+            showToast(res.message, '❌');
+          }
+        }
+      });
+    });
+
+    document.querySelectorAll('.btn-open-view-scores').forEach(btn => {
+      btn.addEventListener('click', () => {
+        openViewScoresModal(Number(btn.getAttribute('data-event-id')));
+      });
+    });
+
+    document.querySelectorAll('.btn-toggle-my-joker').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const eventId = btn.getAttribute('data-event-id');
+        const res = store.toggleMyJoker(eventId);
+        if (res.success) {
+          showToast(res.message, res.action === 'added' ? '⚡' : '↩️');
+          refreshActiveView();
+        } else {
+          alert(res.message);
+        }
+      });
+    });
+
+    document.querySelectorAll('.btn-toggle-freeze').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const eventId = btn.getAttribute('data-event-id');
+        const res = store.toggleEventFreeze(eventId);
+        if (res.success) {
+          showToast(res.message, res.isFrozen ? '🔒' : '🔓');
+          refreshActiveView();
+        } else {
+          showToast(res.message, '❌');
+        }
+      });
+    });
+  }
+
+  // Filter Chips handler
+  document.querySelectorAll('.filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      currentEventFilter = chip.getAttribute('data-filter');
+      renderEvents();
+    });
+  });
+
+  // --- 5. Modal: Scoring Erfassung & Admin-Korrektur ---
+  function openScoreEventModal(eventId, isCorrection = false) {
+    const evt = store.getEvent(eventId);
+    if (!evt) return;
+    const currentUserId = store.getCurrentUserId();
+    const isAdmin = store.isAdmin();
+
+    if (evt.status === 'completed' && !isCorrection) {
+      if (isAdmin) {
+        isCorrection = true;
+      } else {
+        showToast('Dieser Spieltag ist bereits abgeschlossen!', '✓');
+        return;
+      }
+    }
+
+    if (!store.canScoreEvent(eventId, currentUserId)) {
+      showToast('Nur der Organisator oder die Spielleitung darf die Wertung erfassen!', '🔒');
+      return;
+    }
+
+    document.getElementById('score-event-id').value = evt.id;
+    document.getElementById('score-event-is-correction').value = isCorrection ? '1' : '0';
+
+    const correctionNotice = document.getElementById('score-correction-notice');
+    const standardNotice = document.getElementById('score-standard-notice');
+    const submitBtnIcon = document.getElementById('btn-submit-scoring-icon');
+    const submitBtnText = document.getElementById('btn-submit-scoring-text');
+
+    if (isCorrection) {
+      document.getElementById('score-event-modal-title').textContent = `✏️ Wertung korrigieren: Spieltag ${evt.round}`;
+      document.getElementById('score-event-modal-subtitle').textContent = `🛡️ Admin-Korrektur: ${evt.title}`;
+      if (correctionNotice) correctionNotice.style.display = 'block';
+      if (standardNotice) standardNotice.style.display = 'none';
+      if (submitBtnIcon) submitBtnIcon.textContent = '💾';
+      if (submitBtnText) submitBtnText.textContent = 'Korrektur speichern & Tabelle neu berechnen';
+    } else {
+      document.getElementById('score-event-modal-title').textContent = `⚖️ Wertung: Spieltag ${evt.round}`;
+      document.getElementById('score-event-modal-subtitle').textContent = `${evt.title} • Orga: ${store.getMember(evt.organizerId)?.name}`;
+      if (correctionNotice) correctionNotice.style.display = 'none';
+      if (standardNotice) standardNotice.style.display = 'block';
+      if (submitBtnIcon) submitBtnIcon.textContent = '🔒';
+      if (submitBtnText) submitBtnText.textContent = 'Endgültig abschließen & werten';
+    }
+
+    const container = document.getElementById('score-inputs-container');
+    container.innerHTML = '';
+
+    const members = store.getMembers();
+
+    const rankOptionsList = [
+      { rank: 1, label: '🥇 1. Platz (8 Pkt.)' },
+      { rank: 2, label: '🥈 2. Platz (7 Pkt.)' },
+      { rank: 3, label: '🥉 3. Platz (6 Pkt.)' },
+      { rank: 4, label: '4. Platz (5 Pkt.)' },
+      { rank: 5, label: '5. Platz (4 Pkt.)' },
+      { rank: 6, label: '6. Platz (3 Pkt.)' },
+      { rank: 7, label: '7. Platz (2 Pkt.)' },
+      { rank: 8, label: '8. Platz (1 Pkt.)' }
+    ];
+
+    const existingScores = evt.scores || [];
+
+    members.forEach((m, idx) => {
+      const existing = existingScores.find(s => s.playerId === m.id);
+      const isPendingJoker = isCorrection
+        ? (existing ? existing.jokerApplied : false)
+        : (evt.pendingJokers && evt.pendingJokers.includes(m.id));
+
+      const initialRank = existing ? existing.rank : (idx + 1);
+      const basePoints = 9 - initialRank;
+      const initialFinalPoints = isPendingJoker ? basePoints * 2 : basePoints;
+
+      const row = document.createElement('div');
+      row.className = 'score-input-row';
+      row.setAttribute('data-player-id', m.id);
+      row.setAttribute('data-has-joker', isPendingJoker ? '1' : '0');
+
+      let rankOptionsHtml = '';
+      rankOptionsList.forEach(opt => {
+        rankOptionsHtml += `<option value="${opt.rank}" ${opt.rank === initialRank ? 'selected' : ''}>${opt.label}</option>`;
+      });
+
+      row.innerHTML = `
+        <div class="score-player-info">
+          <div class="avatar-sm">${renderAvatar(m.avatar)}</div>
+          <div>
+            <div class="score-player-name">${m.name}</div>
+            ${isPendingJoker ? '<div style="font-size: 0.68rem; color: #a78bfa; font-weight: 700;">⚡ Joker aktiv (x2)</div>' : ''}
+          </div>
+        </div>
+        <div class="score-controls" style="display: flex; align-items: center; gap: 8px;">
+          <select class="score-rank-select" data-player-id="${m.id}">
+            ${rankOptionsHtml}
+          </select>
+          <div class="score-points-badge ${isPendingJoker ? 'has-joker' : ''}" id="pts-badge-${m.id}">
+            +${initialFinalPoints} Pkt.${isPendingJoker ? ' ⚡' : ''}
+          </div>
+        </div>
+      `;
+
+      // Live change listener to dynamically update the calculated points
+      const selectEl = row.querySelector('.score-rank-select');
+      selectEl.addEventListener('change', (e) => {
+        const chosenRank = Number(e.target.value);
+        const pts = 9 - chosenRank;
+        const finalPts = isPendingJoker ? pts * 2 : pts;
+        const badge = row.querySelector(`#pts-badge-${m.id}`);
+        if (badge) {
+          badge.textContent = `+${finalPts} Pkt.${isPendingJoker ? ' ⚡' : ''}`;
+        }
+      });
+
+      container.appendChild(row);
+    });
+
+    document.getElementById('modal-score-event').classList.add('open');
+  }
+
+  // Quick fill button in score modal: standard 1. to 8. place
+  document.getElementById('btn-quick-fill-standard-scores').addEventListener('click', () => {
+    const evt = store.getEvent(Number(document.getElementById('score-event-id').value));
+    const rows = document.querySelectorAll('#score-inputs-container .score-input-row');
+    rows.forEach((row, idx) => {
+      const playerId = Number(row.getAttribute('data-player-id'));
+      const hasJoker = row.getAttribute('data-has-joker') === '1';
+      const rankSelect = row.querySelector('.score-rank-select');
+      const newRank = idx + 1;
+      if (rankSelect) {
+        rankSelect.value = String(newRank);
+      }
+      const pts = 9 - newRank;
+      const finalPts = hasJoker ? pts * 2 : pts;
+      const badge = row.querySelector(`#pts-badge-${playerId}`);
+      if (badge) {
+        badge.textContent = `+${finalPts} Pkt.${hasJoker ? ' ⚡' : ''}`;
+      }
+    });
+    showToast('Standard-Plätze (1. bis 8.) vergeben!', '⚡');
+  });
+
+  // Submit scoring form
+  document.getElementById('form-score-event').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const eventId = Number(document.getElementById('score-event-id').value);
+    const isCorrection = document.getElementById('score-event-is-correction').value === '1';
+    const evt = store.getEvent(eventId);
+    if (!evt) return;
+
+    const rows = document.querySelectorAll('#score-inputs-container .score-input-row');
+    const rawScores = [];
+
+    // Derive points directly from rank: Rank 1 = 8 Pkt, Rank 2 = 7 Pkt, ..., Rank 8 = 1 Pkt
+    // Plätze können mehrfach vergeben werden (Gleichstand!)
+    rows.forEach(row => {
+      const playerId = Number(row.getAttribute('data-player-id'));
+      const hasJoker = row.getAttribute('data-has-joker') === '1';
+      const rank = Number(row.querySelector('.score-rank-select').value);
+      const basePoints = 9 - rank;
+
+      rawScores.push({
+        playerId,
+        rank,
+        points: basePoints,
+        jokerApplied: hasJoker
+      });
+    });
+
+    if (rawScores.length !== 8) {
+      alert('Es müssen alle 8 Spieler gewertet werden!');
+      return;
+    }
+
+    const success = store.saveEventScoring(eventId, rawScores, isCorrection);
+    if (success) {
+      closeAllModals();
+      showToast(isCorrection ? `Wertung für Spieltag ${evt.round} erfolgreich korrigiert! ✏️` : `Spieltag ${evt.round} erfolgreich abgeschlossen! 🏆`, '✓');
+      refreshActiveView();
+    } else {
+      alert('Fehler beim Speichern der Wertung.');
+    }
+  });
+
+  // --- 5b. Modal: View Scores (Read-only for Completed Events) ---
+  function openViewScoresModal(eventId) {
+    const evt = store.getEvent(eventId);
+    if (!evt) return;
+
+    document.getElementById('view-scores-modal-title').textContent = `🏆 Spieltag ${evt.round}: ${evt.title}`;
+    const organizer = store.getMember(evt.organizerId) || { name: 'Organisator', avatar: '👤' };
+    document.getElementById('view-scores-modal-subtitle').textContent = `Orga: ${(organizer.avatar && !isImageAvatar(organizer.avatar)) ? organizer.avatar + ' ' : ''}${organizer.name} • ${formatDate(evt.date)}`;
+
+    const container = document.getElementById('view-scores-list-container');
+    container.innerHTML = '';
+
+    if (!evt.scores || evt.scores.length === 0) {
+      container.innerHTML = '<p style="color: var(--text-secondary); font-size: 0.82rem;">Keine Wertungsdaten vorhanden.</p>';
+    } else {
+      // Sort scores by rank ascending
+      const sorted = [...evt.scores].sort((a, b) => a.rank - b.rank);
+      sorted.forEach(s => {
+        const member = store.getMember(s.playerId) || { name: 'Unbekannt', avatar: '👤' };
+        const isTop = s.rank === 1;
+        const isLast = s.rank === 8;
+
+        const item = document.createElement('div');
+        item.className = `view-score-item ${isTop ? 'is-top' : ''} ${isLast ? 'is-last' : ''}`;
+        item.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="font-family: var(--font-display); font-weight: 800; font-size: 1.1rem; width: 24px; text-align: center;">
+              ${s.rank === 1 ? '🥇' : s.rank === 2 ? '🥈' : s.rank === 3 ? '🥉' : s.rank === 8 ? '🥩' : s.rank + '.'}
+            </div>
+            <div class="avatar-sm">${renderAvatar(member.avatar)}</div>
+            <div>
+              <div style="font-weight: 700; font-size: 0.9rem; color: var(--text-primary);">${member.name}</div>
+              ${s.jokerApplied ? '<div style="font-size: 0.7rem; color: var(--sun-gold); font-weight: 700;">🃏 Joker eingesetzt! (' + (s.basePoints || s.points/2) + ' x 2 verdoppelt)</div>' : ''}
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 800; color: ${isTop ? 'var(--sun-gold)' : 'var(--text-primary)'};">
+              +${s.points}
+            </div>
+            <div style="font-size: 0.65rem; color: var(--text-secondary); text-transform: uppercase;">Punkte</div>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    document.getElementById('modal-view-scores').classList.add('open');
+  }
+
+  // --- 6. View: Kader & Members ---
+  function renderMembers() {
+    const container = document.getElementById('members-list-container');
+    container.innerHTML = '';
+
+    const kaderInstr = document.getElementById('kader-instruction-text');
+    if (kaderInstr) {
+      if (store.isAdmin()) {
+        kaderInstr.textContent = 'Als Spielleitung kannst du die Profile aller Freunde anpassen.';
+      } else {
+        kaderInstr.textContent = 'Tippe auf dein eigenes Profil (mit „Du“ markiert), um deinen Spitznamen oder Avatar anzupassen.';
+      }
+    }
+
+    const leaderboard = store.getLeaderboard();
+    const currentUserId = store.getCurrentUserId();
+
+    leaderboard.forEach(member => {
+      const jokerInfo = store.getJokerStatus(member.id);
+      let jokerDesc = '';
+      if (jokerInfo.status === 'used') {
+        jokerDesc = `🔒 Joker verbraucht (ST ${jokerInfo.round})`;
+      } else if (jokerInfo.status === 'pending') {
+        if (member.id === currentUserId) {
+          jokerDesc = `⚡ Dein Joker ist aktiv (ST ${jokerInfo.round}, noch geheim)`;
+        } else {
+          // Secret Joker rule: keep anonymous until revealed
+          jokerDesc = `🟢 Jahres-Joker bereit`;
+        }
+      } else {
+        jokerDesc = `🟢 Jahres-Joker bereit`;
+      }
+
+      const isMe = member.id === currentUserId;
+      const canEdit = store.isAdmin() || isMe;
+
+      let editActionHtml = '';
+      if (canEdit) {
+        editActionHtml = `
+          <button class="btn btn-secondary btn-sm" style="padding: 6px 10px; ${isMe ? 'border-color: var(--sun-gold); color: var(--sun-gold);' : ''}">
+            <span>✏️</span> ${isMe ? 'Mein Profil' : 'Ändern'}
+          </button>
+        `;
+      } else {
+        editActionHtml = `
+          <span style="font-size: 0.68rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px; padding: 4px 6px;">
+            🔒 Nur ${member.name}
+          </span>
+        `;
+      }
+
+      const card = document.createElement('div');
+      card.className = 'ranking-card';
+      if (isMe) {
+        card.style.borderColor = 'rgba(255, 183, 3, 0.4)';
+        card.style.background = 'rgba(255, 183, 3, 0.04)';
+      }
+      card.style.cursor = canEdit ? 'pointer' : 'default';
+      card.innerHTML = `
+        <div class="rank-left">
+          <div class="avatar" style="width: 44px; height: 44px; font-size: 1.3rem;">
+            ${renderAvatar(member.avatar)}
+          </div>
+          <div class="player-meta">
+            <div class="player-name-row">
+              <span class="player-name">${member.name}</span>
+              ${member.rank === 1 ? '<span>👑</span>' : ''}
+              ${member.rank === 8 ? '<span>🥩</span>' : ''}
+              ${isMe ? '<span class="my-event-badge" style="font-size: 0.6rem; padding: 1px 6px;">Du</span>' : ''}
+            </div>
+            <div class="player-subinfo">
+              <span>${member.nickname || 'Kein Spitzname'}</span>
+              <span>•</span>
+              <span style="font-weight: 700; color: var(--sun-gold);">${member.totalPoints} Pkt.</span>
+            </div>
+            <div style="font-size: 0.68rem; color: var(--text-secondary); margin-top: 2px;">
+              ${jokerDesc}
+            </div>
+          </div>
+        </div>
+        <div>
+          ${editActionHtml}
+        </div>
+      `;
+
+      card.addEventListener('click', () => {
+        if (canEdit) {
+          openEditMemberModal(member.id);
+        } else {
+          showToast(`Du kannst nur dein eigenes Profil bearbeiten!`, '🔒');
+        }
+      });
+
+      container.appendChild(card);
+    });
+
+    // Update Account & Security section
+    const currentUser = store.getCurrentUser();
+    if (currentUser) {
+      const accAvatar = document.getElementById('account-avatar');
+      const accName = document.getElementById('account-name');
+      const accRole = document.getElementById('account-role');
+      const accBadge = document.getElementById('account-status-badge');
+      if (accAvatar) setAvatarElement(accAvatar, currentUser.avatar);
+      if (accName) accName.textContent = currentUser.name;
+      if (accRole) {
+        accRole.textContent = currentUser.id === 'admin' 
+          ? '🛡️ Spielleitung • Volle Korrektur- & Zuteilungsrechte' 
+          : '👤 Gruppenmitglied (PIN geschützt)';
+      }
+      if (accBadge) {
+        accBadge.textContent = currentUser.id === 'admin' ? 'Spielleitung' : 'Eingeloggt';
+      }
+
+      // Only show Admin: Spieltage zuteilen button if logged in as Admin!
+      const adminPanelBtn = document.getElementById('btn-open-admin-panel');
+      if (adminPanelBtn) {
+        adminPanelBtn.style.display = store.isAdmin() ? 'flex' : 'none';
+      }
+    }
+  }
+
+  // --- 7. Modals Controllers ---
+
+  // Close modals on X or backdrop click
+  document.querySelectorAll('.modal-backdrop').forEach(modal => {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal || e.target.classList.contains('close-modal-btn')) {
+        closeAllModals();
+      }
+    });
+  });
+
+  function closeAllModals() {
+    document.querySelectorAll('.modal-backdrop').forEach(m => m.classList.remove('open'));
+  }
+
+  // Modal 1: Edit Event
+  function openEditEventModal(eventId) {
+    const evt = store.getEvent(eventId);
+    if (!evt) return;
+
+    const currentUserId = store.getCurrentUserId();
+    const organizer = store.getMember(evt.organizerId) || { name: 'Organisator', avatar: '👤' };
+
+    // Strict authorization: Only the designated organizer may edit their matchday!
+    if (!store.canEditEvent(eventId, currentUserId)) {
+      showToast(`Zugriff verweigert: Nur ${organizer.name} darf diesen Spieltag bearbeiten!`, '🔒');
+      return;
+    }
+
+    document.getElementById('edit-event-id').value = evt.id;
+    document.getElementById('edit-event-modal-title').textContent = `Spieltag ${evt.round} bearbeiten`;
+    document.getElementById('edit-event-title').value = evt.title;
+    document.getElementById('edit-event-date').value = evt.date;
+    document.getElementById('edit-event-time').value = evt.time;
+    document.getElementById('edit-event-location').value = evt.location;
+    document.getElementById('edit-event-packing').value = (evt.packingList || []).join(', ');
+    document.getElementById('edit-event-desc').value = evt.description || '';
+
+    // Organizer select: Fixed to the designated friend!
+    const orgSelect = document.getElementById('edit-event-organizer');
+    orgSelect.innerHTML = '';
+    const opt = document.createElement('option');
+    opt.value = organizer.id;
+    opt.textContent = `${(organizer.avatar && !isImageAvatar(organizer.avatar)) ? organizer.avatar + ' ' : ''}${organizer.name} (Organisator)`;
+    opt.selected = true;
+    orgSelect.appendChild(opt);
+    orgSelect.disabled = true; // Fixed role: no accidental organizer changes!
+
+    document.getElementById('modal-edit-event').classList.add('open');
+  }
+
+  document.getElementById('form-edit-event').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const eventId = Number(document.getElementById('edit-event-id').value);
+    const packingRaw = document.getElementById('edit-event-packing').value;
+    const packingList = packingRaw.split(',').map(s => s.trim()).filter(Boolean);
+
+    store.updateEvent(eventId, {
+      title: document.getElementById('edit-event-title').value.trim(),
+      date: document.getElementById('edit-event-date').value,
+      time: document.getElementById('edit-event-time').value.trim(),
+      location: document.getElementById('edit-event-location').value.trim(),
+      packingList: packingList,
+      description: document.getElementById('edit-event-desc').value.trim()
+    });
+
+    closeAllModals();
+    showToast('Spieltag-Details erfolgreich aktualisiert!', '✅');
+    renderEvents();
+  });
+
+  // Modal 3: Edit Member (Fixed names protection & ownership check)
+  let currentEditingAvatar = '';
+
+  function updateEditAvatarPreview(avatarVal) {
+    const preview = document.getElementById('edit-member-avatar-preview');
+    if (preview) {
+      setAvatarElement(preview, avatarVal);
+    }
+    const resetBtn = document.getElementById('btn-reset-avatar-emoji');
+    if (resetBtn) {
+      resetBtn.style.display = isImageAvatar(avatarVal) ? 'inline-flex' : 'none';
+    }
+  }
+
+  function openEditMemberModal(memberId) {
+    const currentUserId = store.getCurrentUserId();
+    const isAdmin = store.isAdmin();
+
+    if (!isAdmin && Number(memberId) !== Number(currentUserId)) {
+      showToast('Zugriff verweigert: Du kannst nur dein eigenes Profil bearbeiten!', '🔒');
+      return;
+    }
+
+    const member = store.getMember(memberId);
+    if (!member) return;
+
+    document.getElementById('edit-member-id').value = member.id;
+    const nameInput = document.getElementById('edit-member-name');
+    nameInput.value = member.name;
+    nameInput.disabled = true; // Fixed group member name!
+
+    document.getElementById('edit-member-nickname').value = member.nickname || '';
+    
+    currentEditingAvatar = member.avatar || '👤';
+    updateEditAvatarPreview(currentEditingAvatar);
+
+    const emojiInput = document.getElementById('edit-member-avatar');
+    if (isImageAvatar(currentEditingAvatar)) {
+      emojiInput.value = '';
+    } else {
+      emojiInput.value = currentEditingAvatar;
+    }
+
+    // Reset file input
+    const photoInput = document.getElementById('edit-member-photo-input');
+    if (photoInput) photoInput.value = '';
+
+    document.getElementById('modal-edit-member').classList.add('open');
+  }
+
+  // Modal 2: Register Joker
+  function openRegisterJokerModal(eventId) {
+    const evt = store.getEvent(eventId);
+    if (!evt) return;
+
+    document.getElementById('joker-target-event-id').value = evt.id;
+
+    const preview = document.getElementById('joker-event-preview');
+    preview.innerHTML = `
+      <div style="font-weight: 700; color: var(--sun-gold);">Spieltag ${evt.round}: ${evt.title}</div>
+      <div style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 2px;">
+        📅 ${formatDate(evt.date)} • 📍 ${evt.location}
+      </div>
+    `;
+
+    // Filter members that haven't used their joker yet
+    const playerSelect = document.getElementById('joker-player-select');
+    playerSelect.innerHTML = '';
+
+    const members = store.getMembers();
+    let countEligible = 0;
+
+    members.forEach(m => {
+      const status = store.getJokerStatus(m.id);
+      if (status.status !== 'used') {
+        countEligible++;
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        const isPendingHere = evt.pendingJokers && evt.pendingJokers.includes(m.id);
+        opt.textContent = `${(m.avatar && !isImageAvatar(m.avatar)) ? m.avatar + ' ' : ''}${m.name} ${isPendingHere ? '(bereits für dieses Event gesetzt)' : ''}`;
+        playerSelect.appendChild(opt);
+      }
+    });
+
+    if (countEligible === 0) {
+      playerSelect.innerHTML = '<option disabled>Alle 8 Freunde haben ihren Joker bereits verbraucht!</option>';
+    }
+
+    document.getElementById('modal-register-joker').classList.add('open');
+  }
+
+  document.getElementById('form-register-joker').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const eventId = Number(document.getElementById('joker-target-event-id').value);
+    const playerId = Number(document.getElementById('joker-player-select').value);
+
+    if (!playerId) return;
+
+    const res = store.registerJoker(playerId, eventId);
+    if (res.success) {
+      closeAllModals();
+      showToast(res.message, '⚡');
+      renderEvents();
+      renderLeaderboard();
+    } else {
+      alert(res.message);
+    }
+  });
+
+  // Wire photo input and emoji reset handlers for member profile editor
+  const memberPhotoInput = document.getElementById('edit-member-photo-input');
+  if (memberPhotoInput) {
+    memberPhotoInput.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          // Center crop to 180x180 square JPEG
+          const canvas = document.createElement('canvas');
+          const size = 180;
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext('2d');
+
+          const minDim = Math.min(img.width, img.height);
+          const sx = (img.width - minDim) / 2;
+          const sy = (img.height - minDim) / 2;
+
+          ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          currentEditingAvatar = dataUrl;
+          updateEditAvatarPreview(currentEditingAvatar);
+          const emojiInp = document.getElementById('edit-member-avatar');
+          if (emojiInp) emojiInp.value = '';
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  const btnResetAvatarEmoji = document.getElementById('btn-reset-avatar-emoji');
+  if (btnResetAvatarEmoji) {
+    btnResetAvatarEmoji.addEventListener('click', () => {
+      currentEditingAvatar = '👤';
+      const emojiInp = document.getElementById('edit-member-avatar');
+      if (emojiInp) emojiInp.value = '👤';
+      updateEditAvatarPreview('👤');
+    });
+  }
+
+  const memberEmojiInput = document.getElementById('edit-member-avatar');
+  if (memberEmojiInput) {
+    memberEmojiInput.addEventListener('input', (e) => {
+      const val = e.target.value.trim();
+      if (val) {
+        currentEditingAvatar = val;
+        updateEditAvatarPreview(val);
+      }
+    });
+  }
+
+  document.getElementById('form-edit-member').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const memberId = Number(document.getElementById('edit-member-id').value);
+    const currentUserId = store.getCurrentUserId();
+    const isAdmin = store.isAdmin();
+
+    if (!isAdmin && memberId !== Number(currentUserId)) {
+      showToast('Zugriff verweigert: Nur eigenes Profil änderbar!', '🔒');
+      return;
+    }
+
+    const emojiVal = document.getElementById('edit-member-avatar').value.trim();
+    const finalAvatar = currentEditingAvatar || emojiVal || '👤';
+
+    // Keep group name fixed, only update nickname and avatar
+    store.updateMember(memberId, {
+      nickname: document.getElementById('edit-member-nickname').value.trim(),
+      avatar: finalAvatar
+    });
+
+    closeAllModals();
+    showToast('Profil aktualisiert!', finalAvatar);
+    refreshActiveView();
+  });
+
+  // --- Change PIN Controller ---
+  document.getElementById('btn-open-change-pin').addEventListener('click', () => {
+    document.getElementById('change-pin-old').value = '';
+    document.getElementById('change-pin-new').value = '';
+    document.getElementById('change-pin-confirm').value = '';
+    document.getElementById('modal-change-pin').classList.add('open');
+  });
+
+  document.getElementById('form-change-pin').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const oldPin = document.getElementById('change-pin-old').value;
+    const newPin = document.getElementById('change-pin-new').value;
+    const confirmPin = document.getElementById('change-pin-confirm').value;
+
+    if (newPin !== confirmPin) {
+      showToast('Die neuen PINs stimmen nicht überein!', '❌');
+      return;
+    }
+
+    let res;
+    if (store.isAdmin()) {
+      res = store.updateAdminPin(oldPin, newPin);
+    } else {
+      res = store.updateMemberPin(store.getCurrentUserId(), oldPin, newPin);
+    }
+
+    if (res.success) {
+      closeAllModals();
+      showToast(res.message, '🔑');
+    } else {
+      showToast(res.message, '❌');
+    }
+  });
+
+  // Logout
+  document.getElementById('btn-logout-account').addEventListener('click', () => {
+    store.logout();
+    showToast('Erfolgreich abgemeldet.', '🚪');
+    openUserPickerModal();
+  });
+
+  // --- Admin Panel Controller ---
+  document.getElementById('btn-open-admin-panel').addEventListener('click', () => {
+    openAdminPanel();
+  });
+
+  function openAdminPanel() {
+    const isAdmin = store.isAdmin();
+    const gate = document.getElementById('admin-auth-gate');
+    const content = document.getElementById('admin-content-area');
+
+    if (isAdmin) {
+      gate.style.display = 'none';
+      content.style.display = 'block';
+      renderAdminAllocations();
+    } else {
+      gate.style.display = 'block';
+      content.style.display = 'none';
+      document.getElementById('admin-gate-pin-input').value = '';
+    }
+
+    document.getElementById('modal-admin-panel').classList.add('open');
+  }
+
+  document.getElementById('btn-admin-gate-submit').addEventListener('click', () => {
+    const enteredPin = document.getElementById('admin-gate-pin-input').value;
+    if (store.verifyAdminPin(enteredPin)) {
+      document.getElementById('admin-auth-gate').style.display = 'none';
+      document.getElementById('admin-content-area').style.display = 'block';
+      renderAdminAllocations();
+      showToast('Admin-Zugriff freigeschaltet! 🛡️', '✅');
+    } else {
+      showToast('Falsche Admin-PIN (7777)', '❌');
+    }
+  });
+
+  function renderAdminAllocations() {
+    const container = document.getElementById('admin-allocations-list');
+    container.innerHTML = '';
+    const events = store.getEvents();
+    const members = store.getMembers();
+
+    events.forEach(evt => {
+      const row = document.createElement('div');
+      row.className = 'admin-allocation-row';
+      const isCompleted = evt.status === 'completed';
+
+      const options = members.map(m => `
+        <option value="${m.id}" ${m.id === evt.organizerId ? 'selected' : ''}>
+          ${(m.avatar && !isImageAvatar(m.avatar)) ? m.avatar + ' ' : ''}${m.name}
+        </option>
+      `).join('');
+
+      row.innerHTML = `
+        <div class="admin-event-info">
+          <div class="admin-event-title">
+            Spieltag ${evt.round}: ${evt.title}
+            ${isCompleted ? '<span style="font-size: 0.68rem; color: #10b981; font-weight: 700; margin-left: 6px;">(✓ Abgeschlossen)</span>' : ''}
+          </div>
+          <div class="admin-event-sub">📅 ${formatDate(evt.date)} • ${evt.time}</div>
+        </div>
+        <div>
+          <select class="admin-org-select" data-event-id="${evt.id}" ${isCompleted ? 'disabled style="opacity: 0.6; cursor: not-allowed;" title="Abgeschlossene Spieltage können nicht mehr geändert werden"' : ''}>
+            ${options}
+          </select>
+        </div>
+      `;
+      container.appendChild(row);
+    });
+
+    // Populate member reset dropdown
+    const resetSelect = document.getElementById('admin-reset-member-select');
+    resetSelect.innerHTML = '';
+    members.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = `${(m.avatar && !isImageAvatar(m.avatar)) ? m.avatar + ' ' : ''}${m.name}`;
+      resetSelect.appendChild(opt);
+    });
+  }
+
+  document.getElementById('form-admin-allocations').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const selects = document.querySelectorAll('.admin-org-select');
+    selects.forEach(sel => {
+      if (!sel.disabled) {
+        const eventId = Number(sel.getAttribute('data-event-id'));
+        const newOrgId = Number(sel.value);
+        store.assignEventOrganizer(eventId, newOrgId);
+      }
+    });
+
+    closeAllModals();
+    showToast('Spieltage erfolgreich den Freunden zugeteilt! 💾', '🛡️');
+    refreshActiveView();
+  });
+
+  document.getElementById('btn-admin-reset-pin-execute').addEventListener('click', () => {
+    const memberId = Number(document.getElementById('admin-reset-member-select').value);
+    const member = store.getMember(memberId);
+    if (!member) return;
+
+    if (confirm(`PIN für ${member.name} wirklich auf Standard (1234) zurücksetzen?`)) {
+      const res = store.adminResetMemberPin(memberId, '1234');
+      showToast(res.message, '🔑');
+    }
+  });
+
+  // Modal 4: WhatsApp Share Generator
+  function generateWhatsAppText() {
+    const leaderboard = store.getLeaderboard();
+    const completedEvents = store.getEvents().filter(e => e.status === 'completed');
+    const nextUpcoming = store.getEvents().find(e => e.status !== 'completed');
+
+    let text = `☀️ *FREUNDE DER SONNE 2026* ☀️\n`;
+    text += `Stand nach Spieltag ${completedEvents.length} von 8:\n\n`;
+
+    leaderboard.forEach(p => {
+      const emoji = p.rank === 1 ? '👑' : p.rank === 2 ? '🥈' : p.rank === 3 ? '🥉' : p.rank === 8 ? '🥩' : '▫️';
+      const jokerFlag = p.jokerInfo.status === 'used' ? ' [Joker genutzt]' : '';
+      text += `${emoji} *${p.rank}. ${p.name}* – ${p.totalPoints} Pkt.${jokerFlag}\n`;
+    });
+
+    const loser = leaderboard[leaderboard.length - 1];
+    if (loser) {
+      text += `\n🥶 *Grill-Alarm:* ${loser.name} steht aktuell am Grill fürs Wintergrillen! 🌭🔥\n`;
+    }
+
+    if (nextUpcoming) {
+      const org = store.getMember(nextUpcoming.organizerId)?.name || 'TBD';
+      text += `\n📅 *Nächster Spieltag (${nextUpcoming.round}/8):*\n`;
+      text += `🏆 *${nextUpcoming.title}*\n`;
+      text += `🗓 ${formatDate(nextUpcoming.date)} um ${nextUpcoming.time}\n`;
+      text += `📍 Treffpunkt: ${nextUpcoming.location}\n`;
+      text += `👤 Orga: ${org}\n`;
+      if (nextUpcoming.packingList && nextUpcoming.packingList.length > 0) {
+        text += `🎒 Mitbringen: ${nextUpcoming.packingList.join(', ')}\n`;
+      }
+      if (nextUpcoming.pendingJokers && nextUpcoming.pendingJokers.length > 0) {
+        text += `🎭 Geheime Joker: ${nextUpcoming.pendingJokers.length} angemeldet (wird am Ende aufgelöst!)\n`;
+      }
+    }
+
+    text += `\n_Erstellt mit der Freunde der Sonne Web-App ☀️_`;
+    return text;
+  }
+
+  function openWhatsAppModal() {
+    const text = generateWhatsAppText();
+    document.getElementById('whatsapp-text-content').textContent = text;
+    document.getElementById('modal-share-whatsapp').classList.add('open');
+  }
+
+  document.getElementById('btn-share-trigger').addEventListener('click', openWhatsAppModal);
+  document.getElementById('btn-share-whatsapp-tab').addEventListener('click', openWhatsAppModal);
+
+  // Robust clipboard copy function supporting iOS Safari on HTTP/IP addresses
+  function copyTextToClipboard(text) {
+    return new Promise((resolve, reject) => {
+      // 1. Try modern clipboard API if in secure context
+      if (navigator.clipboard && window.isSecureContext && typeof navigator.clipboard.writeText === 'function') {
+        navigator.clipboard.writeText(text).then(resolve).catch(() => {
+          execFallbackCopy(text).then(resolve).catch(reject);
+        });
+      } else {
+        execFallbackCopy(text).then(resolve).catch(reject);
+      }
+    });
+  }
+
+  function execFallbackCopy(text) {
+    return new Promise((resolve, reject) => {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.top = '0';
+        ta.style.left = '-9999px';
+        ta.style.width = '2em';
+        ta.style.height = '2em';
+        ta.style.padding = '0';
+        ta.style.border = 'none';
+        ta.style.outline = 'none';
+        ta.style.boxShadow = 'none';
+        ta.style.background = 'transparent';
+        ta.setAttribute('readonly', '');
+        document.body.appendChild(ta);
+
+        ta.focus();
+        ta.setSelectionRange(0, 999999);
+
+        const success = document.execCommand('copy');
+        document.body.removeChild(ta);
+        if (success) {
+          resolve();
+        } else {
+          reject(new Error('execCommand copy unsuccesful'));
+        }
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  document.getElementById('btn-copy-whatsapp').addEventListener('click', () => {
+    const text = document.getElementById('whatsapp-text-content').textContent;
+    copyTextToClipboard(text).then(() => {
+      showToast('In Zwischenablage kopiert! Bereit zum Senden in WhatsApp 📲', '📋');
+      closeAllModals();
+    }).catch(() => {
+      const preview = document.getElementById('whatsapp-text-content');
+      if (preview && window.getSelection && document.createRange) {
+        const range = document.createRange();
+        range.selectNodeContents(preview);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+      showToast('Text markiert – bitte kurz "Kopieren" antippen!', 'ℹ️');
+    });
+  });
+
+  const btnDirectWhatsApp = document.getElementById('btn-open-whatsapp-direct');
+  if (btnDirectWhatsApp) {
+    btnDirectWhatsApp.addEventListener('click', () => {
+      const text = document.getElementById('whatsapp-text-content').textContent;
+      const encoded = encodeURIComponent(text);
+      window.location.href = `whatsapp://send?text=${encoded}`;
+      closeAllModals();
+    });
+  }
+
+  // --- 8. Data Export, Import & Reset ---
+  document.getElementById('btn-export-data').addEventListener('click', () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(store.state, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `freunde_der_sonne_backup_${new Date().toISOString().slice(0, 10)}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    showToast('Daten als JSON exportiert', '📤');
+  });
+
+  document.getElementById('btn-import-data-trigger').addEventListener('click', () => {
+    document.getElementById('import-file-input').click();
+  });
+
+  document.getElementById('import-file-input').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target.result);
+        if (parsed.members && parsed.events) {
+          store.state = parsed;
+          store.save();
+          showToast('Spielstand erfolgreich importiert!', '📥');
+          renderLeaderboard();
+        } else {
+          alert('Ungültiges Dateiformat.');
+        }
+      } catch (err) {
+        alert('Fehler beim Lesen der Datei.');
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  document.getElementById('btn-reset-data').addEventListener('click', () => {
+    if (confirm('Möchtest du wirklich alle Daten auf die ursprünglichen Demodaten zurücksetzen?')) {
+      store.reset();
+      showToast('Demodaten wiederhergestellt!', '🔄');
+      renderLeaderboard();
+      renderEvents();
+      renderMembers();
+    }
+  });
+
+  // Helper date formatter
+  function formatDate(dateStr) {
+    if (!dateStr) return '';
+    try {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+        const days = ['So.', 'Mo.', 'Di.', 'Mi.', 'Do.', 'Fr.', 'Sa.'];
+        const dayPrefix = days[d.getDay()] || '';
+        return `${dayPrefix} ${parts[2]}.${parts[1]}.${parts[0]}`;
+      }
+      return dateStr;
+    } catch (e) {
+      return dateStr;
+    }
+  }
+
+  // --- Supabase Cloud Settings Modal Controller ---
+  function openSupabaseSettingsModal() {
+    const creds = window.fdsSupabase ? window.fdsSupabase.getCredentials() : { url: '', anonKey: '' };
+    const urlInput = document.getElementById('supabase-input-url');
+    const keyInput = document.getElementById('supabase-input-key');
+    const infoBox = document.getElementById('supabase-status-info');
+
+    if (urlInput) urlInput.value = creds.url;
+    if (keyInput) keyInput.value = creds.anonKey;
+
+    if (infoBox) {
+      if (window.fdsSupabase && window.fdsSupabase.isConfigured()) {
+        infoBox.style.display = 'block';
+        infoBox.style.background = 'rgba(16, 185, 129, 0.12)';
+        infoBox.style.color = '#34d399';
+        infoBox.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+        infoBox.innerHTML = `🟢 <strong>Verbunden mit Supabase:</strong><br><span style="word-break: break-all; font-size: 0.7rem;">${creds.url}</span>`;
+      } else {
+        infoBox.style.display = 'block';
+        infoBox.style.background = 'rgba(245, 158, 11, 0.1)';
+        infoBox.style.color = 'var(--sun-gold)';
+        infoBox.style.border = '1px solid rgba(245, 158, 11, 0.3)';
+        infoBox.innerHTML = `ℹ️ <strong>Noch nicht verbunden:</strong> Die Daten werden derzeit lokal auf diesem Gerät gespeichert. Trage URL und Anon-Key deines Supabase-Projekts ein, um die Live-Synchronisation zu aktivieren.`;
+      }
+    }
+
+    document.getElementById('modal-supabase-settings').classList.add('open');
+  }
+
+  const btnCloudStatus = document.getElementById('btn-cloud-status');
+  if (btnCloudStatus) {
+    btnCloudStatus.addEventListener('click', openSupabaseSettingsModal);
+  }
+
+  const btnOpenSupabase = document.getElementById('btn-open-supabase-settings');
+  if (btnOpenSupabase) {
+    btnOpenSupabase.addEventListener('click', openSupabaseSettingsModal);
+  }
+
+  const formSupabase = document.getElementById('form-supabase-settings');
+  if (formSupabase) {
+    formSupabase.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const url = document.getElementById('supabase-input-url').value.trim();
+      const anonKey = document.getElementById('supabase-input-key').value.trim();
+
+      if (!url || !anonKey) return;
+
+      if (window.fdsSupabase) {
+        window.fdsSupabase.setCredentials(url, anonKey);
+        closeAllModals();
+        showToast('Verbinde mit Supabase...', '☁️');
+        const success = await store.initCloudSync();
+        if (success) {
+          showToast('Erfolgreich mit Supabase verbunden! 🟢', '☁️');
+        } else {
+          showToast('Konnte nicht mit Supabase verbinden. Bitte URL/Key prüfen.', '❌');
+        }
+      }
+    });
+  }
+
+  const btnDisconnectSupabase = document.getElementById('btn-disconnect-supabase');
+  if (btnDisconnectSupabase) {
+    btnDisconnectSupabase.addEventListener('click', () => {
+      if (confirm('Möchtest du die Cloud-Verbindung trennen? (Deine lokalen Daten bleiben erhalten)')) {
+        if (window.fdsSupabase) {
+          window.fdsSupabase.setCredentials('', '');
+        }
+        store.updateCloudStatus('offline', 'Lokal');
+        closeAllModals();
+        showToast('Cloud-Verbindung getrennt (Lokal-Modus). 💾', 'ℹ️');
+      }
+    });
+  }
+
+  // Initial Boot
+  refreshActiveView();
+});
+

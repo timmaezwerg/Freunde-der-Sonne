@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#080b11">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Freunde der Sonne">
+  
+  <title>Freunde der Sonne - Spieltage & Wertung</title>
+  
+  <link rel="icon" type="image/jpeg" href="assets/app_icon.jpg">
+  <link rel="apple-touch-icon" href="assets/app_icon.jpg">
+  <link rel="manifest" href="manifest.json">
+  
+  <!-- CSS Stylesheets -->
+  <link rel="stylesheet" href="css/style.css?v=20260918_v10">
+  <link rel="stylesheet" href="css/components.css?v=20260918_v10">
+  
+  <!-- Supabase JS CDN Library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+  <!-- Main Mobile-First Shell -->
+  <div class="app-viewport">
+    
+    <!-- Ambient Solar Glow Backdrop -->
+    <div class="ambient-glow"></div>
+
+    <!-- Top App Bar -->
+    <header class="app-header">
+      <div class="header-brand">
+        <div class="app-logo-badge">
+          <img src="assets/app_icon.jpg" alt="Logo Freunde der Sonne">
+        </div>
+        <div class="header-titles">
+          <h1>Freunde der Sonne ☀️</h1>
+          <span class="subtitle">8 Freunde • 1 König • 1 Grillmeister</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="cloud-sync-badge" id="btn-cloud-status" title="Cloud-Sync Status (Supabase)">
+          <span class="cloud-status-dot"></span>
+          <span id="cloud-status-label">Lokal</span>
+        </div>
+        <button class="user-pill-btn" id="btn-user-switcher" title="Wer bist du? Profil wechseln" aria-label="Profil wechseln">
+          <span class="user-pill-avatar" id="header-user-avatar">👑</span>
+          <span class="user-pill-name" id="header-user-name">Tim</span>
+          <span class="user-pill-arrow">▾</span>
+        </button>
+        <button class="icon-btn" id="btn-share-trigger" title="WhatsApp teilen" aria-label="Tabelle teilen">
+          <span>📋</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Scrollable App Container -->
+    <main class="app-content" id="main-content">
+
+      <!-- ========================================================
+           TAB 1: TABELLE & LEADERBOARD
+           ======================================================== -->
+      <section id="view-leaderboard" class="view-panel active">
+        <!-- Standings 1 to 8 List -->
+        <div class="section-header">
+          <h3 class="section-title">
+            <span>🏆</span> Gesamtwertung
+          </h3>
+          <span class="section-badge" id="completed-rounds-badge">3 / 8 Spieltage</span>
+        </div>
+
+        <div class="rankings-list" id="rankings-list-container">
+          <!-- Dynamically filled by app.js (Row 1 is Sonnenkönig) -->
+        </div>
+
+        <!-- Drohendes Wintergrillen Spotlight (Rank 8: Verlierer) -->
+        <div id="grill-loser-container"></div>
+
+        <!-- Joker-Radar Widget -->
+        <div class="joker-radar-widget">
+          <div class="section-header" style="margin-bottom: 8px;">
+            <h4 class="section-title" style="font-size: 0.95rem;">
+              <span>🃏</span> Joker-Radar 2026
+            </h4>
+            <span class="section-badge" style="color: var(--sun-gold);">1x pro Saison (x2 Pkt.)</span>
+          </div>
+          <p style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 8px;">
+            Muss <strong>vor</strong> Spieltagsbeginn angemeldet werden (bleibt geheim bis zum Ende!). Nach Abschluss wird die doppelte Punktzahl vergeben.
+          </p>
+          <div class="radar-grid" id="joker-radar-container">
+            <!-- Dynamically filled -->
+          </div>
+        </div>
+
+        <!-- Vorjahres-Ergebnis (Saison 2025) -->
+        <div class="glass-card" style="margin-top: 14px;">
+          <div class="section-header" style="margin-bottom: 0; cursor: pointer; user-select: none;" id="toggle-history-2025">
+            <h4 class="section-title" style="font-size: 0.95rem;">
+              <span>📜</span> Historie: Saison 2025
+            </h4>
+            <span class="section-badge" id="history-2025-chevron" style="color: var(--sun-gold);">Tabelle 2025 ▾</span>
+          </div>
+          <div id="history-2025-content" style="display: none; margin-top: 12px;">
+            <div style="background: rgba(255, 183, 3, 0.08); border: 1px solid var(--border-solar); border-radius: var(--radius-sm); padding: 8px 12px; margin-bottom: 10px; font-size: 0.76rem; color: var(--sun-gold); line-height: 1.4;">
+              👑 <strong>Sonnenkönig 2025:</strong> Lukas (41 Pkt.) • 🥈 <strong>Platz 2:</strong> Oli (36 Pkt.)<br>
+              🥩 <strong>Grillmeister 2025:</strong> Gabi & Tomi (jeweils 21 Pkt.)
+            </div>
+            <div class="rankings-list" id="history-2025-list">
+              <!-- Dynamically populated from HISTORICAL_SEASONS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Share Button -->
+        <div style="margin-top: 14px;">
+          <button class="btn btn-secondary btn-block" id="btn-share-whatsapp-tab">
+            <span>📲</span> Tabelle für WhatsApp-Gruppe kopieren
+          </button>
+        </div>
+      </section>
+
+      <!-- ========================================================
+           TAB 2: SPIELTAGE & ORGA
+           ======================================================== -->
+      <section id="view-events" class="view-panel">
+        <div class="section-header">
+          <h3 class="section-title">
+            <span>📅</span> Spieltage der Saison
+          </h3>
+          <span class="section-badge">8 Events</span>
+        </div>
+
+        <!-- Filter Chips -->
+        <div class="events-filter-bar">
+          <button class="filter-chip active" data-filter="all">Alle (8)</button>
+          <button class="filter-chip" data-filter="upcoming">Anstehend</button>
+          <button class="filter-chip" data-filter="completed">Abgeschlossen</button>
+        </div>
+
+        <!-- Events List Container -->
+        <div id="events-list-container">
+          <!-- Dynamically filled -->
+        </div>
+      </section>
+
+      <!-- ========================================================
+           TAB 4: KADER & EINSTELLUNGEN
+           ======================================================== -->
+      <section id="view-members" class="view-panel">
+        <div class="section-header">
+          <h3 class="section-title">
+            <span>👥</span> Die 8 Freunde
+          </h3>
+          <span class="section-badge">Kader 2026</span>
+        </div>
+
+        <!-- Account & Security Section (Prominent at top) -->
+        <div class="glass-card" style="margin-bottom: 16px; border-color: var(--border-solar);">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+            <h4 class="section-title" style="font-size: 0.95rem;">
+              <span>👤</span> Mein Profil & Login
+            </h4>
+            <span class="my-event-badge" id="account-status-badge">Eingeloggt</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; background: rgba(0,0,0,0.25); padding: 10px; border-radius: var(--radius-sm);">
+            <div class="avatar-sm" id="account-avatar" style="font-size: 1.2rem; width: 40px; height: 40px;">👑</div>
+            <div>
+              <div style="font-weight: 800; font-size: 0.95rem;" id="account-name">Tim</div>
+              <div style="font-size: 0.72rem; color: var(--text-secondary);" id="account-role">Gruppenmitglied</div>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+            <button class="btn btn-secondary btn-sm" id="btn-open-change-pin">
+              <span>🔑</span> PIN ändern
+            </button>
+            <button class="btn btn-secondary btn-sm" id="btn-logout-account" style="color: #ff9999;">
+              <span>🚪</span> Abmelden
+            </button>
+          </div>
+          <button class="btn btn-primary btn-sm btn-block" id="btn-open-admin-panel" style="margin-top: 4px; display: none;">
+            <span>🛡️</span> Admin: Spieltage zuteilen
+          </button>
+        </div>
+
+        <p id="kader-instruction-text" style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 14px;">
+          Tippe auf dein eigenes Profil (mit „Du“ markiert), um deinen Spitznamen oder Avatar anzupassen.
+        </p>
+
+        <div class="rankings-list" id="members-list-container">
+          <!-- 8 Member Cards dynamically populated -->
+        </div>
+
+        <div class="glass-card" style="margin-top: 14px;">
+          <h4 class="section-title" style="font-size: 0.95rem; margin-bottom: 12px;">
+            <span>⚙️</span> Daten & Verwaltung
+          </h4>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <button class="btn btn-secondary btn-block" id="btn-open-supabase-settings" style="border-color: rgba(56, 189, 248, 0.4); color: #38bdf8;">
+              <span>☁️</span> Supabase Cloud-Verbindung
+            </button>
+            <button class="btn btn-secondary btn-block" id="btn-export-data">
+              <span>📤</span> Spielstand exportieren (JSON)
+            </button>
+            <button class="btn btn-secondary btn-block" id="btn-import-data-trigger">
+              <span>📥</span> Spielstand importieren
+            </button>
+            <input type="file" id="import-file-input" accept=".json" style="display: none;">
+            <button class="btn btn-secondary btn-block" id="btn-reset-data" style="color: #ff8888; border-color: rgba(239,35,60,0.3);">
+              <span>🔄</span> Auf Demo-Daten zurücksetzen
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- iOS Glass Bottom Tab Navigation (3 Clean Tabs) -->
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-target="view-leaderboard">
+        <span class="nav-icon">🏆</span>
+        <span class="nav-label">Tabelle</span>
+      </button>
+      <button class="nav-item" data-target="view-events">
+        <span class="nav-icon">📅</span>
+        <span class="nav-label">Spieltage</span>
+      </button>
+      <button class="nav-item" data-target="view-members">
+        <span class="nav-icon">👥</span>
+        <span class="nav-label">Kader</span>
+      </button>
+    </nav>
+
+  </div>
+
+  <!-- ========================================================
+       MODALS & SHEETS
+       ======================================================== -->
+
+  <!-- 0. Select Active Profile ("Wer bist du?") Modal -->
+  <div class="modal-backdrop" id="modal-select-user">
+    <div class="modal-sheet">
+      <div class="sheet-handle"></div>
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">👤 Profil auswählen</h3>
+          <p style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 2px;">
+            Tippe auf deinen Namen, um dich per PIN anzumelden.
+          </p>
+        </div>
+        <button class="icon-btn close-modal-btn">✕</button>
+      </div>
+      <div class="user-picker-grid" id="user-picker-options">
+        <!-- 8 Members loaded dynamically -->
+      </div>
+
+      <div class="admin-login-divider">
+        <span>Oder als Spielleitung anmelden</span>
+      </div>
+
+      <div class="admin-login-card" id="btn-admin-login-picker">
+        <div class="avatar-sm" style="background: rgba(239, 68, 68, 0.15); border: 1.5px solid #ef4444; color: #ef4444; font-size: 1.25rem;">
+          🛡️
+        </div>
+        <div class="user-picker-info">
+          <span class="user-picker-name" style="color: #fca5a5; font-weight: 800;">Administrator</span>
+          <span class="user-picker-sub">Spielleitung • Korrekturrechte</span>
+        </div>
+        <span class="badge-admin-tag">Master-PIN (7777)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 0b. PIN Login Modal (Protection against unauthorized access) -->
+  <div class="modal-backdrop" id="modal-pin-login">
+    <div class="modal-sheet">
+      <div class="sheet-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title">🔒 PIN-Anmeldung</h3>
+        <button class="icon-btn close-modal-btn">✕</button>
+      </div>
+
+      <div style="text-align: center; margin-bottom: 16px;">
+        <div class="avatar" id="pin-login-avatar" style="width: 56px; height: 56px; font-size: 1.6rem; margin: 0 auto 8px; border-color: var(--sun-gold); box-shadow: 0 0 16px var(--sun-glow);">
+          🎯
+        </div>
+        <h4 id="pin-login-name" style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 800; color: var(--text-primary);">
+          Lukas
+        </h4>
+        <p style="font-size: 0.76rem; color: var(--text-secondary); margin-top: 2px;">
+          Gib deine persönliche 4-stellige PIN ein
+        </p>
+      </div>
+
+      <form id="form-pin-login">
+        <input type="hidden" id="pin-target-user-id">
+
+        <div style="display: flex; justify-content: center; margin-bottom: 16px;">
+          <input type="password" id="pin-login-input" maxlength="6" inputmode="numeric" pattern="[0-9]*" class="form-input pin-display-field" placeholder="••••" required autofocus>
+        </div>
+
+        <!-- On-Screen Numeric Keypad for fast iPhone tapping -->
+        <div class="pin-keypad">
+          <button type="button" class="pin-key" data-key="1">1</button>
+          <button type="button" class="pin-key" data-key="2">2</button>
+          <button type="button" class="pin-key" data-key="3">3</button>
+          <button type="button" class="pin-key" data-key="4">4</button>
+          <button type="button" class="pin-key" data-key="5">5</button>
+          <button type="button" class="pin-key" data-key="6">6</button>
+          <button type="button" class="pin-key" data-key="7">7</button>
+          <button type="button" class="pin-key" data-key="8">8</button>
+          <button type="button" class="pin-key" data-key="9">9</button>
+          <button type="button" class="pin-key pin-action-key" data-key="clear">C</button>
+          <button type="button" class="pin-key" data-key="0">0</button>
+          <button type="button" class="pin-key pin-action-key" data-key="backspace">⌫</button>
+        </div>
+
+        <div style="margin-top: 14px; text-align: center; font-size: 0.72rem; color: var(--text-muted);">
+          🔑 Standard-PIN für alle: <strong>1234</strong> • Master-Admin: <strong>7777</strong>
+        </div>
+
+        <div style="margin-top: 16px; display: flex; gap: 10px;">
+          <button type="button" class="btn btn-secondary btn-block close-modal-btn">Abbrechen</button>
+          <button type="submit" class="btn btn-primary btn-block">Anmelden 🔓</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 0c. Change PIN Modal -->
+  <div class="modal-backdrop" id="modal-change-pin">
+    <div class="modal-sheet">
+      <div class="sheet-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title">🔑 PIN ändern</h3>
+        <button class="icon-btn close-modal-btn">✕</button>
+      </div>
+      <form id="form-change-pin">
+        <div class="form-group">
+          <label class="form-label" for="change-pin-old">Bisherige PIN</label>
+          <input type="password" id="change-pin-old" class="form-input" maxlength="6" inputmode="numeric" placeholder="Alte PIN" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="change-pin-new">Neue PIN (mind. 4 Ziffern)</label>
+          <input type="password" id="change-pin-new" class="form-input" maxlength="6" inputmode="numeric" placeholder="Neue PIN" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="change-pin-confirm">Neue PIN bestätigen</label>
+          <input type="password" id="change-pin-confirm" class="form-input" maxlength="6" inputmode="numeric" placeholder="Wiederholen" required>
+        </div>
+        <div style="margin-top: 18px; display: flex; gap: 10px;">
+          <button type="button" class="btn btn-secondary btn-block close-modal-btn">Abbrechen</button>
+          <button type="submit" class="btn btn-primary btn-block">Speichern</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 0d. Admin Dashboard (Assign Spieltage & PIN Reset) -->
+  <div class="modal-backdrop" id="modal-admin-panel">
+    <div class="modal-sheet" style="max-height: 92vh;">
+      <div class="sheet-handle"></div>
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">🛡️ Admin: Spieltage zuteilen</h3>
+          <p style="font-size: 0.74rem; color: var(--text-secondary); margin-top: 2px;">
+            Teile den 8 Freunden jeweils einen Spieltag als Organisator zu.
+          </p>
+        </div>
+        <button class="icon-btn close-modal-btn">✕</button>
+      </div>
+
+      <!-- Password gate if not yet authorized -->
+      <div id="admin-auth-gate" style="display: none; padding: 10px 0;">
+        <p style="font-size: 0.82rem; color: #fde68a; margin-bottom: 12px;">
+          Bitte gib die Master-Admin-PIN ein, um Spieltage zuzuteilen:
+        </p>
+        <div style="display: flex; gap: 8px;">
+          <input type="password" id="admin-gate-pin-input" class="form-input" placeholder="Admin-PIN (7777)" maxlength="6" inputmode="numeric">
+          <button type="button" class="btn btn-primary" id="btn-admin-gate-submit">Freischalten</button>
+        </div>
+      </div>
+
+      <!-- Admin Content Area -->
+      <div id="admin-content-area">
+        <form id="form-admin-allocations">
+          <div style="margin-bottom: 14px; font-size: 0.78rem; color: var(--text-secondary);">
+            Jeder der 8 Freunde organisiert genau 1 Spieltag pro Jahr:
+          </div>
+
+          <div id="admin-allocations-list" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
+            <!-- 8 Event rows loaded dynamically -->
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block" style="margin-bottom: 16px;">
+            <span>💾</span> Zuteilungen der 8 Spieltage speichern
+          </button>
+        </form>
+
+        <hr style="border: none; border-top: 1px solid var(--border-card); margin: 18px 0;">
+
+        <!-- Admin Friend PIN Reset Helper -->
+        <div>
+          <h4 class="section-title" style="font-size: 0.9rem; margin-bottom: 8px;">
+            <span>🔑</span> PIN eines Freundes zurücksetzen
+          </h4>
+          <p style="font-size: 0.74rem; color: var(--text-secondary); margin-bottom: 10px;">
+            Falls jemand seine PIN vergessen hat, kannst du sie hier auf 1234 zurücksetzen.
+          </p>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <select id="admin-reset-member-select" class="form-select"></select>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-admin-reset-pin-execute">
+              PIN auf 1234 resetten
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1. Edit Event Details Modal -->
+  <div class="modal-backdrop" id="modal-edit-event">
+    <div class="modal-sheet">
+      <div class="sheet-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title" id="edit-event-modal-title">Spieltag bearbeiten</h3>
+        <button class="icon-btn close-modal-btn">✕</button>
+      </div>
+      <form id="form-edit-event">
+        <input type="hidden" id="edit-event-id">
+
+        <div class="form-group">
+          <label class="form-label" for="edit-event-title">Was findet statt? (Aktivität)</label>
+          <input type="text" id="edit-event-title" class="form-input" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="edit-event-organizer">Organisator</label>
+          <select id="edit-event-organizer" class="form-select" required></select>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div class="form-group">
+            <label class="form-label" for="edit-event-date">Datum</label>
+            <input type="date" id="edit-event-date" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="edit-event-time">Uhrzeit</label>
+            <input type="text" id="edit-event-time" class="form-input" placeholder="z.B. 15:00 Uhr" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="edit-event-location">Treffpunkt & Ort</label>
+          <input type="text" id="edit-event-location" class="form-input" placeholder="Wo treffen wir uns?" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="edit-event-packing">Was mitnehmen? (Kommagetrennt)</label>
+          <input type="text" id="edit-event-packing" class="form-input" placeholder="z.B. Sportzeug, Handtuch, Bargeld">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="edit-event-desc">Kurze Beschreibung / Orga-Hinweise</label>
+          <textarea id="edit-event-desc" class="form-textarea"></textarea>
+        </div>
+
+        <div style="margin-top: 18px; display: flex; gap: 10px;">
+          <button type="button" class="btn btn-secondary btn-block close-modal-btn">Abbrechen</button>
+          <button type="submit" class="btn btn-primary btn-block">Speichern</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 1b. Score Event Modal (Direkt am Spieltag für Orga) -->
+  <div class="modal-backdrop" id="modal-score-event">
+    <div class="modal-sheet" style="max-height: 90vh; overflow-y: auto;">
+      <div class="sheet-handle"></div>
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title" id="score-event-modal-title">⚖️ Wertung erfassen</h3>
+          <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px;" id="score-event-modal-subtitle">
+            Ergebnisse für diesen Spieltag eintragen
+          </p>
+        </div>
+        <button class="icon-btn close-modal-btn">✕</button>
+      </div>
+
+      <div id="score-correction-notice" class="glass-card" style="display: none; margin-bottom: 12px; padding: 10px 12px; background: rgba(239, 68, 68, 0.12); border-color: rgba(239, 68, 68, 0.35);">
+        <p style="font-size: 0.76rem; color: #fca5a5; line-height: 1.35; margin: 0;">
+          <strong>🛡️ Admin-Korrekturmodus:</strong> Dieser Spieltag ist bereits abgeschlossen. Du kannst fehlerhafte Platzierungen korrigieren. Nach dem Speichern wird die Gesamttabelle neu berechnet.
+        </p>
+      </div>
+
+      <div id="score-standard-notice" class="glass-card" style="margin-bottom: 12px; padding: 10px 12px; background: rgba(245, 158, 11, 0.08); border-color: rgba(245, 158, 11, 0.25);">
+        <p style="font-size: 0.76rem; color: var(--sun-gold); line-height: 1.35; margin: 0;">
+          <strong>🏆 Punkte nach Platzierung:</strong> Weise jedem Freund seinen Platz zu (1. Platz = 8 Pkt., 2. Platz = 7 Pkt. etc.). <strong>Plätze können bei Gleichstand auch mehrfach vergeben werden!</strong>
+        </p>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <span style="font-size: 0.72rem; color: var(--text-secondary);">Gleichstand beliebig wählbar</span>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-quick-fill-standard-scores">
+          ⚡ Standard-Plätze (1. bis 8.) vergeben
+        </button>
+      </div>
+
+      <form id="form-score-event">
+        <input type="hidden" id="score-event-id">
+        <input type="hidden" id="score-event-is-correction" value="0">
+
+        <div id="score-inputs-container" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
+          <!-- Dynamically populated 8 player rows with rank and points inputs -->
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+          <button type="button" class="btn btn-secondary btn-block close-modal-btn">Abbrechen</button>
+          <button type="submit" class="btn btn-primary btn-block" id="btn-submit-scoring">
+            <span id="btn-submit-scoring-icon">🔒</span> <span id="btn-submit-scoring-text">Endgültig abschließen & werten</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 1c. View Completed Scores Modal (Read-only) -->
+  <div class="modal-backdrop" id="modal-view-scores">
+    <div class="modal-sheet" style="max-height: 85vh; overflow-y: auto;">
+      <div class="sheet-handle"></div>
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title" id="view-scores-modal-title">🏆 Spieltags-Wertung</h3>
+          <div style="display: flex; align-items: center; gap: 6px; margin-top: 2px;">
+            <span class="freeze-pill locked">✓ Abgeschlossen</span>
+            <span style="font-size: 0.72rem; color: var(--text-secondary);" id="view-scores-modal-subtitle"></span>
+          </div>
+        </div>
+        <button class="icon-btn close-modal-btn">✕</button>
+      </div>
+
+      <div id="view-scores-list-container" style="margin: 14px 0;">
+        <!-- Dynamically rendered ranking cards for the event -->
+      </div>
+
+      <button type="button" class="btn btn-secondary btn-block close-modal-btn">Schließen</button>
+    </div>
+  </div>
+
+  <!-- 2. Register Joker Modal -->
+  <div class="modal-backdrop" id="modal-register-joker">
+    <div class="modal-sheet">
+      <div class="sheet-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title">🃏 Joker anmelden</h3>
+        <button class="icon-btn close-modal-btn">✕</button>
+      </div>
+      <div style="margin-bottom: 14px; font-size: 0.82rem; color: var(--text-secondary); line-height: 1.4;">
+        Jeder Spieler darf genau <strong>1x pro Saison</strong> seinen Joker setzen. Die Punkte dieses Spieltags werden verdoppelt!
+        <br><br>
+        <span style="color: var(--sun-gold); font-weight: 700;">⚠️ Wichtig:</span> Der Joker muss vor Beginn des Spieltags angemeldet werden.
+      </div>
+
+      <form id="form-register-joker">
+        <input type="hidden" id="joker-target-event-id">
+
+        <div class="form-group">
+          <label class="form-label" for="joker-player-select">Freund auswählen (nur mit freiem Joker):</label>
+          <select id="joker-player-select" class="form-select" required></select>
+        </div>
+
+        <div id="joker-event-preview" style="background: rgba(255, 255, 255, 0.04); border-radius: var(--radius-md); padding: 12px; margin-bottom: 16px; font-size: 0.85rem;">
+          <!-- Event info rendered here -->
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+          <button type="button" class="btn btn-secondary btn-block close-modal-btn">Abbrechen</button>
+          <button type="submit" class="btn btn-joker btn-block">Joker jetzt scharf schalten ⚡</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 3. Edit Member Profile Modal -->
+  <div class="modal-backdrop" id="modal-edit-member">
+    <div class="modal-sheet">
+      <div class="sheet-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title">👤 Profil anpassen</h3>
+        <button class="icon-btn close-modal-btn">✕</button>
+      </div>
+      <form id="form-edit-member">
+        <input type="hidden" id="edit-member-id">
+
+        <div style="display: flex; flex-direction: column; align-items: center; margin-bottom: 16px;">
+          <div class="avatar" id="edit-member-avatar-preview" style="width: 72px; height: 72px; font-size: 2.2rem; margin-bottom: 10px; border: 2px solid var(--sun-gold); box-shadow: 0 0 16px var(--sun-glow);">
+            👤
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;">
+            <label for="edit-member-photo-input" class="btn btn-secondary btn-sm" style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+              <span>📷</span> Foto wählen / aufnehmen
+            </label>
+            <input type="file" id="edit-member-photo-input" accept="image/*" style="display: none;">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-reset-avatar-emoji" style="color: #ff9999; display: none;">
+              <span>✕</span> Foto entfernen
+            </button>
+          </div>
+          <span style="font-size: 0.7rem; color: var(--text-muted); margin-top: 5px;">Porträtfoto (Kreisanschnitt) oder Emoji</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="edit-member-name">Name</label>
+          <input type="text" id="edit-member-name" class="form-input" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="edit-member-nickname">Spitzname</label>
+          <input type="text" id="edit-member-nickname" class="form-input" placeholder="z. B. Grillmeister">
+        </div>
+
+        <div class="form-group" id="group-edit-member-emoji">
+          <label class="form-label" for="edit-member-avatar">Oder Emoji-Avatar</label>
+          <input type="text" id="edit-member-avatar" class="form-input" style="font-size: 1.4rem;" maxlength="8" placeholder="👑">
+        </div>
+
+        <div style="margin-top: 18px; display: flex; gap: 10px;">
+          <button type="button" class="btn btn-secondary btn-block close-modal-btn">Abbrechen</button>
+          <button type="submit" class="btn btn-primary btn-block">Speichern</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 4. WhatsApp Share Modal -->
+  <div class="modal-backdrop" id="modal-share-whatsapp">
+    <div class="modal-sheet">
+      <div class="sheet-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title">📲 WhatsApp Gruppen-Update</h3>
+        <button class="icon-btn close-modal-btn">✕</button>
+      </div>
+      <p style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 10px;">
+        Vorschau der formatierten Nachricht für eure WhatsApp-Gruppe:
+      </p>
+      <div class="whatsapp-preview" id="whatsapp-text-content"></div>
+      <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 12px;">
+        <button class="btn btn-primary btn-block" id="btn-open-whatsapp-direct" style="background: linear-gradient(135deg, #25D366, #128C7E); border-color: #25D366; color: #ffffff; font-weight: 800;">
+          <span>💬</span> Direkt in WhatsApp öffnen & teilen
+        </button>
+        <button class="btn btn-secondary btn-block" id="btn-copy-whatsapp">
+          <span>📋</span> Text in die Zwischenablage kopieren
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Supabase Cloud Settings Modal -->
+  <div class="modal-backdrop" id="modal-supabase-settings">
+    <div class="modal-sheet">
+      <div class="sheet-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title">☁️ Supabase Cloud-Verbindung</h3>
+        <button class="icon-btn close-modal-btn">✕</button>
+      </div>
+      <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.45;">
+        Verbinde deine eigene Supabase PostgreSQL-Datenbank, um die Tabelle und Spieltage auf allen 8 iPhones in Echtzeit zu synchronisieren:
+      </p>
+      <form id="form-supabase-settings">
+        <div class="form-group">
+          <label class="form-label" for="supabase-input-url">Project URL</label>
+          <input type="url" id="supabase-input-url" class="form-input" placeholder="https://xyz.supabase.co" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="supabase-input-key">Anon / Public Key</label>
+          <input type="text" id="supabase-input-key" class="form-input" placeholder="eyJhbGciOi..." required>
+        </div>
+        <div id="supabase-status-info" style="font-size: 0.75rem; padding: 8px 10px; border-radius: var(--radius-sm); margin-bottom: 12px; display: none;"></div>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn btn-secondary btn-block close-modal-btn">Schließen</button>
+          <button type="submit" class="btn btn-primary btn-block">Speichern & Verbinden</button>
+        </div>
+        <div style="margin-top: 10px; text-align: center;">
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-disconnect-supabase" style="color: #ff8888; border: none; font-size: 0.72rem;">
+            Verbindung trennen (nur lokaler Speicher)
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- JavaScript Scripts -->
+  <script src="js/supabase-config.js?v=20260918_v10"></script>
+  <script src="js/data.js?v=20260918_v10"></script>
+  <script src="js/app.js?v=20260918_v10"></script>
+</body>
+</html>
