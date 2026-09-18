@@ -146,9 +146,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     modal.classList.add('open');
+    updatePushNotificationButtonState();
   }
 
   document.getElementById('btn-user-switcher').addEventListener('click', openUserPickerModal);
+
+  const btnTogglePush = document.getElementById('btn-toggle-push-notifications');
+  if (btnTogglePush) {
+    btnTogglePush.addEventListener('click', togglePushNotifications);
+  }
 
   const btnLogoutUser = document.getElementById('btn-logout-user');
   if (btnLogoutUser) {
@@ -1231,27 +1237,70 @@ document.addEventListener('DOMContentLoaded', () => {
     orgSelect.appendChild(opt);
     orgSelect.disabled = true; // Fixed role: no accidental organizer changes!
 
+    // Reset push checkbox to checked by default
+    const pushCheckbox = document.getElementById('edit-event-send-push');
+    if (pushCheckbox) pushCheckbox.checked = true;
+
     document.getElementById('modal-edit-event').classList.add('open');
   }
 
-  document.getElementById('form-edit-event').addEventListener('submit', (e) => {
+  document.getElementById('form-edit-event').addEventListener('submit', async (e) => {
     e.preventDefault();
     const eventId = Number(document.getElementById('edit-event-id').value);
     const packingRaw = document.getElementById('edit-event-packing').value;
     const packingList = packingRaw.split(',').map(s => s.trim()).filter(Boolean);
 
+    const oldEvt = store.getEvent(eventId);
+    const newTitle = document.getElementById('edit-event-title').value.trim();
+    const newDate = document.getElementById('edit-event-date').value;
+    const newTime = document.getElementById('edit-event-time').value.trim();
+    const newLocation = document.getElementById('edit-event-location').value.trim();
+    const newDesc = document.getElementById('edit-event-desc').value.trim();
+    const pushCheckbox = document.getElementById('edit-event-send-push');
+    const shouldSendPush = pushCheckbox ? pushCheckbox.checked : false;
+
+    // Detect specific changes for push notification text
+    const changes = [];
+    if (oldEvt) {
+      if (oldEvt.date !== newDate) {
+        changes.push(`📅 Datum neu: ${formatDate(newDate)}`);
+      }
+      if (oldEvt.time !== newTime) {
+        changes.push(`⏰ Zeit: ${newTime || 'entfernt'}`);
+      }
+      if (oldEvt.location !== newLocation) {
+        changes.push(`📍 Ort: ${newLocation}`);
+      }
+      if (oldEvt.title !== newTitle) {
+        changes.push(`🏷️ Titel: ${newTitle}`);
+      }
+      if ((oldEvt.description || '').trim() !== newDesc) {
+        changes.push(`ℹ️ Details aktualisiert`);
+      }
+    }
+
     store.updateEvent(eventId, {
-      title: document.getElementById('edit-event-title').value.trim(),
-      date: document.getElementById('edit-event-date').value,
-      time: document.getElementById('edit-event-time').value.trim(),
-      location: document.getElementById('edit-event-location').value.trim(),
+      title: newTitle,
+      date: newDate,
+      time: newTime,
+      location: newLocation,
       packingList: packingList,
-      description: document.getElementById('edit-event-desc').value.trim()
+      description: newDesc
     });
 
     closeAllModals();
     showToast('Spieltag-Details erfolgreich aktualisiert!', '✅');
     renderEvents();
+
+    // Dispatch push notification to all subscribed iPhones if enabled and there are changes
+    if (shouldSendPush && changes.length > 0) {
+      dispatchPushNotification({
+        title: `☀️ Update: ${newTitle}`,
+        body: changes.join(' • '),
+        eventId: eventId,
+        url: '/'
+      });
+    }
   });
 
   // Modal 3: Edit Member (Fixed names protection & ownership check)
@@ -1884,6 +1933,193 @@ document.addEventListener('DOMContentLoaded', () => {
         closeAllModals();
         showToast('Cloud-Verbindung getrennt (Lokal-Modus). 💾', 'ℹ️');
       }
+    });
+  }
+
+  // =========================================================
+  // --- Push Notifications Controller (Apple iOS Web Push) ---
+  // =========================================================
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  }
+
+  function arrayBufferToBase64(buffer) {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return window.btoa(binary);
+  }
+
+  async function updatePushNotificationButtonState() {
+    const btn = document.getElementById('btn-toggle-push-notifications');
+    if (!btn) return;
+
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      if (isIOS && !isStandalone) {
+        btn.innerHTML = '<span>📲</span> Zum Home-Bildschirm hinzufügen für Push';
+        btn.style.color = 'var(--text-muted)';
+        btn.style.borderColor = 'var(--border-glass)';
+      } else {
+        btn.innerHTML = '<span>⚠️</span> Mitteilungen nicht unterstützt';
+        btn.disabled = true;
+      }
+      return;
+    }
+
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+
+      if (sub) {
+        btn.innerHTML = '<span>🔔</span> Mitteilungen aktiv (Ausschalten)';
+        btn.style.color = '#34d399';
+        btn.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+      } else {
+        btn.innerHTML = '<span>🔔</span> Mitteilungen auf diesem iPhone aktivieren';
+        btn.style.color = 'var(--sun-gold)';
+        btn.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+      }
+    } catch (err) {
+      console.warn('Fehler beim Prüfen der Push-Subscription:', err);
+    }
+  }
+
+  async function togglePushNotifications() {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+    if (isIOS && !isStandalone) {
+      alert('Wichtig für iOS / iPhone:\n\nUm Push-Mitteilungen auf dem iPhone zu erhalten, tippe unten in Safari auf das Teilen-Symbol (Viereck mit Pfeil nach oben) und wähle "Zum Home-Bildschirm".\n\nÖffne die App danach über das Icon auf deinem Home-Bildschirm!');
+      return;
+    }
+
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      alert('Push-Mitteilungen werden von diesem Browser oder Modus leider nicht unterstützt.');
+      return;
+    }
+
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const existingSub = await reg.pushManager.getSubscription();
+
+      if (existingSub) {
+        // Unsubscribe
+        const unsubscribed = await existingSub.unsubscribe();
+        if (unsubscribed) {
+          const client = window.fdsSupabase ? window.fdsSupabase.getClient() : null;
+          if (client) {
+            await client.from('push_subscriptions').delete().eq('endpoint', existingSub.endpoint);
+          }
+          showToast('Mitteilungen auf diesem Gerät deaktiviert.', '🔕');
+          updatePushNotificationButtonState();
+        }
+        return;
+      }
+
+      // Request permission
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        showToast('Mitteilungen wurden nicht erlaubt.', '⚠️');
+        return;
+      }
+
+      const vapidKey = window.FDS_VAPID_PUBLIC_KEY;
+      if (!vapidKey) {
+        showToast('VAPID Public Key nicht konfiguriert.', '❌');
+        return;
+      }
+
+      const newSub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey)
+      });
+
+      const client = window.fdsSupabase ? window.fdsSupabase.getClient() : null;
+      const currentUserId = store.getCurrentUserId();
+      const subRecord = {
+        endpoint: newSub.endpoint,
+        p256dh: arrayBufferToBase64(newSub.getKey('p256dh')),
+        auth: arrayBufferToBase64(newSub.getKey('auth')),
+        user_id: typeof currentUserId === 'number' ? currentUserId : null,
+        user_agent: navigator.userAgent,
+        updated_at: new Date().toISOString()
+      };
+
+      if (client) {
+        const { error } = await client.from('push_subscriptions').upsert(subRecord, { onConflict: 'endpoint' });
+        if (error) {
+          console.error('Fehler beim Speichern der Subscription in Supabase:', error);
+        }
+      }
+
+      showToast('Mitteilungen für dieses iPhone aktiviert! 🔔', '✅');
+      updatePushNotificationButtonState();
+    } catch (err) {
+      console.error('Fehler beim Aktivieren von Push:', err);
+      showToast('Fehler: ' + (err.message || 'Push-Aktivierung fehlgeschlagen'), '❌');
+    }
+  }
+
+  async function dispatchPushNotification({ title, body, eventId, url }) {
+    try {
+      const res = await fetch('/api/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, body, eventId, url })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.sent > 0) {
+          showToast(`📲 Push an ${data.sent} Gerät(e) gesendet!`, '🔔');
+        } else {
+          console.log('Push-Anfrage erfolgreich, aber derzeit keine aktiven Abonnenten.');
+        }
+      } else {
+        console.warn('Push API antwortete mit Fehler:', res.status);
+      }
+    } catch (err) {
+      console.warn('Netzwerkfehler beim Senden der Push-Mitteilung:', err);
+    }
+  }
+
+  // Admin Send Test Push Button
+  const btnAdminTestPush = document.getElementById('btn-admin-send-test-push');
+  if (btnAdminTestPush) {
+    btnAdminTestPush.addEventListener('click', async () => {
+      showToast('Sende Test-Push an alle Geräte...', '📲');
+      await dispatchPushNotification({
+        title: '☀️ Freunde der Sonne (Test)',
+        body: 'Push-Mitteilungen aufs iPhone funktionieren einwandfrei!',
+        eventId: 0,
+        url: '/'
+      });
+    });
+  }
+
+  // Register Service Worker for PWA & Apple Web Push
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => {
+          console.log('✅ ServiceWorker registriert:', reg.scope);
+          updatePushNotificationButtonState();
+        })
+        .catch(err => {
+          console.warn('⚠️ ServiceWorker Registrierung fehlgeschlagen:', err);
+        });
     });
   }
 

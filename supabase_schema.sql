@@ -249,5 +249,35 @@ ON CONFLICT (id) DO UPDATE SET
   scores = EXCLUDED.scores;
 
 -- ==============================================================================
+-- 7. PUSH NOTIFICATION SUBSCRIPTIONS (Apple Web Push für iOS & Desktop)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id INT REFERENCES members(id) ON DELETE SET NULL,
+  endpoint TEXT NOT NULL UNIQUE,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  user_agent TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS
+ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if any
+DROP POLICY IF EXISTS "Public read push_subscriptions" ON push_subscriptions;
+DROP POLICY IF EXISTS "Public insert push_subscriptions" ON push_subscriptions;
+DROP POLICY IF EXISTS "Public update push_subscriptions" ON push_subscriptions;
+DROP POLICY IF EXISTS "Public delete push_subscriptions" ON push_subscriptions;
+
+-- Allow reading, inserting, updating and deleting subscriptions
+CREATE POLICY "Public read push_subscriptions" ON push_subscriptions FOR SELECT USING (true);
+CREATE POLICY "Public insert push_subscriptions" ON push_subscriptions FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public update push_subscriptions" ON push_subscriptions FOR UPDATE USING (true);
+CREATE POLICY "Public delete push_subscriptions" ON push_subscriptions FOR DELETE USING (true);
+
+-- ==============================================================================
 -- FERTIG! Dein Supabase Backend ist nun voll einsatzbereit.
 -- ==============================================================================
+

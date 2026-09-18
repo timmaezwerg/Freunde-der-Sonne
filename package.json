@@ -1,0 +1,10 @@
+{
+  "name": "freunde-der-sonne",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Freunde der Sonne - Spieltage, Live-Tabelle & Push-Mitteilungen",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "web-push": "^3.6.7"
+  }
+}

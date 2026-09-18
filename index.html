@@ -15,8 +15,8 @@
   <link rel="manifest" href="manifest.json">
   
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/style.css?v=20260918_v13">
-  <link rel="stylesheet" href="css/components.css?v=20260918_v13">
+  <link rel="stylesheet" href="css/style.css?v=20260918_v14">
+  <link rel="stylesheet" href="css/components.css?v=20260918_v14">
   
   <!-- Supabase JS CDN Library -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -270,8 +270,11 @@
         <span class="badge-admin-tag">Spielleitung</span>
       </div>
 
-      <!-- App Version & Force Reload for iOS Home Screen PWAs -->
+      <!-- App Version & Push Notifications -->
       <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border-glass); text-align: center; display: flex; flex-direction: column; gap: 8px; align-items: center;">
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-push-notifications" style="font-size: 0.75rem; padding: 7px 16px; border-color: rgba(245, 158, 11, 0.4); color: var(--sun-gold); border-radius: 999px;">
+          <span>🔔</span> Mitteilungen auf diesem iPhone aktivieren
+        </button>
         <button type="button" class="btn btn-secondary btn-sm" id="btn-logout-user" style="font-size: 0.75rem; padding: 6px 14px; color: #fca5a5; border-color: rgba(239, 68, 68, 0.3); border-radius: 999px; display: none;">
           <span>🚪</span> Auf diesem Gerät abmelden
         </button>
@@ -428,6 +431,21 @@
             </button>
           </div>
         </div>
+
+        <hr style="border: none; border-top: 1px solid var(--border-card); margin: 18px 0;">
+
+        <!-- Admin Push Notification Broadcast / Test -->
+        <div>
+          <h4 class="section-title" style="font-size: 0.9rem; margin-bottom: 8px;">
+            <span>📲</span> Push-Mitteilungen testen
+          </h4>
+          <p style="font-size: 0.74rem; color: var(--text-secondary); margin-bottom: 10px;">
+            Sende eine Test-Mitteilung an alle iPhones und Geräte, die Benachrichtigungen abonniert haben.
+          </p>
+          <button type="button" class="btn btn-secondary btn-sm btn-block" id="btn-admin-send-test-push" style="color: var(--sun-gold); border-color: rgba(245, 158, 11, 0.4);">
+            <span>🔔</span> Test-Mitteilung an alle senden
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -477,6 +495,14 @@
         <div class="form-group">
           <label class="form-label" for="edit-event-desc">Kurze Beschreibung / Orga-Hinweise</label>
           <textarea id="edit-event-desc" class="form-textarea"></textarea>
+        </div>
+
+        <!-- Push Notification Toggle for this update -->
+        <div style="margin-top: 14px; padding: 10px 12px; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: var(--radius-sm); display: flex; align-items: center; gap: 10px;">
+          <input type="checkbox" id="edit-event-send-push" checked style="width: 18px; height: 18px; accent-color: var(--sun-gold); cursor: pointer;">
+          <label for="edit-event-send-push" style="font-size: 0.78rem; color: var(--text-primary); cursor: pointer; margin: 0; font-weight: 600;">
+            📲 Push-Mitteilung an alle Freunde aufs iPhone senden
+          </label>
         </div>
 
         <div style="margin-top: 18px; display: flex; gap: 10px;">
@@ -716,8 +742,9 @@
   <div class="toast-container" id="toast-container"></div>
 
   <!-- JavaScript Scripts -->
-  <script src="js/supabase-config.js?v=20260918_v13"></script>
-  <script src="js/data.js?v=20260918_v13"></script>
-  <script src="js/app.js?v=20260918_v13"></script>
+  <script src="js/vapid-config.js?v=20260918_v14"></script>
+  <script src="js/supabase-config.js?v=20260918_v14"></script>
+  <script src="js/data.js?v=20260918_v14"></script>
+  <script src="js/app.js?v=20260918_v14"></script>
 </body>
 </html>
