@@ -462,49 +462,108 @@
   box-shadow: 0 4px 20px rgba(255, 183, 3, 0.15);
 }
 
+/* Symmetric Event Header Grid (3 Equal Columns) */
 .event-header-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  align-items: stretch;
   margin-bottom: 12px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.event-round-badge {
-  font-family: var(--font-display);
-  font-size: 0.72rem;
+.event-header-chip {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 6px 4px;
+  border-radius: 10px;
+  min-height: 48px;
+  box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid transparent;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.event-header-chip .chip-label {
+  font-size: 0.58rem;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: var(--sun-gold);
-  background: rgba(255, 183, 3, 0.12);
-  border: 1px solid var(--border-solar);
-  padding: 3px 8px;
-  border-radius: var(--radius-pill);
+  letter-spacing: 0.5px;
+  line-height: 1.1;
+  opacity: 0.75;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
-.event-status-badge {
-  font-size: 0.7rem;
-  font-weight: 700;
-  padding: 3px 8px;
-  border-radius: var(--radius-pill);
-}
-
-.status-completed {
-  background: rgba(16, 185, 129, 0.15);
-  color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.3);
-}
-
-.status-next {
-  background: var(--gold-gradient);
-  color: var(--text-inverse);
+.event-header-chip .chip-value {
+  font-size: 0.72rem;
   font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
-.status-upcoming {
-  background: rgba(255, 255, 255, 0.08);
+/* Chip 1: Spieltag */
+.chip-round {
+  background: rgba(255, 183, 3, 0.1);
+  border-color: rgba(255, 183, 3, 0.3);
+  color: var(--sun-gold);
+}
+
+/* Chip 2: Orga */
+.chip-orga {
+  background: rgba(56, 189, 248, 0.08);
+  border-color: rgba(56, 189, 248, 0.25);
+  color: #7dd3fc;
+}
+
+.chip-orga.orga-admin {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+.chip-orga.orga-me {
+  background: var(--gold-gradient);
+  border-color: transparent;
+  color: var(--text-inverse);
+  box-shadow: 0 2px 8px var(--sun-glow);
+}
+
+/* Chip 3: Status */
+.chip-status {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
   color: var(--text-secondary);
+}
+
+.chip-status.status-completed {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #34d399;
+}
+
+.chip-status.status-next {
+  background: rgba(245, 158, 11, 0.18);
+  border-color: var(--sun-gold);
+  color: var(--sun-gold);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+}
+
+.chip-status.status-frozen {
+  background: rgba(168, 85, 247, 0.15);
+  border-color: rgba(168, 85, 247, 0.4);
+  color: #c084fc;
 }
 
 .event-title {
@@ -821,6 +880,170 @@ body.auth-locked #modal-select-user .sheet-handle {
 .form-textarea {
   min-height: 70px;
   resize: vertical;
+}
+
+/* Date & Time Grid and iOS Input Fixes */
+.date-time-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 0;
+  box-sizing: border-box;
+}
+
+.date-time-grid .form-group {
+  min-width: 0;
+  width: 100%;
+  margin-bottom: 14px;
+}
+
+.form-input-datetime {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  height: 46px !important;
+  min-height: 46px !important;
+  font-size: 0.92rem !important;
+  font-family: inherit !important;
+  padding: 10px 12px !important;
+  border-radius: var(--radius-sm) !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  background: var(--bg-input) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-card) !important;
+}
+
+.form-input-datetime:focus {
+  border-color: var(--sun-gold) !important;
+}
+
+/* iOS Safari alignment for native date/time pickers */
+.form-input-datetime::-webkit-date-and-time-value {
+  text-align: left !important;
+  line-height: 1.2 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Location Autocomplete System */
+.location-autocomplete-wrapper {
+  position: relative;
+}
+
+.location-input-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.location-input-box input {
+  padding-right: 36px !important;
+}
+
+.location-search-spinner {
+  position: absolute;
+  right: 12px;
+  font-size: 0.85rem;
+  pointer-events: none;
+  animation: pulseLocationSpinner 1s infinite alternate;
+}
+
+@keyframes pulseLocationSpinner {
+  from { opacity: 0.3; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1.1); }
+}
+
+.location-suggestions-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: rgba(18, 24, 38, 0.98);
+  border: 1px solid var(--border-solar);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  max-height: 230px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.location-suggestion-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.location-suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.location-suggestion-item:hover,
+.location-suggestion-item:active {
+  background: rgba(255, 183, 3, 0.15);
+}
+
+.suggestion-icon {
+  font-size: 1.1rem;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.suggestion-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.suggestion-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.suggestion-subtitle {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Event Location Clickable Map Link in Cards */
+.location-map-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.location-map-link:hover,
+.location-map-link:active {
+  color: #38bdf8;
+  text-decoration: underline;
+}
+
+.location-map-link .map-icon-tag {
+  color: #38bdf8;
+  font-size: 0.75rem;
+  margin-left: 2px;
 }
 
 /* Toast System */

@@ -486,26 +486,67 @@ document.addEventListener('DOMContentLoaded', () => {
       const isFrozen = store.isEventFrozen(evt);
       const isCompleted = evt.status === 'completed';
 
-      // Status Badge
-      let statusBadge = '';
-      if (isCompleted) {
-        statusBadge = `<span class="event-status-badge status-completed">✓ Abgeschlossen</span>`;
-      } else if (isFrozen) {
-        statusBadge = `<span class="status-frozen">🔒 Gestartet (Joker gefreezt)</span>`;
-      } else if (isNext) {
-        statusBadge = `<span class="event-status-badge status-next">⚡ Nächster Spieltag</span>`;
+      // 3-Column Symmetric Header Chips
+      const roundChipHtml = `
+        <div class="event-header-chip chip-round">
+          <span class="chip-label">Spieltag</span>
+          <span class="chip-value">${evt.round} von 8</span>
+        </div>
+      `;
+
+      let orgaChipHtml = '';
+      if (isAdmin) {
+        orgaChipHtml = `
+          <div class="event-header-chip chip-orga orga-admin" title="Organisiert von ${organizer.name}">
+            <span class="chip-label">Orga</span>
+            <span class="chip-value">👤 ${organizer.name}</span>
+          </div>
+        `;
+      } else if (isMyEvent) {
+        orgaChipHtml = `
+          <div class="event-header-chip chip-orga orga-me" title="Dein Spieltag!">
+            <span class="chip-label">Orga</span>
+            <span class="chip-value">👑 Dein Tag</span>
+          </div>
+        `;
       } else {
-        statusBadge = `<span class="event-status-badge status-upcoming">Geplant</span>`;
+        orgaChipHtml = `
+          <div class="event-header-chip chip-orga" title="Organisiert von ${organizer.name}">
+            <span class="chip-label">Orga</span>
+            <span class="chip-value">👤 ${organizer.name}</span>
+          </div>
+        `;
       }
 
-      // Organizer badge (Dein Spieltag vs Organisiert von ...)
-      let orgaBadgeHtml = '';
-      if (isAdmin) {
-        orgaBadgeHtml = `<span class="foreign-event-badge" style="border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;">👤 Orga: ${organizer.name}</span>`;
-      } else if (isMyEvent) {
-        orgaBadgeHtml = `<span class="my-event-badge">👑 Dein Spieltag</span>`;
+      let statusChipHtml = '';
+      if (isCompleted) {
+        statusChipHtml = `
+          <div class="event-header-chip chip-status status-completed">
+            <span class="chip-label">Status</span>
+            <span class="chip-value">✓ Beendet</span>
+          </div>
+        `;
+      } else if (isFrozen) {
+        statusChipHtml = `
+          <div class="event-header-chip chip-status status-frozen">
+            <span class="chip-label">Status</span>
+            <span class="chip-value">🔒 Gestartet</span>
+          </div>
+        `;
+      } else if (isNext) {
+        statusChipHtml = `
+          <div class="event-header-chip chip-status status-next">
+            <span class="chip-label">Status</span>
+            <span class="chip-value">⚡ Nächster</span>
+          </div>
+        `;
       } else {
-        orgaBadgeHtml = `<span class="foreign-event-badge">👤 Orga: ${organizer.name}</span>`;
+        statusChipHtml = `
+          <div class="event-header-chip chip-status status-upcoming">
+            <span class="chip-label">Status</span>
+            <span class="chip-value">📅 Geplant</span>
+          </div>
+        `;
       }
 
       // Freeze notice banner if active and not completed
@@ -693,15 +734,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
+      // Treffpunkt display with interactive map link
+      let locationDisplayHtml = evt.location || 'Wird noch bekannt gegeben';
+      const isKnownLocation = evt.location && !evt.location.toLowerCase().includes('wird von') && !evt.location.toLowerCase().includes('bekannt gegeben');
+      if (isKnownLocation) {
+        const mapUrl = `https://maps.apple.com/?q=${encodeURIComponent(evt.location)}`;
+        locationDisplayHtml = `
+          <a href="${mapUrl}" target="_blank" rel="noopener" class="location-map-link" title="In Karten-App öffnen (Apple / Google Maps)">
+            <span>${evt.location}</span>
+            <span class="map-icon-tag">↗</span>
+          </a>
+        `;
+      }
+
       const card = document.createElement('div');
       card.className = `event-card ${isNext ? 'featured' : ''}`;
       card.innerHTML = `
         <div class="event-header-row">
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span class="event-round-badge">Spieltag ${evt.round} von 8</span>
-            ${orgaBadgeHtml}
-          </div>
-          ${statusBadge}
+          ${roundChipHtml}
+          ${orgaChipHtml}
+          ${statusChipHtml}
         </div>
 
         <h3 class="event-title">${evt.title}</h3>
@@ -718,7 +770,7 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
           <div class="meta-item">
             <span class="meta-label">📍 Treffpunkt</span>
-            <span class="meta-value" title="${evt.location}">${evt.location}</span>
+            <span class="meta-value">${locationDisplayHtml}</span>
           </div>
         </div>
 
@@ -1222,8 +1274,25 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('edit-event-modal-title').textContent = `Spieltag ${evt.round} bearbeiten`;
     document.getElementById('edit-event-title').value = evt.title;
     document.getElementById('edit-event-date').value = evt.date;
-    document.getElementById('edit-event-time').value = evt.time;
-    document.getElementById('edit-event-location').value = evt.location;
+
+    // Parse time into HH:MM for native <input type="time">
+    let cleanTime = '';
+    if (evt.time) {
+      const match = evt.time.match(/(\d{1,2}):(\d{2})/);
+      if (match) {
+        cleanTime = `${match[1].padStart(2, '0')}:${match[2]}`;
+      } else {
+        const hourMatch = evt.time.match(/(\d{1,2})/);
+        if (hourMatch) {
+          cleanTime = `${hourMatch[1].padStart(2, '0')}:00`;
+        }
+      }
+    }
+    document.getElementById('edit-event-time').value = cleanTime;
+    document.getElementById('edit-event-location').value = evt.location || '';
+    if (window.fdsUpdateLocationMapBtn) {
+      window.fdsUpdateLocationMapBtn(evt.location || '');
+    }
     document.getElementById('edit-event-packing').value = (evt.packingList || []).join(', ');
     document.getElementById('edit-event-desc').value = evt.description || '';
 
@@ -1253,7 +1322,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const oldEvt = store.getEvent(eventId);
     const newTitle = document.getElementById('edit-event-title').value.trim();
     const newDate = document.getElementById('edit-event-date').value;
-    const newTime = document.getElementById('edit-event-time').value.trim();
+    const timeVal = document.getElementById('edit-event-time').value.trim();
+    const newTime = timeVal ? `${timeVal} Uhr` : (oldEvt ? oldEvt.time : '');
     const newLocation = document.getElementById('edit-event-location').value.trim();
     const newDesc = document.getElementById('edit-event-desc').value.trim();
     const pushCheckbox = document.getElementById('edit-event-send-push');
@@ -2163,6 +2233,119 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // --- Location Autocomplete via OpenStreetMap / Photon ---
+  function initLocationAutocomplete() {
+    const input = document.getElementById('edit-event-location');
+    const dropdown = document.getElementById('location-suggestions-dropdown');
+    const spinner = document.getElementById('location-spinner');
+    const mapBtn = document.getElementById('btn-open-map-preview');
+    if (!input || !dropdown) return;
+
+    let debounceTimer = null;
+
+    window.fdsUpdateLocationMapBtn = function(query) {
+      if (!mapBtn) return;
+      const clean = (query || '').trim();
+      const isValid = clean && !clean.toLowerCase().includes('wird von') && !clean.toLowerCase().includes('bekannt gegeben');
+      if (isValid) {
+        mapBtn.href = `https://maps.apple.com/?q=${encodeURIComponent(clean)}`;
+        mapBtn.style.display = 'inline-flex';
+      } else {
+        mapBtn.style.display = 'none';
+      }
+    };
+
+    input.addEventListener('input', () => {
+      const query = input.value.trim();
+      window.fdsUpdateLocationMapBtn(query);
+      clearTimeout(debounceTimer);
+
+      if (query.length < 3) {
+        dropdown.style.display = 'none';
+        dropdown.innerHTML = '';
+        if (spinner) spinner.style.display = 'none';
+        return;
+      }
+
+      if (spinner) spinner.style.display = 'block';
+
+      debounceTimer = setTimeout(async () => {
+        try {
+          // OpenStreetMap Photon geocoding API (optimized for German place search & address autocomplete)
+          const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&lang=de&limit=5`;
+          const res = await fetch(url);
+          if (!res.ok) throw new Error('Photon response error');
+          const data = await res.json();
+
+          const features = (data && data.features) ? data.features : [];
+          dropdown.innerHTML = '';
+
+          if (features.length === 0) {
+            dropdown.style.display = 'none';
+            if (spinner) spinner.style.display = 'none';
+            return;
+          }
+
+          features.forEach(f => {
+            const p = f.properties || {};
+            const name = p.name || `${p.street || ''} ${p.housenumber || ''}`.trim() || 'Ort';
+            
+            const parts = [];
+            if (p.street && p.name && p.name !== p.street) {
+              parts.push(`${p.street} ${p.housenumber || ''}`.trim());
+            }
+            if (p.postcode || p.city || p.district) {
+              parts.push(`${p.postcode || ''} ${p.city || p.district || ''}`.trim());
+            }
+            if (p.state && p.state !== p.city) {
+              parts.push(p.state);
+            }
+            const subtitle = parts.filter(Boolean).join(', ');
+
+            let fullAddress = name;
+            if (subtitle && !name.includes(p.city || '')) {
+              fullAddress = `${name} (${subtitle})`;
+            } else if (subtitle) {
+              fullAddress = `${name}, ${subtitle}`;
+            }
+
+            const item = document.createElement('div');
+            item.className = 'location-suggestion-item';
+            item.innerHTML = `
+              <span class="suggestion-icon">📍</span>
+              <div class="suggestion-content">
+                <span class="suggestion-title">${name}</span>
+                ${subtitle ? `<span class="suggestion-subtitle">${subtitle}</span>` : ''}
+              </div>
+            `;
+
+            item.addEventListener('click', () => {
+              input.value = fullAddress;
+              dropdown.style.display = 'none';
+              dropdown.innerHTML = '';
+              window.fdsUpdateLocationMapBtn(fullAddress);
+            });
+
+            dropdown.appendChild(item);
+          });
+
+          dropdown.style.display = 'block';
+        } catch (err) {
+          console.warn('Hinweis bei der Ortssuche:', err);
+          dropdown.style.display = 'none';
+        } finally {
+          if (spinner) spinner.style.display = 'none';
+        }
+      }, 250);
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+        dropdown.style.display = 'none';
+      }
+    });
+  }
+
   // Register Service Worker for PWA & Apple Web Push
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
@@ -2178,6 +2361,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Initial Boot
+  initLocationAutocomplete();
   refreshActiveView();
 });
 

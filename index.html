@@ -474,20 +474,29 @@
           <select id="edit-event-organizer" class="form-select" required></select>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div class="date-time-grid">
           <div class="form-group">
             <label class="form-label" for="edit-event-date">Datum</label>
-            <input type="date" id="edit-event-date" class="form-input" required>
+            <input type="date" id="edit-event-date" class="form-input form-input-datetime" required>
           </div>
           <div class="form-group">
             <label class="form-label" for="edit-event-time">Uhrzeit</label>
-            <input type="text" id="edit-event-time" class="form-input" placeholder="z.B. 15:00 Uhr" required>
+            <input type="time" id="edit-event-time" class="form-input form-input-datetime" step="900" required>
           </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label" for="edit-event-location">Treffpunkt & Ort</label>
-          <input type="text" id="edit-event-location" class="form-input" placeholder="Wo treffen wir uns?" required>
+        <div class="form-group location-autocomplete-wrapper">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label class="form-label" for="edit-event-location" style="margin-bottom: 0;">Treffpunkt & Ort</label>
+            <a id="btn-open-map-preview" href="#" target="_blank" rel="noopener" class="map-link-hint" style="display: none; font-size: 0.72rem; color: #38bdf8; text-decoration: none;">
+              🗺️ Auf Karte ansehen ↗
+            </a>
+          </div>
+          <div class="location-input-box">
+            <input type="text" id="edit-event-location" class="form-input" placeholder="Ort suchen (z.B. Sportplatz, Biergarten, Straße)..." autocomplete="off" required>
+            <span class="location-search-spinner" id="location-spinner" style="display: none;">⏳</span>
+          </div>
+          <div class="location-suggestions-dropdown" id="location-suggestions-dropdown" style="display: none;"></div>
         </div>
 
         <div class="form-group">
