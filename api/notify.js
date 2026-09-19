@@ -87,6 +87,7 @@ module.exports = async function handler(req, res) {
     let sentCount = 0;
     let failedCount = 0;
     const deadSubscriptions = [];
+    const errors = [];
 
     // 2. Dispatch notifications
     await Promise.allSettled(
@@ -104,9 +105,11 @@ module.exports = async function handler(req, res) {
           sentCount++;
         } catch (err) {
           failedCount++;
-          console.warn('Push send error for endpoint:', sub.endpoint, err.statusCode);
-          // HTTP 404 or 410 means subscription is expired / user uninstalled
-          if (err.statusCode === 404 || err.statusCode === 410) {
+          const errMsg = `${err.statusCode || 'ERR'}: ${err.body || err.message}`;
+          console.warn('Push send error for endpoint:', sub.endpoint, errMsg);
+          errors.push(errMsg);
+          // HTTP 400, 401, 403 (key mismatch/revoked) or 404, 410 (uninstalled/expired)
+          if ([400, 401, 403, 404, 410].includes(err.statusCode)) {
             deadSubscriptions.push(sub.endpoint);
           }
         }
@@ -125,7 +128,8 @@ module.exports = async function handler(req, res) {
       success: true,
       sent: sentCount,
       failed: failedCount,
-      pruned: deadSubscriptions.length
+      pruned: deadSubscriptions.length,
+      errors: errors.length > 0 ? errors : undefined
     });
   } catch (err) {
     console.error('Error in notify handler:', err);

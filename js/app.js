@@ -1981,7 +1981,57 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.getSubscription();
+      let sub = await reg.pushManager.getSubscription();
+
+      // Automatische Erneuerung des Push-Abonnements bei VAPID-Key Rotation
+      if (sub && window.FDS_VAPID_PUBLIC_KEY) {
+        try {
+          const expectedKeyBytes = urlBase64ToUint8Array(window.FDS_VAPID_PUBLIC_KEY);
+          const currentKeyBuffer = sub.options ? sub.options.applicationServerKey : null;
+          let needsUpdate = false;
+          if (currentKeyBuffer) {
+            const currentBytes = new Uint8Array(currentKeyBuffer);
+            if (currentBytes.length !== expectedKeyBytes.length) {
+              needsUpdate = true;
+            } else {
+              for (let i = 0; i < currentBytes.length; i++) {
+                if (currentBytes[i] !== expectedKeyBytes[i]) {
+                  needsUpdate = true;
+                  break;
+                }
+              }
+            }
+          }
+          if (needsUpdate) {
+            console.log('🔄 VAPID-Schlüssel aktualisiert – erneuere Push-Abonnement automatisch...');
+            const oldEndpoint = sub.endpoint;
+            await sub.unsubscribe();
+            const client = window.fdsSupabase ? window.fdsSupabase.getClient() : null;
+            if (client) {
+              await client.from('push_subscriptions').delete().eq('endpoint', oldEndpoint);
+            }
+            sub = await reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: expectedKeyBytes
+            });
+            const currentUserId = store.getCurrentUserId();
+            const subRecord = {
+              endpoint: sub.endpoint,
+              p256dh: arrayBufferToBase64(sub.getKey('p256dh')),
+              auth: arrayBufferToBase64(sub.getKey('auth')),
+              user_id: typeof currentUserId === 'number' ? currentUserId : null,
+              user_agent: navigator.userAgent,
+              updated_at: new Date().toISOString()
+            };
+            if (client) {
+              await client.from('push_subscriptions').upsert(subRecord, { onConflict: 'endpoint' });
+            }
+            console.log('✅ Push-Abonnement mit neuem Schlüssel erneuert.');
+          }
+        } catch (autoRenewErr) {
+          console.warn('Hinweis beim Prüfen des VAPID-Schlüssels:', autoRenewErr);
+        }
+      }
 
       if (sub) {
         btn.innerHTML = '<span>🔔</span> Mitteilungen aktiv (Ausschalten)';
