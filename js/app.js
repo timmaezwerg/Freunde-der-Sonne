@@ -151,10 +151,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('btn-user-switcher').addEventListener('click', openUserPickerModal);
 
-  const btnTogglePush = document.getElementById('btn-toggle-push-notifications');
-  if (btnTogglePush) {
-    btnTogglePush.addEventListener('click', togglePushNotifications);
-  }
+  document.querySelectorAll('.btn-push-toggle, #btn-toggle-push-notifications').forEach(btn => {
+    btn.addEventListener('click', togglePushNotifications);
+  });
 
   const btnLogoutUser = document.getElementById('btn-logout-user');
   if (btnLogoutUser) {
@@ -1063,6 +1062,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const leaderboard = store.getLeaderboard();
     const currentUserId = store.getCurrentUserId();
+    updatePushNotificationButtonState();
 
     leaderboard.forEach(member => {
       const jokerInfo = store.getJokerStatus(member.id);
@@ -1961,21 +1961,23 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function updatePushNotificationButtonState() {
-    const btn = document.getElementById('btn-toggle-push-notifications');
-    if (!btn) return;
+    const btns = document.querySelectorAll('.btn-push-toggle, #btn-toggle-push-notifications');
+    if (!btns || btns.length === 0) return;
 
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      if (isIOS && !isStandalone) {
-        btn.innerHTML = '<span>📲</span> Zum Home-Bildschirm hinzufügen für Push';
-        btn.style.color = 'var(--text-muted)';
-        btn.style.borderColor = 'var(--border-glass)';
-      } else {
-        btn.innerHTML = '<span>⚠️</span> Mitteilungen nicht unterstützt';
-        btn.disabled = true;
-      }
+      btns.forEach(btn => {
+        if (isIOS && !isStandalone) {
+          btn.innerHTML = '<span>📲</span> Zum Home-Bildschirm hinzufügen für Push';
+          btn.style.color = 'var(--text-muted)';
+          btn.style.borderColor = 'var(--border-glass)';
+        } else {
+          btn.innerHTML = '<span>⚠️</span> Mitteilungen nicht unterstützt';
+          btn.disabled = true;
+        }
+      });
       return;
     }
 
@@ -2033,15 +2035,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      if (sub) {
-        btn.innerHTML = '<span>🔔</span> Mitteilungen aktiv (Ausschalten)';
-        btn.style.color = '#34d399';
-        btn.style.borderColor = 'rgba(16, 185, 129, 0.4)';
-      } else {
-        btn.innerHTML = '<span>🔔</span> Mitteilungen auf diesem iPhone aktivieren';
-        btn.style.color = 'var(--sun-gold)';
-        btn.style.borderColor = 'rgba(245, 158, 11, 0.4)';
-      }
+      btns.forEach(btn => {
+        if (sub) {
+          btn.innerHTML = '<span>🔔</span> Mitteilungen aktiv (Ausschalten)';
+          btn.style.color = '#34d399';
+          btn.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+        } else {
+          btn.innerHTML = '<span>🔔</span> Mitteilungen auf diesem iPhone aktivieren';
+          btn.style.color = 'var(--sun-gold)';
+          btn.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+        }
+      });
     } catch (err) {
       console.warn('Fehler beim Prüfen der Push-Subscription:', err);
     }
