@@ -2,16 +2,28 @@
 const webpush = require('web-push');
 const { createClient } = require('@supabase/supabase-js');
 
-// VAPID Credentials
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || 'BEz4X98SrmaFHPSSBhME8KamYYEMpjv4qpcxoLTruXxwLp74Bhxa8kInq3e-n7uvKI6blW7vJN1uwWczMjeB7Ms';
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || 'A7exRLgFyS_RvWrkbGWK4TQqCDcjqYmWoZ1MGxKbtek';
-const VAPID_SUBJECT = 'mailto:spielleitung@freunde-der-sonne.app';
+// VAPID Credentials (configured via environment variables in Vercel)
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || 'BFMq_L9r3iA1EBch7BAOB7VWQ22INRH3ouPzlnILQsgtAzcd_XLyIHiF4DUIDWaSvKJ4zS-WkEgobvWvJUD2iKw';
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:spielleitung@freunde-der-sonne.app';
 
 // Supabase Configuration
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://jxipxhxwjcbvafsvtnjx.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'sb_publishable_tCz8ghzT0v4vRe9mpsKPGQ_YM05GMQm';
 
-webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+let vapidConfigured = false;
+function configureVapid() {
+  if (vapidConfigured) return true;
+  if (!VAPID_PRIVATE_KEY) return false;
+  try {
+    webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+    vapidConfigured = true;
+    return true;
+  } catch (err) {
+    console.error('Failed to configure VAPID details:', err);
+    return false;
+  }
+}
 
 module.exports = async function handler(req, res) {
   // CORS Headers
@@ -39,6 +51,13 @@ module.exports = async function handler(req, res) {
 
   if (!title && !body) {
     return res.status(400).json({ error: 'Title or body is required' });
+  }
+
+  if (!configureVapid()) {
+    console.error('Push notification failed: VAPID_PRIVATE_KEY environment variable is not configured.');
+    return res.status(500).json({
+      error: 'Server configuration error: VAPID_PRIVATE_KEY is missing in Vercel environment variables.'
+    });
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
