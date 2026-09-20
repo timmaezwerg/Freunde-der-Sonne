@@ -3,7 +3,7 @@
    Freunde: Lukas, Oli, Sven, Tobi, Tomi, Tim, Gabi, Aaron
    ========================================================= */
 
-const STORAGE_KEY = 'fds_sonne_state_v9';
+const STORAGE_KEY = 'fds_sonne_state_v10';
 const CURRENT_USER_KEY = 'fds_current_user_id';
 const MASTER_ADMIN_PIN = '7777';
 
@@ -220,6 +220,23 @@ const INITIAL_EVENTS = [
     isFrozen: false,
     pendingJokers: [],
     scores: []
+  },
+  {
+    id: 9,
+    round: 9,
+    isSpecial: true,
+    title: 'Traditionelles Wintergrillen 2026',
+    organizerId: 5, // Automatically last place after round 8; initially current 8th place (Tomi)
+    isOrganizerOverridden: false,
+    date: '2026-11-21',
+    time: '17:00 Uhr',
+    location: 'Wird vom Grillmeister bekannt gegeben',
+    description: 'Das traditionelle Wintergrillen der Freunde der Sonne 🥩🔥! Der Tabellenletzte der Saison 2026 muss für die gesamte Truppe grillen und die Getränke stellen. Keine Spieltags-Wertung, keine Joker – einfach ein legendärer Jahresabschluss!',
+    packingList: ['Riesiger Hunger', 'Durst auf Bier & Glühwein', 'Winterjacke & Handschuhe'],
+    status: 'upcoming',
+    isFrozen: false,
+    pendingJokers: [],
+    scores: []
   }
 ];
 
@@ -250,9 +267,15 @@ function toDbMember(m) {
 }
 
 function fromDbEvent(e) {
+  const isSpecial = Number(e.id) === 9 || Number(e.round) === 9;
+  const pendingJokers = Array.isArray(e.pending_jokers) ? e.pending_jokers : [];
+  const isOrganizerOverridden = isSpecial && pendingJokers.includes('override');
+
   return {
     id: Number(e.id),
     round: Number(e.round),
+    isSpecial: isSpecial,
+    isOrganizerOverridden: isOrganizerOverridden,
     title: e.title,
     organizerId: Number(e.organizer_id),
     date: e.date,
@@ -262,12 +285,17 @@ function fromDbEvent(e) {
     packingList: Array.isArray(e.packing_list) ? e.packing_list : [],
     status: e.status || 'upcoming',
     isFrozen: Boolean(e.is_frozen),
-    pendingJokers: Array.isArray(e.pending_jokers) ? e.pending_jokers : [],
+    pendingJokers: pendingJokers,
     scores: Array.isArray(e.scores) ? e.scores : []
   };
 }
 
 function toDbEvent(e) {
+  let pendingJokers = e.pendingJokers || [];
+  if (e.isSpecial || e.id === 9) {
+    pendingJokers = e.isOrganizerOverridden ? ['override'] : [];
+  }
+
   return {
     id: e.id,
     round: e.round,
@@ -280,7 +308,7 @@ function toDbEvent(e) {
     packing_list: e.packingList || [],
     status: e.status,
     is_frozen: Boolean(e.isFrozen),
-    pending_jokers: e.pendingJokers || [],
+    pending_jokers: pendingJokers,
     scores: e.scores || [],
     updated_at: new Date().toISOString()
   };
@@ -296,7 +324,7 @@ class DataStore {
 
   init() {
     // Clean up any legacy storage keys to prevent memory clutter and stale data
-    for (let i = 1; i <= 8; i++) {
+    for (let i = 1; i <= 9; i++) {
       try { localStorage.removeItem(`fds_sonne_state_v${i}`); } catch (e) {}
     }
 
@@ -311,14 +339,41 @@ class DataStore {
           !this.state.members || 
           this.state.members.length !== 8 || 
           !this.state.events || 
-          this.state.events.length !== 8 ||
+          this.state.events.length < 8 ||
           this.state.events[0].title !== 'Poker-Turnier & Drinks'
         ) {
           this.reset();
+        } else {
+          // Guarantee event 9 (Wintergrillen) exists
+          if (!this.state.events.some(e => e.id === 9)) {
+            const wg = INITIAL_EVENTS.find(e => e.id === 9);
+            if (wg) {
+              this.state.events.push(JSON.parse(JSON.stringify(wg)));
+              this.save();
+            }
+          }
+          this.syncWintergrillenOrganizer();
         }
       } catch (e) {
         console.error('Failed to parse localStorage data, resetting', e);
         this.reset();
+      }
+    }
+  }
+
+  syncWintergrillenOrganizer() {
+    if (!this.state || !this.state.events) return;
+    const wg = this.state.events.find(e => e.id === 9 || e.isSpecial);
+    if (!wg) return;
+
+    // If not overridden by Admin, dynamically reflect last place from leaderboard
+    if (!wg.isOrganizerOverridden) {
+      const lb = this.getLeaderboard();
+      if (lb && lb.length > 0) {
+        const loser = lb[lb.length - 1]; // rank 8 (Tabellenletzter)
+        if (loser && loser.id && wg.organizerId !== loser.id) {
+          wg.organizerId = loser.id;
+        }
       }
     }
   }
@@ -340,6 +395,7 @@ class DataStore {
       events: JSON.parse(JSON.stringify(INITIAL_EVENTS)),
       season: 2026
     };
+    this.syncWintergrillenOrganizer();
     this.save();
     return this.state;
   }
@@ -353,10 +409,12 @@ class DataStore {
   }
 
   getEvents() {
+    this.syncWintergrillenOrganizer();
     return this.state.events;
   }
 
   getEvent(id) {
+    this.syncWintergrillenOrganizer();
     return this.state.events.find(e => e.id === Number(id));
   }
 
@@ -488,12 +546,32 @@ class DataStore {
   // --- Admin Event Organizer Allocation ---
   assignEventOrganizer(eventId, newOrganizerId) {
     const evt = this.getEvent(eventId);
-    const newOrg = this.getMember(newOrganizerId);
-    if (!evt || !newOrg) return { success: false, message: 'Ungültige Daten.' };
+    if (!evt) return { success: false, message: 'Ungültige Daten.' };
 
     if (evt.status === 'completed') {
       return { success: false, message: 'Abgeschlossene Spieltage können nicht mehr neu zugeteilt werden.' };
     }
+
+    // Special handling for Wintergrillen (Event 9)
+    if (evt.id === 9 || evt.isSpecial) {
+      if (newOrganizerId === 'auto' || !newOrganizerId) {
+        evt.isOrganizerOverridden = false;
+        evt.pendingJokers = [];
+        this.syncWintergrillenOrganizer();
+        this.save(evt);
+        return { success: true, message: 'Wintergrillen wird nun wieder automatisch durch den Tabellenletzten ausgerichtet!' };
+      }
+      const newOrg = this.getMember(newOrganizerId);
+      if (!newOrg) return { success: false, message: 'Mitglied nicht gefunden.' };
+      evt.organizerId = newOrg.id;
+      evt.isOrganizerOverridden = true;
+      evt.pendingJokers = ['override'];
+      this.save(evt);
+      return { success: true, message: `Wintergrillen wurde ${newOrg.name} als Grillmeister zugeteilt (Admin-Override)!` };
+    }
+
+    const newOrg = this.getMember(newOrganizerId);
+    if (!newOrg) return { success: false, message: 'Ungültige Daten.' };
 
     const oldOrgId = evt.organizerId;
     evt.organizerId = newOrg.id;
@@ -571,6 +649,7 @@ class DataStore {
     if (!pId) return false;
     const evt = this.getEvent(eventId);
     if (!evt) return false;
+    if (evt.id === 9 || evt.isSpecial) return false; // Wintergrillen has no scoring!
     // Once completed: ONLY the Admin can correct the scores!
     if (evt.status === 'completed') return this.isAdmin();
     // Open/upcoming event: organizer or admin
@@ -583,6 +662,7 @@ class DataStore {
   // 3. Cannot use Joker if already used this season!
   // 4. Cannot use Joker or change Joker if event is frozen (begonnen)!
   // 5. Cannot use Joker if event is completed!
+  // 6. Wintergrillen has NO jokers!
   canSetJoker(eventId, playerId = null) {
     const pId = playerId !== null ? playerId : this.getCurrentUserId();
     if (!pId) {
@@ -594,6 +674,10 @@ class DataStore {
 
     const evt = this.getEvent(eventId);
     if (!evt) return { allowed: false, reason: 'Spieltag existiert nicht.' };
+
+    if (evt.id === 9 || evt.isSpecial) {
+      return { allowed: false, reason: 'Beim Wintergrillen gibt es keine Joker!' };
+    }
 
     if (this.isEventFrozen(evt)) {
       return {
@@ -812,7 +896,7 @@ class DataStore {
 
   getLeaderboard() {
     const members = this.getMembers();
-    const completedEvents = this.state.events.filter(e => e.status === 'completed');
+    const completedEvents = this.state.events.filter(e => e.status === 'completed' && !e.isSpecial && e.id !== 9);
 
     const leaderboard = members.map(member => {
       let totalPoints = 0;

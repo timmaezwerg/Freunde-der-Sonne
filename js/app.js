@@ -274,7 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- 3. View: Leaderboard & Wintergrillen ---
   function renderLeaderboard() {
     const leaderboard = store.getLeaderboard();
-    const completedEvents = store.getEvents().filter(e => e.status === 'completed');
+    const completedEvents = store.getEvents().filter(e => e.status === 'completed' && !e.isSpecial && e.id !== 9);
     const currentUserId = store.getCurrentUserId();
     
     // Update completed badge
@@ -486,16 +486,58 @@ document.addEventListener('DOMContentLoaded', () => {
       const isFrozen = store.isEventFrozen(evt);
       const isCompleted = evt.status === 'completed';
 
+      const isSpecial = evt.isSpecial || evt.id === 9;
+
       // 3-Column Symmetric Header Chips
-      const roundChipHtml = `
-        <div class="event-header-chip chip-round">
-          <span class="chip-label">Spieltag</span>
-          <span class="chip-value">${evt.round} von 8</span>
-        </div>
-      `;
+      let roundChipHtml = '';
+      if (isSpecial) {
+        roundChipHtml = `
+          <div class="event-header-chip chip-round" style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.22), rgba(249, 115, 22, 0.22)); border-color: rgba(249, 115, 22, 0.5);">
+            <span class="chip-label" style="color: #f97316;">Spezial</span>
+            <span class="chip-value">🥩 Wintergrillen</span>
+          </div>
+        `;
+      } else {
+        roundChipHtml = `
+          <div class="event-header-chip chip-round">
+            <span class="chip-label">Spieltag</span>
+            <span class="chip-value">${evt.round} von 8</span>
+          </div>
+        `;
+      }
 
       let orgaChipHtml = '';
-      if (isAdmin) {
+      if (isSpecial) {
+        const round8Done = store.getEvent(8)?.status === 'completed';
+        const orgaTitle = evt.isOrganizerOverridden
+          ? `Grillmeister: ${organizer.name} (Vom Admin bestimmt)`
+          : round8Done
+            ? `Grillmeister: ${organizer.name} (Tabellenletzter der Saison 🥩)`
+            : `Grillmeister: ${organizer.name} (Aktuell Letzter – final nach Spieltag 8)`;
+
+        if (isAdmin) {
+          orgaChipHtml = `
+            <div class="event-header-chip chip-orga orga-admin" title="${orgaTitle}">
+              <span class="chip-label">Grillmeister</span>
+              <span class="chip-value">🥩 ${organizer.name}</span>
+            </div>
+          `;
+        } else if (isMyEvent) {
+          orgaChipHtml = `
+            <div class="event-header-chip chip-orga orga-me" title="Du musst grillen! ${orgaTitle}">
+              <span class="chip-label">Grillmeister</span>
+              <span class="chip-value">🥩 Du grillst!</span>
+            </div>
+          `;
+        } else {
+          orgaChipHtml = `
+            <div class="event-header-chip chip-orga" title="${orgaTitle}">
+              <span class="chip-label">Grillmeister</span>
+              <span class="chip-value">🥩 ${organizer.name}</span>
+            </div>
+          `;
+        }
+      } else if (isAdmin) {
         orgaChipHtml = `
           <div class="event-header-chip chip-orga orga-admin" title="Organisiert von ${organizer.name}">
             <span class="chip-label">Orga</span>
@@ -526,7 +568,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <span class="chip-value">✓ Beendet</span>
           </div>
         `;
-      } else if (isFrozen) {
+      } else if (isFrozen && !isSpecial) {
         statusChipHtml = `
           <div class="event-header-chip chip-status status-frozen">
             <span class="chip-label">Status</span>
@@ -549,9 +591,9 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
       }
 
-      // Freeze notice banner if active and not completed
+      // Freeze notice banner if active and not completed (regular events only)
       let frozenBannerHtml = '';
-      if (isFrozen && !isCompleted) {
+      if (!isSpecial && isFrozen && !isCompleted) {
         frozenBannerHtml = `
           <div class="frozen-notice-banner">
             <span>🔒</span>
@@ -562,35 +604,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Secret Joker display (Pre-completion: names remain secret! Post-completion: revealed!)
       let pendingJokersHtml = '';
-      if (!isCompleted) {
-        const pendingList = evt.pendingJokers || [];
-        if (pendingList.length > 0) {
-          const hasMyJoker = !isAdmin && pendingList.includes(currentUserId);
-          const count = pendingList.length;
-          pendingJokersHtml = `
-            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; align-items: center;">
-              ${hasMyJoker ? `<span class="my-joker-active-badge">⚡ Dein Joker ist aktiv (geheim)</span>` : ''}
-              <span class="secret-joker-badge">🎭 ${count} ${count === 1 ? 'geheimer Joker' : 'geheime Joker'} angemeldet (Auflösung am Ende)</span>
-            </div>
-          `;
-        }
-      } else {
-        // Completed: reveal jokers!
-        const revealedNames = (evt.scores || [])
-          .filter(s => s.jokerApplied)
-          .map(s => {
-            const m = store.getMember(s.playerId);
-            return m ? `${(m.avatar && !isImageAvatar(m.avatar)) ? m.avatar + ' ' : ''}${m.name}` : '';
-          })
-          .filter(Boolean);
+      if (!isSpecial) {
+        if (!isCompleted) {
+          const pendingList = evt.pendingJokers || [];
+          if (pendingList.length > 0) {
+            const hasMyJoker = !isAdmin && pendingList.includes(currentUserId);
+            const count = pendingList.length;
+            pendingJokersHtml = `
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; align-items: center;">
+                ${hasMyJoker ? `<span class="my-joker-active-badge">⚡ Dein Joker ist aktiv (geheim)</span>` : ''}
+                <span class="secret-joker-badge">🎭 ${count} ${count === 1 ? 'geheimer Joker' : 'geheime Joker'} angemeldet (Auflösung am Ende)</span>
+              </div>
+            `;
+          }
+        } else {
+          // Completed: reveal jokers!
+          const revealedNames = (evt.scores || [])
+            .filter(s => s.jokerApplied)
+            .map(s => {
+              const m = store.getMember(s.playerId);
+              return m ? `${(m.avatar && !isImageAvatar(m.avatar)) ? m.avatar + ' ' : ''}${m.name}` : '';
+            })
+            .filter(Boolean);
 
-        if (revealedNames.length > 0) {
-          pendingJokersHtml = `
-            <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid var(--border-solar); border-radius: var(--radius-sm); padding: 8px 12px; margin-bottom: 12px; font-size: 0.78rem; color: var(--sun-gold); display: flex; align-items: center; gap: 8px;">
-              <span>🃏</span>
-              <div><strong>Gespielte Joker (Punkte x2 verdoppelt):</strong> ${revealedNames.join(', ')}</div>
-            </div>
-          `;
+          if (revealedNames.length > 0) {
+            pendingJokersHtml = `
+              <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid var(--border-solar); border-radius: var(--radius-sm); padding: 8px 12px; margin-bottom: 12px; font-size: 0.78rem; color: var(--sun-gold); display: flex; align-items: center; gap: 8px;">
+                <span>🃏</span>
+                <div><strong>Gespielte Joker (Punkte x2 verdoppelt):</strong> ${revealedNames.join(', ')}</div>
+              </div>
+            `;
+          }
         }
       }
 
@@ -619,7 +663,37 @@ document.addEventListener('DOMContentLoaded', () => {
       // Actions Builder
       let actionsHtml = '';
 
-      if (isCompleted) {
+      if (isSpecial) {
+        // Special Wintergrillen Event (no scoring, no jokers)
+        if (isAdmin) {
+          actionsHtml = `
+            <button class="btn btn-primary btn-sm btn-edit-event" data-event-id="${evt.id}">
+              <span>⚙️</span> Details & Orga bearbeiten
+            </button>
+            <button class="btn btn-secondary btn-sm btn-toggle-wintergrillen-status" data-event-id="${evt.id}">
+              <span>${isCompleted ? '🔓 Als geplant markieren' : '✓ Als beendet markieren'}</span>
+            </button>
+            <span style="font-size: 0.72rem; color: #fca5a5; display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; background: rgba(239, 68, 68, 0.1); border-radius: var(--radius-sm);">
+              🛡️ Admin-Modus
+            </span>
+          `;
+        } else if (isMyEvent) {
+          actionsHtml = `
+            <button class="btn btn-primary btn-sm btn-edit-event" data-event-id="${evt.id}">
+              <span>⚙️</span> Grillfest planen & bearbeiten
+            </button>
+            <span style="font-size: 0.75rem; color: #f97316; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+              🥩 Du bist Grillmeister
+            </span>
+          `;
+        } else {
+          actionsHtml = `
+            <span style="font-size: 0.75rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;">
+              🥩 Traditioneller Jahresabschluss (keine Wertung)
+            </span>
+          `;
+        }
+      } else if (isCompleted) {
         if (isAdmin) {
           // Admin can view, correct scores, edit details, or reopen!
           actionsHtml = `
@@ -852,6 +926,18 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
           showToast(res.message, '❌');
         }
+      });
+    });
+
+    document.querySelectorAll('.btn-toggle-wintergrillen-status').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const eventId = Number(btn.getAttribute('data-event-id'));
+        const evt = store.getEvent(eventId);
+        if (!evt) return;
+        const nextStatus = evt.status === 'completed' ? 'upcoming' : 'completed';
+        store.updateEvent(eventId, { status: nextStatus });
+        showToast(`Wintergrillen-Status: ${nextStatus === 'completed' ? '✓ Beendet' : '📅 Geplant'}`, '🥩');
+        renderEvents();
       });
     });
   }
@@ -1263,15 +1349,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const currentUserId = store.getCurrentUserId();
     const organizer = store.getMember(evt.organizerId) || { name: 'Organisator', avatar: '👤' };
+    const isSpecial = evt.isSpecial || evt.id === 9;
 
     // Strict authorization: Only the designated organizer may edit their matchday!
     if (!store.canEditEvent(eventId, currentUserId)) {
-      showToast(`Zugriff verweigert: Nur ${organizer.name} darf diesen Spieltag bearbeiten!`, '🔒');
+      showToast(`Zugriff verweigert: Nur ${organizer.name} darf dieses Event bearbeiten!`, '🔒');
       return;
     }
 
     document.getElementById('edit-event-id').value = evt.id;
-    document.getElementById('edit-event-modal-title').textContent = `Spieltag ${evt.round} bearbeiten`;
+    document.getElementById('edit-event-modal-title').textContent = isSpecial
+      ? 'Wintergrillen 2026 bearbeiten'
+      : `Spieltag ${evt.round} bearbeiten`;
     document.getElementById('edit-event-title').value = evt.title;
     document.getElementById('edit-event-date').value = evt.date;
 
@@ -1296,15 +1385,33 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('edit-event-packing').value = (evt.packingList || []).join(', ');
     document.getElementById('edit-event-desc').value = evt.description || '';
 
-    // Organizer select: Fixed to the designated friend!
+    // Organizer select: Fixed for normal events; flexible for Admin on Wintergrillen!
     const orgSelect = document.getElementById('edit-event-organizer');
     orgSelect.innerHTML = '';
-    const opt = document.createElement('option');
-    opt.value = organizer.id;
-    opt.textContent = `${(organizer.avatar && !isImageAvatar(organizer.avatar)) ? organizer.avatar + ' ' : ''}${organizer.name} (Organisator)`;
-    opt.selected = true;
-    orgSelect.appendChild(opt);
-    orgSelect.disabled = true; // Fixed role: no accidental organizer changes!
+
+    if (isSpecial && store.isAdmin()) {
+      orgSelect.disabled = false;
+      const optAuto = document.createElement('option');
+      optAuto.value = 'auto';
+      optAuto.textContent = '🤖 Automatisch (Tabellenletzter nach Spieltag 8)';
+      if (!evt.isOrganizerOverridden) optAuto.selected = true;
+      orgSelect.appendChild(optAuto);
+
+      store.getMembers().forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = `👤 ${m.name} (Manuell als Grillmeister setzen)`;
+        if (evt.isOrganizerOverridden && evt.organizerId === m.id) opt.selected = true;
+        orgSelect.appendChild(opt);
+      });
+    } else {
+      const opt = document.createElement('option');
+      opt.value = organizer.id;
+      opt.textContent = `${(organizer.avatar && !isImageAvatar(organizer.avatar)) ? organizer.avatar + ' ' : ''}${organizer.name} (${isSpecial ? 'Grillmeister' : 'Organisator'})`;
+      opt.selected = true;
+      orgSelect.appendChild(opt);
+      orgSelect.disabled = true; // Fixed role: no accidental organizer changes!
+    }
 
     // Reset push checkbox to checked by default
     const pushCheckbox = document.getElementById('edit-event-send-push');
@@ -1320,6 +1427,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const packingList = packingRaw.split(',').map(s => s.trim()).filter(Boolean);
 
     const oldEvt = store.getEvent(eventId);
+    const isSpecial = oldEvt && (oldEvt.isSpecial || oldEvt.id === 9);
     const newTitle = document.getElementById('edit-event-title').value.trim();
     const newDate = document.getElementById('edit-event-date').value;
     const timeVal = document.getElementById('edit-event-time').value.trim();
@@ -1349,17 +1457,31 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    store.updateEvent(eventId, {
+    const updatePayload = {
       title: newTitle,
       date: newDate,
       time: newTime,
       location: newLocation,
       packingList: packingList,
       description: newDesc
-    });
+    };
+
+    if (isSpecial && store.isAdmin()) {
+      const orgVal = document.getElementById('edit-event-organizer').value;
+      if (orgVal === 'auto') {
+        updatePayload.isOrganizerOverridden = false;
+        updatePayload.pendingJokers = [];
+      } else {
+        updatePayload.organizerId = Number(orgVal);
+        updatePayload.isOrganizerOverridden = true;
+        updatePayload.pendingJokers = ['override'];
+      }
+    }
+
+    store.updateEvent(eventId, updatePayload);
 
     closeAllModals();
-    showToast('Spieltag-Details erfolgreich aktualisiert!', '✅');
+    showToast(isSpecial ? 'Wintergrillen-Details erfolgreich aktualisiert!' : 'Spieltag-Details erfolgreich aktualisiert!', '✅');
     renderEvents();
 
     // Dispatch push notification to all subscribed iPhones if enabled and there are changes
@@ -1674,17 +1796,31 @@ document.addEventListener('DOMContentLoaded', () => {
       const row = document.createElement('div');
       row.className = 'admin-allocation-row';
       const isCompleted = evt.status === 'completed';
+      const isSpecial = evt.isSpecial || evt.id === 9;
 
-      const options = members.map(m => `
-        <option value="${m.id}" ${m.id === evt.organizerId ? 'selected' : ''}>
-          ${(m.avatar && !isImageAvatar(m.avatar)) ? m.avatar + ' ' : ''}${m.name}
-        </option>
-      `).join('');
+      let options = '';
+      if (isSpecial) {
+        options = `
+          <option value="auto" ${!evt.isOrganizerOverridden ? 'selected' : ''}>
+            🤖 Auto (Tabellenletzter nach Spieltag 8)
+          </option>
+        ` + members.map(m => `
+          <option value="${m.id}" ${(evt.isOrganizerOverridden && m.id === evt.organizerId) ? 'selected' : ''}>
+            ${(m.avatar && !isImageAvatar(m.avatar)) ? m.avatar + ' ' : ''}${m.name} (Manuell überschreiben)
+          </option>
+        `).join('');
+      } else {
+        options = members.map(m => `
+          <option value="${m.id}" ${m.id === evt.organizerId ? 'selected' : ''}>
+            ${(m.avatar && !isImageAvatar(m.avatar)) ? m.avatar + ' ' : ''}${m.name}
+          </option>
+        `).join('');
+      }
 
       row.innerHTML = `
         <div class="admin-event-info">
           <div class="admin-event-title">
-            Spieltag ${evt.round}: ${evt.title}
+            ${isSpecial ? '🥩 Spezial: ' + evt.title : 'Spieltag ' + evt.round + ': ' + evt.title}
             ${isCompleted ? '<span style="font-size: 0.68rem; color: #10b981; font-weight: 700; margin-left: 6px;">(✓ Abgeschlossen)</span>' : ''}
           </div>
           <div class="admin-event-sub">📅 ${formatDate(evt.date)} • ${evt.time}</div>
@@ -1715,7 +1851,8 @@ document.addEventListener('DOMContentLoaded', () => {
     selects.forEach(sel => {
       if (!sel.disabled) {
         const eventId = Number(sel.getAttribute('data-event-id'));
-        const newOrgId = Number(sel.value);
+        const val = sel.value;
+        const newOrgId = val === 'auto' ? 'auto' : Number(val);
         store.assignEventOrganizer(eventId, newOrgId);
       }
     });
@@ -1739,7 +1876,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Modal 4: WhatsApp Share Generator
   function generateWhatsAppText() {
     const leaderboard = store.getLeaderboard();
-    const completedEvents = store.getEvents().filter(e => e.status === 'completed');
+    const completedEvents = store.getEvents().filter(e => e.status === 'completed' && !e.isSpecial && e.id !== 9);
     const nextUpcoming = store.getEvents().find(e => e.status !== 'completed');
 
     let text = `☀️ *FREUNDE DER SONNE 2026* ☀️\n`;

@@ -233,6 +233,12 @@ VALUES
   'Das große Saison-Finale 2026 bei Tim! Wer wird neuer Sonnenkönig 👑 und wer muss als Tabellenletzter das Wintergrillen 🥩 für die Gruppe ausrichten?',
   '["Feierlaune", "Details folgen"]'::jsonb,
   'upcoming', false, '[]'::jsonb, '[]'::jsonb
+),
+(
+  9, 9, 'Traditionelles Wintergrillen 2026', 5, '2026-11-21', '17:00 Uhr', 'Wird vom Grillmeister bekannt gegeben',
+  'Das traditionelle Wintergrillen der Freunde der Sonne 🥩🔥! Der Tabellenletzte der Saison 2026 muss für die gesamte Truppe grillen und die Getränke stellen. Keine Spieltags-Wertung, keine Joker – einfach ein legendärer Jahresabschluss!',
+  '["Riesiger Hunger", "Durst auf Bier & Glühwein", "Winterjacke & Handschuhe"]'::jsonb,
+  'upcoming', false, '[]'::jsonb, '[]'::jsonb
 )
 ON CONFLICT (id) DO UPDATE SET
   round = EXCLUDED.round,
