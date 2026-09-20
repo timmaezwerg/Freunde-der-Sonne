@@ -192,7 +192,7 @@ VALUES
 ),
 (
   5, 5, 'Minigames Olympiade', 5, '2026-08-07', '16:00 Uhr', 'Tomis Obstwiese & Park',
-  'Geschicklichkeits-Challenges & Garten-Minigames bei Tomi. Oli setzte sich durch und holte sich den Tagessieg mit 8 Punkten!',
+  'Geschicklichkeits-Challenges & Garten-Minigames bei Tomi. Oli setzte sich durch und holte sich den Tagessieg mit 8 Punkten! Aaron zündete seinen Joker und verdoppelte auf 4 Punkte (2x2).',
   '["Bequeme Kleidung", "Sneaker", "Sonnenschutz"]'::jsonb,
   'completed', true, '[]'::jsonb,
   '[
@@ -201,14 +201,14 @@ VALUES
     {"playerId": 3, "rank": 3, "basePoints": 6, "points": 6, "jokerApplied": false},
     {"playerId": 6, "rank": 4, "basePoints": 5, "points": 5, "jokerApplied": false},
     {"playerId": 4, "rank": 5, "basePoints": 4, "points": 4, "jokerApplied": false},
-    {"playerId": 8, "rank": 5, "basePoints": 4, "points": 4, "jokerApplied": false},
-    {"playerId": 7, "rank": 7, "basePoints": 3, "points": 3, "jokerApplied": false},
+    {"playerId": 7, "rank": 6, "basePoints": 3, "points": 3, "jokerApplied": false},
+    {"playerId": 8, "rank": 7, "basePoints": 2, "points": 4, "jokerApplied": true},
     {"playerId": 5, "rank": 8, "basePoints": 1, "points": 1, "jokerApplied": false}
   ]'::jsonb
 ),
 (
   6, 6, 'Squash & Power-Match', 4, '2026-08-29', '14:00 Uhr', 'Squash & Fitness Center',
-  'Rasante Duelle auf dem Squash-Court bei Tobi! Tobi dominierte sein Heim-Event mit 8 Punkten. Aaron hat seinen Joker eingesetzt.',
+  'Rasante Duelle auf dem Squash-Court bei Tobi! Tobi dominierte sein Heim-Event mit 8 Punkten.',
   '["Squashschläger", "Helle Hallensohlen", "Handtuch", "Viel Wasser"]'::jsonb,
   'completed', true, '[]'::jsonb,
   '[
@@ -219,7 +219,7 @@ VALUES
     {"playerId": 7, "rank": 5, "basePoints": 4, "points": 4, "jokerApplied": false},
     {"playerId": 6, "rank": 6, "basePoints": 3, "points": 3, "jokerApplied": false},
     {"playerId": 3, "rank": 7, "basePoints": 2, "points": 2, "jokerApplied": false},
-    {"playerId": 8, "rank": 8, "basePoints": 0, "points": 0, "jokerApplied": true}
+    {"playerId": 8, "rank": 8, "basePoints": 0, "points": 0, "jokerApplied": false}
   ]'::jsonb
 ),
 (

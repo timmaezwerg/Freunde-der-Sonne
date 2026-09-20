@@ -3,7 +3,7 @@
    Freunde: Lukas, Oli, Sven, Tobi, Tomi, Tim, Gabi, Aaron
    ========================================================= */
 
-const STORAGE_KEY = 'fds_sonne_state_v8';
+const STORAGE_KEY = 'fds_sonne_state_v9';
 const CURRENT_USER_KEY = 'fds_current_user_id';
 const MASTER_ADMIN_PIN = '7777';
 
@@ -151,7 +151,7 @@ const INITIAL_EVENTS = [
     date: '2026-08-07',
     time: '16:00 Uhr',
     location: 'Tomis Obstwiese & Park',
-    description: 'Geschicklichkeits-Challenges & Garten-Minigames bei Tomi. Oli setzte sich durch und holte sich den Tagessieg mit 8 Punkten!',
+    description: 'Geschicklichkeits-Challenges & Garten-Minigames bei Tomi. Oli setzte sich durch und holte sich den Tagessieg mit 8 Punkten! Aaron zündete seinen Joker und verdoppelte auf 4 Punkte (2x2).',
     packingList: ['Bequeme Kleidung', 'Sneaker', 'Sonnenschutz'],
     status: 'completed',
     isFrozen: true,
@@ -162,8 +162,8 @@ const INITIAL_EVENTS = [
       { playerId: 3, rank: 3, basePoints: 6, points: 6, jokerApplied: false },  // Sven (6)
       { playerId: 6, rank: 4, basePoints: 5, points: 5, jokerApplied: false },  // Tim (5)
       { playerId: 4, rank: 5, basePoints: 4, points: 4, jokerApplied: false },  // Tobi (4)
-      { playerId: 8, rank: 5, basePoints: 4, points: 4, jokerApplied: false },  // Aaron (4)
-      { playerId: 7, rank: 7, basePoints: 3, points: 3, jokerApplied: false },  // Gabi (3)
+      { playerId: 7, rank: 6, basePoints: 3, points: 3, jokerApplied: false },  // Gabi (3)
+      { playerId: 8, rank: 7, basePoints: 2, points: 4, jokerApplied: true },   // Aaron (4 ⚡ Joker verbraucht)
       { playerId: 5, rank: 8, basePoints: 1, points: 1, jokerApplied: false }   // Tomi (1)
     ]
   },
@@ -175,7 +175,7 @@ const INITIAL_EVENTS = [
     date: '2026-08-29',
     time: '14:00 Uhr',
     location: 'Squash & Fitness Center',
-    description: 'Rasante Duelle auf dem Squash-Court bei Tobi! Tobi dominierte sein Heim-Event mit 8 Punkten. Aaron hat seinen Joker eingesetzt.',
+    description: 'Rasante Duelle auf dem Squash-Court bei Tobi! Tobi dominierte sein Heim-Event mit 8 Punkten.',
     packingList: ['Squashschläger', 'Helle Hallensohlen', 'Handtuch', 'Viel Wasser'],
     status: 'completed',
     isFrozen: true,
@@ -188,7 +188,7 @@ const INITIAL_EVENTS = [
       { playerId: 7, rank: 5, basePoints: 4, points: 4, jokerApplied: false },  // Gabi (4)
       { playerId: 6, rank: 6, basePoints: 3, points: 3, jokerApplied: false },  // Tim (3)
       { playerId: 3, rank: 7, basePoints: 2, points: 2, jokerApplied: false },  // Sven (2)
-      { playerId: 8, rank: 8, basePoints: 0, points: 0, jokerApplied: true }   // Aaron (0 ⚡ Joker verbraucht)
+      { playerId: 8, rank: 8, basePoints: 0, points: 0, jokerApplied: false }   // Aaron (0)
     ]
   },
   {
@@ -296,7 +296,7 @@ class DataStore {
 
   init() {
     // Clean up any legacy storage keys to prevent memory clutter and stale data
-    for (let i = 1; i <= 7; i++) {
+    for (let i = 1; i <= 8; i++) {
       try { localStorage.removeItem(`fds_sonne_state_v${i}`); } catch (e) {}
     }
 
