@@ -437,12 +437,23 @@ document.addEventListener('DOMContentLoaded', () => {
       runningPodiums[m.id] = 0;
     });
 
+    const DISTINCT_CHART_COLORS = {
+      1: '#38bdf8', // Lukas: Himmelblau 🎯
+      2: '#ec4899', // Oli: Pink / Magenta 🧢
+      3: '#a855f7', // Sven: Violett / Lila 🧠
+      4: '#facc15', // Tobi: Helles Elektro-Gelb ⚡
+      5: '#ea580c', // Tomi: Sonnen-Rotorange ☀️
+      6: '#f59e0b', // Tim: Warmes Sonnen-Gold 👑
+      7: '#059669', // Gabi: Dunkles Smaragdgrün 🏃‍♂️
+      8: '#a3e635'  // Aaron: Helles, leuchtendes Limettengrün 🍀
+    };
+
     const playerProgression = members.map(m => ({
       id: m.id,
       name: m.name,
       nickname: m.nickname,
       avatar: m.avatar,
-      color: m.color || '#f59e0b',
+      color: DISTINCT_CHART_COLORS[m.id] || m.color || '#f59e0b',
       roundScores: {},
       ranksByRound: {},
       cumPointsByRound: {},

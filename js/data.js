@@ -19,12 +19,12 @@ const ADMIN_ACCOUNT = {
 const INITIAL_MEMBERS = [
   { id: 1, name: 'Lukas', nickname: 'Luki', avatar: '🎯', pin: '1234', color: '#38bdf8', isAdmin: false },
   { id: 2, name: 'Oli', nickname: 'Oli-Wan', avatar: '🧢', pin: '1234', color: '#ec4899', isAdmin: false },
-  { id: 3, name: 'Sven', nickname: 'Der Stratege', avatar: '🧠', pin: '1234', color: '#a78bfa', isAdmin: false },
-  { id: 4, name: 'Tobi', nickname: 'Kraftpaket', avatar: '⚡', pin: '1234', color: '#f59e0b', isAdmin: false },
-  { id: 5, name: 'Tomi', nickname: 'Sonnenanbeter', avatar: '☀️', pin: '1234', color: '#f97316', isAdmin: false },
-  { id: 6, name: 'Tim', nickname: 'Der Macher', avatar: '👑', pin: '1234', color: '#ffb703', isAdmin: false },
-  { id: 7, name: 'Gabi', nickname: 'Dauerläufer', avatar: '🏃‍♂️', pin: '1234', color: '#10b981', isAdmin: false },
-  { id: 8, name: 'Aaron', nickname: 'Glückspilz', avatar: '🍀', pin: '1234', color: '#34d399', isAdmin: false }
+  { id: 3, name: 'Sven', nickname: 'Der Stratege', avatar: '🧠', pin: '1234', color: '#a855f7', isAdmin: false },
+  { id: 4, name: 'Tobi', nickname: 'Kraftpaket', avatar: '⚡', pin: '1234', color: '#facc15', isAdmin: false },
+  { id: 5, name: 'Tomi', nickname: 'Sonnenanbeter', avatar: '☀️', pin: '1234', color: '#ea580c', isAdmin: false },
+  { id: 6, name: 'Tim', nickname: 'Der Macher', avatar: '👑', pin: '1234', color: '#f59e0b', isAdmin: false },
+  { id: 7, name: 'Gabi', nickname: 'Dauerläufer', avatar: '🏃‍♂️', pin: '1234', color: '#059669', isAdmin: false },
+  { id: 8, name: 'Aaron', nickname: 'Glückspilz', avatar: '🍀', pin: '1234', color: '#a3e635', isAdmin: false }
 ];
 
 const HISTORICAL_SEASONS = [

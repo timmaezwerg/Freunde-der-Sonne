@@ -90,12 +90,12 @@ INSERT INTO public.members (id, name, nickname, avatar, pin, color, is_admin)
 VALUES
   (1, 'Lukas', 'Luki', '🎯', '1234', '#38bdf8', false),
   (2, 'Oli', 'Oli-Wan', '🧢', '1234', '#ec4899', false),
-  (3, 'Sven', 'Der Stratege', '🧠', '1234', '#a78bfa', false),
-  (4, 'Tobi', 'Kraftpaket', '⚡', '1234', '#f59e0b', false),
-  (5, 'Tomi', 'Sonnenanbeter', '☀️', '1234', '#f97316', false),
-  (6, 'Tim', 'Der Macher', '👑', '1234', '#ffb703', false),
-  (7, 'Gabi', 'Dauerläufer', '🏃‍♂️', '1234', '#10b981', false),
-  (8, 'Aaron', 'Glückspilz', '🍀', '1234', '#34d399', false)
+  (3, 'Sven', 'Der Stratege', '🧠', '1234', '#a855f7', false),
+  (4, 'Tobi', 'Kraftpaket', '⚡', '1234', '#facc15', false),
+  (5, 'Tomi', 'Sonnenanbeter', '☀️', '1234', '#ea580c', false),
+  (6, 'Tim', 'Der Macher', '👑', '1234', '#f59e0b', false),
+  (7, 'Gabi', 'Dauerläufer', '🏃‍♂️', '1234', '#059669', false),
+  (8, 'Aaron', 'Glückspilz', '🍀', '1234', '#a3e635', false)
 ON CONFLICT (id) DO UPDATE SET
   name = EXCLUDED.name,
   nickname = COALESCE(members.nickname, EXCLUDED.nickname),
