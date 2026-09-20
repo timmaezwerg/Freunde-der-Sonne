@@ -407,8 +407,487 @@ document.addEventListener('DOMContentLoaded', () => {
       radarContainer.appendChild(item);
     });
 
+    // Populate Season 2026 Progression & Fieberkurve
+    renderSeasonProgression();
+
     // Populate 2025 History
     renderHistory2025();
+  }
+
+  // --- Season 2026 Progression & Fieberkurve Mechanics ---
+  let feverChartSelectedPlayer = null;
+  let currentProgressionTab = 'matrix';
+
+  function calculateSeasonProgression() {
+    const members = store.getMembers();
+    const allEvents = store.getEvents();
+    const regularEvents = allEvents
+      .filter(e => !e.isSpecial && e.id !== 9)
+      .sort((a, b) => a.round - b.round);
+    
+    const completedEvents = regularEvents.filter(e => e.status === 'completed');
+    const maxRounds = 8;
+    
+    const runningTotals = {};
+    const runningWins = {};
+    const runningPodiums = {};
+    members.forEach(m => {
+      runningTotals[m.id] = 0;
+      runningWins[m.id] = 0;
+      runningPodiums[m.id] = 0;
+    });
+
+    const playerProgression = members.map(m => ({
+      id: m.id,
+      name: m.name,
+      nickname: m.nickname,
+      avatar: m.avatar,
+      color: m.color || '#f59e0b',
+      roundScores: {},
+      ranksByRound: {},
+      cumPointsByRound: {},
+      totalPoints: 0,
+      currentRank: 1,
+      rankDelta: 0
+    }));
+
+    completedEvents.forEach(evt => {
+      const r = evt.round;
+      if (evt.scores && Array.isArray(evt.scores)) {
+        evt.scores.forEach(s => {
+          const p = playerProgression.find(item => item.id === s.playerId);
+          if (p) {
+            p.roundScores[r] = {
+              points: s.points,
+              basePoints: s.basePoints || s.points,
+              rank: s.rank,
+              jokerApplied: !!s.jokerApplied,
+              roundWinner: s.rank === 1
+            };
+            runningTotals[s.playerId] = (runningTotals[s.playerId] || 0) + s.points;
+            if (s.rank === 1) runningWins[s.playerId] = (runningWins[s.playerId] || 0) + 1;
+            if (s.rank <= 3) runningPodiums[s.playerId] = (runningPodiums[s.playerId] || 0) + 1;
+          }
+        });
+      }
+
+      // Standings after round r
+      const roundStandings = members.map(m => ({
+        playerId: m.id,
+        cumPoints: runningTotals[m.id] || 0,
+        wins: runningWins[m.id] || 0,
+        podiums: runningPodiums[m.id] || 0
+      }));
+
+      roundStandings.sort((a, b) => {
+        if (b.cumPoints !== a.cumPoints) return b.cumPoints - a.cumPoints;
+        if (b.wins !== a.wins) return b.wins - a.wins;
+        return b.podiums - a.podiums;
+      });
+
+      for (let i = 0; i < roundStandings.length; i++) {
+        if (i > 0 && roundStandings[i].cumPoints === roundStandings[i - 1].cumPoints &&
+            roundStandings[i].wins === roundStandings[i - 1].wins &&
+            roundStandings[i].podiums === roundStandings[i - 1].podiums) {
+          roundStandings[i].rank = roundStandings[i - 1].rank;
+        } else {
+          roundStandings[i].rank = i + 1;
+        }
+
+        const p = playerProgression.find(item => item.id === roundStandings[i].playerId);
+        if (p) {
+          p.ranksByRound[r] = roundStandings[i].rank;
+          p.cumPointsByRound[r] = roundStandings[i].cumPoints;
+        }
+      }
+    });
+
+    const lastRound = completedEvents.length > 0 ? completedEvents[completedEvents.length - 1].round : 0;
+    const prevRound = completedEvents.length > 1 ? completedEvents[completedEvents.length - 2].round : 0;
+
+    playerProgression.forEach(p => {
+      p.totalPoints = runningTotals[p.id] || 0;
+      p.currentRank = p.ranksByRound[lastRound] || 8;
+      if (lastRound && prevRound && p.ranksByRound[lastRound] && p.ranksByRound[prevRound]) {
+        p.rankDelta = p.ranksByRound[prevRound] - p.ranksByRound[lastRound];
+      } else {
+        p.rankDelta = 0;
+      }
+    });
+
+    playerProgression.sort((a, b) => a.currentRank - b.currentRank || b.totalPoints - a.totalPoints);
+
+    return {
+      players: playerProgression,
+      regularEvents,
+      completedEvents,
+      lastRound,
+      maxRounds
+    };
+  }
+
+  function renderSeasonProgression() {
+    const matrixContainer = document.getElementById('season-matrix-container');
+    const chartContainer = document.getElementById('fever-chart-container');
+    if (!matrixContainer || !chartContainer) return;
+
+    const progData = calculateSeasonProgression();
+
+    renderSeasonMatrix(progData);
+    renderChartFilterChips(progData);
+    renderFeverChart(progData, feverChartSelectedPlayer);
+    setupProgressionListeners(progData);
+  }
+
+  function renderSeasonMatrix(progData) {
+    const container = document.getElementById('season-matrix-container');
+    if (!container) return;
+
+    let html = `
+      <table class="matrix-table">
+        <thead>
+          <tr>
+            <th class="matrix-sticky-header">Spieler</th>
+            <th>ST 1</th>
+            <th>ST 2</th>
+            <th>ST 3</th>
+            <th>ST 4</th>
+            <th>ST 5</th>
+            <th>ST 6</th>
+            <th>ST 7</th>
+            <th>ST 8</th>
+            <th style="color: var(--sun-gold);">Gesamt</th>
+            <th>Platz</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    progData.players.forEach(p => {
+      const rankIcon = p.currentRank === 1 ? '🥇' : p.currentRank === 2 ? '🥈' : p.currentRank === 3 ? '🥉' : p.currentRank === 8 ? '🥩' : `${p.currentRank}.`;
+
+      let trendHtml = '';
+      if (p.rankDelta > 0) {
+        trendHtml = `<span style="color: #10b981; font-weight: 800; font-size: 0.72rem; margin-left: 3px;" title="Verbessert um ${p.rankDelta} Plätze">▲ +${p.rankDelta}</span>`;
+      } else if (p.rankDelta < 0) {
+        trendHtml = `<span style="color: #ef4444; font-weight: 800; font-size: 0.72rem; margin-left: 3px;" title="Verschlechtert um ${Math.abs(p.rankDelta)} Plätze">▼ ${p.rankDelta}</span>`;
+      } else {
+        trendHtml = `<span style="color: var(--text-muted); font-size: 0.72rem; margin-left: 3px;" title="Platzierung unverändert">▬</span>`;
+      }
+
+      html += `
+        <tr>
+          <td class="matrix-sticky-col">
+            <div class="matrix-player-cell">
+              <span class="matrix-rank-badge">${rankIcon}</span>
+              <div class="avatar-sm">${renderAvatar(p.avatar)}</div>
+              <span style="color: ${p.color};">${p.name}</span>
+            </div>
+          </td>
+      `;
+
+      for (let r = 1; r <= 8; r++) {
+        const score = p.roundScores[r];
+        if (score) {
+          if (score.jokerApplied) {
+            html += `<td><span class="matrix-joker-badge" title="Joker eingesetzt! Verdoppelt auf ${score.points} Pkt.">${score.points} ⚡</span></td>`;
+          } else if (score.roundWinner) {
+            html += `<td><span class="matrix-points-val" style="color: #fbbf24; font-weight: 800;" title="Tagessieg!">${score.points} <span class="matrix-winner-badge">🥇</span></span></td>`;
+          } else {
+            html += `<td><span class="matrix-points-val">${score.points}</span></td>`;
+          }
+        } else if (r <= progData.lastRound) {
+          html += `<td><span style="color: var(--text-muted);">-</span></td>`;
+        } else {
+          html += `<td><span style="color: var(--text-muted); opacity: 0.4;">-</span></td>`;
+        }
+      }
+
+      html += `
+          <td class="matrix-total-cell">${p.totalPoints}</td>
+          <td style="white-space: nowrap; font-weight: 700; font-size: 0.8rem;">
+            ${p.currentRank}. ${trendHtml}
+          </td>
+        </tr>
+      `;
+    });
+
+    html += `
+        </tbody>
+      </table>
+    `;
+
+    container.innerHTML = html;
+  }
+
+  function renderChartFilterChips(progData) {
+    const container = document.getElementById('chart-filter-container');
+    if (!container) return;
+
+    let html = `
+      <button type="button" class="chart-chip ${feverChartSelectedPlayer === null ? 'active' : ''}" data-player-id="all">
+        <span>👥</span> Alle Spieler
+      </button>
+    `;
+
+    progData.players.forEach(p => {
+      const isSelected = feverChartSelectedPlayer === p.id;
+      html += `
+        <button type="button" class="chart-chip ${isSelected ? 'active' : ''}" data-player-id="${p.id}" style="--chip-color: ${p.color}; ${isSelected ? `border-color: ${p.color}; color: #fff; background: ${p.color}25;` : ''}">
+          <span style="display:inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${p.color}; flex-shrink: 0;"></span>
+          <div class="avatar-sm" style="width: 18px; height: 18px; font-size: 0.72rem; flex-shrink: 0;">${renderAvatar(p.avatar)}</div>
+          <span style="white-space: nowrap;">${p.name}</span>
+        </button>
+      `;
+    });
+
+    container.innerHTML = html;
+
+    container.querySelectorAll('.chart-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const pId = btn.dataset.playerId;
+        if (pId === 'all') {
+          feverChartSelectedPlayer = null;
+        } else {
+          const numId = parseInt(pId, 10);
+          feverChartSelectedPlayer = feverChartSelectedPlayer === numId ? null : numId;
+        }
+        renderChartFilterChips(progData);
+        renderFeverChart(progData, feverChartSelectedPlayer);
+      });
+    });
+  }
+
+  function renderFeverChart(progData, selectedPlayerId = null) {
+    const container = document.getElementById('fever-chart-container');
+    if (!container) return;
+    if (!progData) progData = calculateSeasonProgression();
+
+    const lastRound = progData.lastRound || 1;
+    const maxRounds = 8;
+    const startX = 52;
+    const stepX = 74;
+    const startY = 30;
+    const stepY = 30;
+
+    let svg = `
+      <svg class="fever-chart-svg" viewBox="0 0 620 285" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <filter id="fever-glow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
+        </defs>
+
+        <!-- Horizontal Rank Lines -->
+    `;
+
+    for (let k = 1; k <= 8; k++) {
+      const y = startY + (k - 1) * stepY;
+      if (k === 1) {
+        svg += `
+          <line x1="48" y1="${y}" x2="585" y2="${y}" stroke="rgba(245, 158, 11, 0.25)" stroke-width="1.2" />
+          <text x="44" y="${y + 4}" fill="#f59e0b" font-size="11" font-weight="800" text-anchor="end">1. 👑</text>
+        `;
+      } else if (k === 8) {
+        svg += `
+          <line x1="48" y1="${y}" x2="585" y2="${y}" stroke="rgba(239, 68, 68, 0.25)" stroke-width="1.2" />
+          <text x="44" y="${y + 4}" fill="#ef4444" font-size="11" font-weight="800" text-anchor="end">8. 🔥</text>
+        `;
+      } else {
+        svg += `
+          <line x1="48" y1="${y}" x2="585" y2="${y}" stroke="rgba(255, 255, 255, 0.05)" stroke-width="1" />
+          <text x="44" y="${y + 4}" fill="#64748b" font-size="10.5" font-weight="600" text-anchor="end">${k}.</text>
+        `;
+      }
+    }
+
+    // Divider for completed rounds if between 1 and 7
+    if (lastRound < maxRounds) {
+      const dividerX = startX + (lastRound - 1) * stepX + (stepX / 2);
+      svg += `
+        <line x1="${dividerX}" y1="18" x2="${dividerX}" y2="248" stroke="rgba(245, 158, 11, 0.3)" stroke-width="1.2" stroke-dasharray="4 3" />
+        <text x="${dividerX + 4}" y="23" fill="#f59e0b" font-size="8.5" font-weight="700">Aktueller Stand (ST ${lastRound})</text>
+      `;
+    }
+
+    // X-Axis Matchday Labels
+    for (let r = 1; r <= maxRounds; r++) {
+      const x = startX + (r - 1) * stepX;
+      const isCompleted = r <= lastRound;
+      svg += `
+        <text x="${x}" y="266" fill="${isCompleted ? '#94a3b8' : '#64748b'}" font-size="10.5" font-weight="${isCompleted ? '700' : '500'}" opacity="${isCompleted ? '1' : '0.6'}" text-anchor="middle">
+          ST ${r}
+        </text>
+      `;
+    }
+
+    // Render Curves for Players
+    const hasSelection = selectedPlayerId !== null;
+
+    // Sort to draw selected player on top
+    const sortedPlayers = [...progData.players].sort((a, b) => {
+      if (a.id === selectedPlayerId) return 1;
+      if (b.id === selectedPlayerId) return -1;
+      return 0;
+    });
+
+    sortedPlayers.forEach(p => {
+      const isSelected = selectedPlayerId === p.id;
+      const strokeOpacity = !hasSelection ? 0.8 : (isSelected ? 1.0 : 0.16);
+      const strokeWidth = isSelected ? 4 : (!hasSelection ? 2.5 : 1.5);
+      const filterAttr = isSelected ? 'filter="url(#fever-glow)"' : '';
+
+      const points = [];
+      for (let r = 1; r <= lastRound; r++) {
+        const rank = p.ranksByRound[r];
+        if (rank) {
+          points.push({
+            round: r,
+            rank: rank,
+            x: startX + (r - 1) * stepX,
+            y: startY + (rank - 1) * stepY
+          });
+        }
+      }
+
+      if (points.length > 0) {
+        let pathD = '';
+        for (let i = 0; i < points.length; i++) {
+          const pt = points[i];
+          if (i === 0) {
+            pathD += `M ${pt.x} ${pt.y}`;
+          } else {
+            const prev = points[i - 1];
+            const dx = pt.x - prev.x;
+            pathD += ` C ${prev.x + dx * 0.45} ${prev.y}, ${pt.x - dx * 0.45} ${pt.y}, ${pt.x} ${pt.y}`;
+          }
+        }
+
+        svg += `
+          <path d="${pathD}" fill="none" stroke="${p.color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" opacity="${strokeOpacity}" ${filterAttr} class="fever-chart-line" data-player-id="${p.id}" style="cursor: pointer; transition: stroke-width 0.2s, opacity 0.2s;" />
+        `;
+
+        // Dots for points
+        points.forEach(pt => {
+          const dotRadius = isSelected ? 5.5 : 4;
+          const dotStrokeWidth = isSelected ? 2.5 : 2;
+          svg += `
+            <circle cx="${pt.x}" cy="${pt.y}" r="${dotRadius}" fill="${p.color}" stroke="#131929" stroke-width="${dotStrokeWidth}" opacity="${strokeOpacity > 0.3 ? 1 : 0.25}" class="fever-chart-dot" data-player-id="${p.id}" data-round="${pt.round}" style="cursor: pointer; transition: all 0.2s;" />
+          `;
+        });
+
+        // If selected or highlighted, display label at end point
+        if (isSelected && points.length > 0) {
+          const lastPt = points[points.length - 1];
+          svg += `
+            <text x="${lastPt.x + 8}" y="${lastPt.y + 3.5}" fill="${p.color}" font-size="10.5" font-weight="800">
+              ${p.name} (P${lastPt.rank})
+            </text>
+          `;
+        }
+      }
+    });
+
+    svg += `</svg>`;
+    container.innerHTML = svg;
+
+    setupFeverChartInteractions(container, progData);
+  }
+
+  function setupFeverChartInteractions(container, progData) {
+    const tooltip = document.getElementById('fever-chart-tooltip');
+    if (!tooltip) return;
+
+    container.querySelectorAll('.fever-chart-dot, .fever-chart-line').forEach(el => {
+      const showInfo = (e) => {
+        const playerId = parseInt(el.dataset.playerId, 10);
+        const round = el.dataset.round ? parseInt(el.dataset.round, 10) : null;
+        const player = progData.players.find(p => p.id === playerId);
+        if (!player) return;
+
+        let content = '';
+        const avatarHtml = `<span style="display:inline-flex; width: 20px; height: 20px; border-radius: 50%; overflow: hidden; align-items: center; justify-content: center; vertical-align: middle; margin-right: 4px;">${renderAvatar(player.avatar)}</span>`;
+
+        if (round) {
+          const score = player.roundScores[round];
+          const rank = player.ranksByRound[round];
+          const cumPts = player.cumPointsByRound[round];
+          let extra = '';
+          if (score) {
+            extra = ` • Spieltag ${round}: +${score.points} Pkt.`;
+            if (score.jokerApplied) extra += ' ⚡ (Joker)';
+            if (score.roundWinner) extra += ' 🥇 (Tagessieg)';
+          }
+          content = `<div style="display: flex; align-items: center; flex-wrap: wrap; gap: 4px;">${avatarHtml} <strong>${player.name}</strong> <span>• Nach ST ${round}:</span> <strong style="color: var(--sun-gold);">Platz ${rank}</strong> <span>(${cumPts} Pkt. gesamt)</span>${extra}</div>`;
+        } else {
+          content = `<div style="display: flex; align-items: center; flex-wrap: wrap; gap: 4px;">${avatarHtml} <strong>${player.name}</strong> <span>• Aktuell:</span> <strong style="color: var(--sun-gold);">Platz ${player.currentRank}</strong> <span>(${player.totalPoints} Punkte)</span></div>`;
+        }
+
+        tooltip.innerHTML = content;
+        tooltip.style.display = 'block';
+      };
+
+      el.addEventListener('mouseenter', showInfo);
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showInfo(e);
+        const playerId = parseInt(el.dataset.playerId, 10);
+        if (playerId) {
+          feverChartSelectedPlayer = feverChartSelectedPlayer === playerId ? null : playerId;
+          renderChartFilterChips(progData);
+          renderFeverChart(progData, feverChartSelectedPlayer);
+        }
+      });
+    });
+  }
+
+  function setupProgressionListeners(progData) {
+    const toggle = document.getElementById('toggle-season-progression');
+    const content = document.getElementById('season-progression-content');
+    const chevron = document.getElementById('season-progression-chevron');
+    if (toggle && content && !toggle._hasClickListener) {
+      toggle._hasClickListener = true;
+      toggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        const isClosed = !content.style.display || content.style.display === 'none';
+        content.style.display = isClosed ? 'block' : 'none';
+        if (chevron) {
+          chevron.textContent = isClosed ? 'Schließen ▴' : 'Übersicht ▾';
+        }
+        if (isClosed && currentProgressionTab === 'chart') {
+          renderFeverChart(progData, feverChartSelectedPlayer);
+        }
+      });
+    }
+
+    const btnMatrix = document.getElementById('btn-prog-matrix');
+    const btnChart = document.getElementById('btn-prog-chart');
+    const matrixView = document.getElementById('prog-matrix-view');
+    const chartView = document.getElementById('prog-chart-view');
+
+    if (btnMatrix && !btnMatrix._hasClickListener) {
+      btnMatrix._hasClickListener = true;
+      btnMatrix.addEventListener('click', () => {
+        currentProgressionTab = 'matrix';
+        btnMatrix.classList.add('active');
+        btnChart.classList.remove('active');
+        if (matrixView) matrixView.style.display = 'block';
+        if (chartView) chartView.style.display = 'none';
+      });
+    }
+
+    if (btnChart && !btnChart._hasClickListener) {
+      btnChart._hasClickListener = true;
+      btnChart.addEventListener('click', () => {
+        currentProgressionTab = 'chart';
+        btnChart.classList.add('active');
+        btnMatrix.classList.remove('active');
+        if (matrixView) matrixView.style.display = 'none';
+        if (chartView) chartView.style.display = 'block';
+        renderFeverChart(progData, feverChartSelectedPlayer);
+      });
+    }
   }
 
   function renderHistory2025() {

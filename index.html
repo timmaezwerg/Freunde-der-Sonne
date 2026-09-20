@@ -15,8 +15,8 @@
   <link rel="manifest" href="manifest.json">
   
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/style.css?v=20260918_v14">
-  <link rel="stylesheet" href="css/components.css?v=20260918_v14">
+  <link rel="stylesheet" href="css/style.css?v=20260920_v1">
+  <link rel="stylesheet" href="css/components.css?v=20260920_v1">
   
   <!-- Supabase JS CDN Library -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -91,6 +91,53 @@
           </p>
           <div class="radar-grid" id="joker-radar-container">
             <!-- Dynamically filled -->
+          </div>
+        </div>
+
+        <!-- Saisonverlauf & Spieltag-Matrix 2026 -->
+        <div class="glass-card" style="margin-top: 14px;">
+          <div class="section-header" style="margin-bottom: 0; cursor: pointer; user-select: none;" id="toggle-season-progression">
+            <h4 class="section-title" style="font-size: 0.95rem;">
+              <span>📈</span> Spieltag-Übersicht & Fieberkurve
+            </h4>
+            <span class="section-badge" id="season-progression-chevron" style="color: var(--sun-gold);">Übersicht ▾</span>
+          </div>
+          <div id="season-progression-content" style="display: none; margin-top: 14px;">
+            <!-- Segmented Control Switcher -->
+            <div class="progression-segmented-nav">
+              <button class="prog-nav-btn active" id="btn-prog-matrix" type="button">
+                <span>📊</span> Spieltag-Matrix
+              </button>
+              <button class="prog-nav-btn" id="btn-prog-chart" type="button">
+                <span>📈</span> Fieberkurve (Plätze)
+              </button>
+            </div>
+
+            <!-- Tab 1: Spieltag-Matrix -->
+            <div id="prog-matrix-view">
+              <div class="matrix-table-wrapper" id="season-matrix-container">
+                <!-- Dynamically rendered matrix table -->
+              </div>
+              <div class="matrix-legend">
+                <span><strong style="color: var(--sun-gold);">⚡</strong> = Joker x2</span>
+                <span>👑 = Tagessieger</span>
+                <span>🥩 = Platz 8</span>
+              </div>
+            </div>
+
+            <!-- Tab 2: Fieberkurve (Formkurve) -->
+            <div id="prog-chart-view" style="display: none;">
+              <div class="chart-filter-chips" id="chart-filter-container">
+                <!-- Dynamically generated player chips -->
+              </div>
+              <div class="fever-chart-wrapper" id="fever-chart-container">
+                <!-- Responsive SVG Chart -->
+              </div>
+              <div class="chart-tooltip-box" id="fever-chart-tooltip" style="display: none;"></div>
+              <div class="chart-legend-hint">
+                💡 Tippe auf einen Freund oben, um dessen Kurve hervorzuheben.
+              </div>
+            </div>
           </div>
         </div>
 
@@ -754,9 +801,9 @@
   <div class="toast-container" id="toast-container"></div>
 
   <!-- JavaScript Scripts -->
-  <script src="js/vapid-config.js?v=20260918_v14"></script>
-  <script src="js/supabase-config.js?v=20260918_v14"></script>
-  <script src="js/data.js?v=20260918_v14"></script>
-  <script src="js/app.js?v=20260918_v14"></script>
+  <script src="js/vapid-config.js?v=20260920_v1"></script>
+  <script src="js/supabase-config.js?v=20260920_v1"></script>
+  <script src="js/data.js?v=20260920_v1"></script>
+  <script src="js/app.js?v=20260920_v1"></script>
 </body>
 </html>
