@@ -2196,6 +2196,16 @@ body.auth-locked #modal-select-user .sheet-handle {
   background: linear-gradient(135deg, rgba(20, 26, 42, 0.9) 0%, rgba(30, 27, 75, 0.35) 100%);
 }
 
+#simulator-chevron,
+#season-progression-chevron,
+#history-2025-chevron {
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+
 .sim-tabs-nav {
   display: grid;
   grid-template-columns: 1fr 1fr;

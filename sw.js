@@ -2,7 +2,7 @@
    Freunde der Sonne - Service Worker with Offline Cache & Push
    ========================================================= */
 
-const CACHE_NAME = 'fds-cache-v20260921-2';
+const CACHE_NAME = 'fds-cache-v20260921-3';
 const PRECACHE_ASSETS = [
   './',
   './index.html',
