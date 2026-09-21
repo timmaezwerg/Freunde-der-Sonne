@@ -271,6 +271,27 @@ function fromDbEvent(e) {
   const pendingJokers = Array.isArray(e.pending_jokers) ? e.pending_jokers : [];
   const isOrganizerOverridden = isSpecial && pendingJokers.includes('override');
 
+  let packingItems = [];
+  let rsvps = {};
+
+  if (Array.isArray(e.packing_list)) {
+    packingItems = e.packing_list.map(it => {
+      if (typeof it === 'string') return { text: it, checked: false, broughtBy: null };
+      return it;
+    });
+  } else if (e.packing_list && typeof e.packing_list === 'object') {
+    const rawItems = Array.isArray(e.packing_list.items) ? e.packing_list.items : [];
+    packingItems = rawItems.map(it => {
+      if (typeof it === 'string') return { text: it, checked: false, broughtBy: null };
+      return it;
+    });
+    rsvps = (e.packing_list.rsvps && typeof e.packing_list.rsvps === 'object') ? e.packing_list.rsvps : {};
+  }
+
+  if (e.rsvps && typeof e.rsvps === 'object' && Object.keys(e.rsvps).length > 0) {
+    rsvps = e.rsvps;
+  }
+
   return {
     id: Number(e.id),
     round: Number(e.round),
@@ -282,7 +303,8 @@ function fromDbEvent(e) {
     time: e.time,
     location: e.location,
     description: e.description || '',
-    packingList: Array.isArray(e.packing_list) ? e.packing_list : [],
+    packingList: packingItems,
+    rsvps: rsvps,
     status: e.status || 'upcoming',
     isFrozen: Boolean(e.is_frozen),
     pendingJokers: pendingJokers,
@@ -296,6 +318,11 @@ function toDbEvent(e) {
     pendingJokers = e.isOrganizerOverridden ? ['override'] : [];
   }
 
+  const packingPayload = {
+    items: Array.isArray(e.packingList) ? e.packingList : [],
+    rsvps: (e.rsvps && typeof e.rsvps === 'object') ? e.rsvps : {}
+  };
+
   return {
     id: e.id,
     round: e.round,
@@ -305,7 +332,7 @@ function toDbEvent(e) {
     time: e.time,
     location: e.location,
     description: e.description,
-    packing_list: e.packingList || [],
+    packing_list: packingPayload,
     status: e.status,
     is_frozen: Boolean(e.isFrozen),
     pending_jokers: pendingJokers,
@@ -352,6 +379,20 @@ class DataStore {
               this.save();
             }
           }
+          // Normalize packingList and rsvps on all events
+          this.state.events.forEach(evt => {
+            if (!evt.rsvps || typeof evt.rsvps !== 'object') {
+              evt.rsvps = {};
+            }
+            if (Array.isArray(evt.packingList)) {
+              evt.packingList = evt.packingList.map(it => {
+                if (typeof it === 'string') return { text: it, checked: false, broughtBy: null };
+                return it;
+              });
+            } else {
+              evt.packingList = [];
+            }
+          });
           this.syncWintergrillenOrganizer();
         }
       } catch (e) {
@@ -964,6 +1005,180 @@ class DataStore {
     Object.assign(member, fields);
     this.save(member);
     return true;
+  }
+
+  // --- RSVP (Spieltags-Zusagen) ---
+  setRsvp(eventId, memberId, status) {
+    const evt = this.getEvent(eventId);
+    if (!evt) return { success: false, message: 'Spieltag nicht gefunden.' };
+    if (!evt.rsvps || typeof evt.rsvps !== 'object') evt.rsvps = {};
+
+    const mId = Number(memberId);
+    // Toggle off if same status clicked again
+    if (evt.rsvps[mId] === status) {
+      delete evt.rsvps[mId];
+    } else {
+      evt.rsvps[mId] = status; // 'yes' | 'late' | 'no'
+    }
+
+    this.save(evt);
+    return { success: true, rsvps: evt.rsvps };
+  }
+
+  getRsvps(eventId) {
+    const evt = this.getEvent(eventId);
+    const rsvps = (evt && evt.rsvps) || {};
+    const members = this.getMembers();
+
+    const result = {
+      yes: [],
+      late: [],
+      no: [],
+      none: []
+    };
+
+    members.forEach(m => {
+      const status = rsvps[m.id];
+      if (status === 'yes') result.yes.push(m);
+      else if (status === 'late') result.late.push(m);
+      else if (status === 'no') result.no.push(m);
+      else result.none.push(m);
+    });
+
+    return result;
+  }
+
+  // --- Persistent Packing List with Item Claiming ---
+  togglePackingItem(eventId, itemIdx) {
+    const evt = this.getEvent(eventId);
+    if (!evt || !evt.packingList || !evt.packingList[itemIdx]) return false;
+
+    if (typeof evt.packingList[itemIdx] === 'string') {
+      evt.packingList[itemIdx] = { text: evt.packingList[itemIdx], checked: true, broughtBy: null };
+    } else {
+      evt.packingList[itemIdx].checked = !evt.packingList[itemIdx].checked;
+    }
+
+    this.save(evt);
+    return true;
+  }
+
+  claimPackingItem(eventId, itemIdx, memberId) {
+    const evt = this.getEvent(eventId);
+    if (!evt || !evt.packingList || !evt.packingList[itemIdx]) return false;
+
+    const mId = Number(memberId);
+    if (typeof evt.packingList[itemIdx] === 'string') {
+      evt.packingList[itemIdx] = { text: evt.packingList[itemIdx], checked: false, broughtBy: mId };
+    } else {
+      const current = evt.packingList[itemIdx].broughtBy;
+      evt.packingList[itemIdx].broughtBy = (current === mId) ? null : mId;
+    }
+
+    this.save(evt);
+    return true;
+  }
+
+  // --- Was-wäre-wenn? Szenarien-Simulator (Spieltag 7 & 8) ---
+  simulateSeason(predictions) {
+    const currentLeaderboard = this.getLeaderboard();
+    const rankPointsMap = [0, 8, 7, 6, 5, 4, 3, 2, 1];
+
+    const simResults = currentLeaderboard.map(m => {
+      let addPoints = 0;
+      let r7Points = 0;
+      let r8Points = 0;
+      let r7Rank = null;
+      let r8Rank = null;
+
+      // Round 7
+      if (predictions && predictions.round7 && predictions.round7.ranks) {
+        const r7 = predictions.round7.ranks[m.id];
+        if (r7 && r7 >= 1 && r7 <= 8) {
+          r7Rank = r7;
+          const base = rankPointsMap[r7] || 0;
+          const isJoker = (predictions.round7.jokers || []).includes(m.id);
+          r7Points = isJoker ? base * 2 : base;
+          addPoints += r7Points;
+        }
+      }
+
+      // Round 8
+      if (predictions && predictions.round8 && predictions.round8.ranks) {
+        const r8 = predictions.round8.ranks[m.id];
+        if (r8 && r8 >= 1 && r8 <= 8) {
+          r8Rank = r8;
+          const base = rankPointsMap[r8] || 0;
+          const isJoker = (predictions.round8.jokers || []).includes(m.id);
+          r8Points = isJoker ? base * 2 : base;
+          addPoints += r8Points;
+        }
+      }
+
+      return {
+        ...m,
+        simTotalPoints: m.totalPoints + addPoints,
+        simAddPoints: addPoints,
+        simR7Points: r7Points,
+        simR8Points: r8Points,
+        simR7Rank: r7Rank,
+        simR8Rank: r8Rank,
+        originalRank: m.rank
+      };
+    });
+
+    simResults.sort((a, b) => {
+      if (b.simTotalPoints !== a.simTotalPoints) return b.simTotalPoints - a.simTotalPoints;
+      if (b.wins !== a.wins) return b.wins - a.wins;
+      return b.podiums - a.podiums;
+    });
+
+    for (let i = 0; i < simResults.length; i++) {
+      if (i > 0 && simResults[i].simTotalPoints === simResults[i - 1].simTotalPoints) {
+        simResults[i].simRank = simResults[i - 1].simRank;
+      } else {
+        simResults[i].simRank = i + 1;
+      }
+      simResults[i].rankDiff = simResults[i].originalRank - simResults[i].simRank;
+    }
+
+    const winner = simResults[0];
+    const loser = simResults[simResults.length - 1];
+
+    return {
+      table: simResults,
+      winner,
+      loser
+    };
+  }
+
+  getMathematicalOdds() {
+    const lb = this.getLeaderboard();
+    const potentialMax = {};
+    const potentialMin = {};
+
+    lb.forEach(m => {
+      const hasJoker = m.jokerInfo.status === 'available';
+      const maxAdd = hasJoker ? (16 + 8) : (8 + 8);
+      const minAdd = (1 + 1);
+      potentialMax[m.id] = m.totalPoints + maxAdd;
+      potentialMin[m.id] = m.totalPoints + minAdd;
+    });
+
+    // Lowest possible points for leader Lukas (ID: 1)
+    const lukasMin = potentialMin[1] || 48;
+    const canWinTitle = lb.filter(m => potentialMax[m.id] >= lukasMin).map(m => m.id);
+
+    // Highest possible points for Aaron (ID: 8)
+    const aaronMax = potentialMax[8] || 36;
+    const canEndLast = lb.filter(m => potentialMin[m.id] <= aaronMax).map(m => m.id);
+
+    return {
+      canWinTitle,
+      canEndLast,
+      potentialMax,
+      potentialMin
+    };
   }
 
   // --- Cloud Sync (Supabase) Integration ---

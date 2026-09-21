@@ -29,12 +29,16 @@ CREATE TABLE IF NOT EXISTS public.events (
     location TEXT NOT NULL,
     description TEXT,
     packing_list JSONB DEFAULT '[]'::jsonb,
+    rsvps JSONB DEFAULT '{}'::jsonb,
     status TEXT DEFAULT 'upcoming',
     is_frozen BOOLEAN DEFAULT FALSE,
     pending_jokers JSONB DEFAULT '[]'::jsonb,
     scores JSONB DEFAULT '[]'::jsonb,
     updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now())
 );
+
+-- Migration für bestehende Datenbanken
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS rsvps JSONB DEFAULT '{}'::jsonb;
 
 CREATE TABLE IF NOT EXISTS public.history_seasons (
     year INT PRIMARY KEY,

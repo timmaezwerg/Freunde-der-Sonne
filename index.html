@@ -15,8 +15,8 @@
   <link rel="manifest" href="manifest.json">
   
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/style.css?v=20260920_v2">
-  <link rel="stylesheet" href="css/components.css?v=20260920_v2">
+  <link rel="stylesheet" href="css/style.css?v=20260921_v3">
+  <link rel="stylesheet" href="css/components.css?v=20260921_v3">
   
   <!-- Supabase JS CDN Library -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -63,12 +63,15 @@
            TAB 1: TABELLE & LEADERBOARD
            ======================================================== -->
       <section id="view-leaderboard" class="view-panel active">
+        <!-- Live Countdown Banner for Next Spieltag -->
+        <div id="live-countdown-container"></div>
+
         <!-- Standings 1 to 8 List -->
         <div class="section-header">
           <h3 class="section-title">
             <span>🏆</span> Gesamtwertung
           </h3>
-          <span class="section-badge" id="completed-rounds-badge">3 / 8 Spieltage</span>
+          <span class="section-badge" id="completed-rounds-badge">6 / 8 Spieltage</span>
         </div>
 
         <div class="rankings-list" id="rankings-list-container">
@@ -91,6 +94,71 @@
           </p>
           <div class="radar-grid" id="joker-radar-container">
             <!-- Dynamically filled -->
+          </div>
+        </div>
+
+        <!-- Was-wäre-wenn? Szenarien-Simulator 2026 -->
+        <div class="glass-card simulator-card" id="simulator-widget">
+          <div class="section-header" style="margin-bottom: 0; cursor: pointer; user-select: none;" id="toggle-simulator">
+            <h4 class="section-title" style="font-size: 0.95rem;">
+              <span>🔮</span> Was-wäre-wenn? Titel- & Grill-Simulator
+            </h4>
+            <span class="section-badge" id="simulator-chevron" style="color: #c4b5fd;">Simulieren ▾</span>
+          </div>
+          <div id="simulator-content" style="display: none; margin-top: 14px;">
+            <p style="font-size: 0.76rem; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.4;">
+              Es stehen noch Spieltag 7 & 8 an! Verändere die Platzierungen und Joker, um live zu sehen, wer <strong>Sonnenkönig 👑</strong> wird oder zum <strong>Wintergrillen 🥩</strong> verdonnert wird.
+            </p>
+
+            <!-- Simulator Tab Nav -->
+            <div class="sim-tabs-nav">
+              <button type="button" class="sim-tab-btn active" id="btn-sim-tab-r7">
+                📅 Spieltag 7 (Gabi)
+              </button>
+              <button type="button" class="sim-tab-btn" id="btn-sim-tab-r8">
+                👑 Finale (Tim)
+              </button>
+            </div>
+
+            <!-- Simulator Round 7 Controls -->
+            <div id="sim-view-r7">
+              <div style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 8px;">
+                Tipp: Tobi & Sven haben noch ihren Joker frei!
+              </div>
+              <div id="sim-players-r7-list"></div>
+            </div>
+
+            <!-- Simulator Round 8 Controls -->
+            <div id="sim-view-r8" style="display: none;">
+              <div style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 8px;">
+                Großes Finale bei Tim: Platz 1 bis 8 vergeben.
+              </div>
+              <div id="sim-players-r8-list"></div>
+            </div>
+
+            <!-- Quick Action Preset Buttons -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 10px;">
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-sim-reset-standard" style="font-size: 0.7rem; padding: 6px 4px;">
+                ⚡ Standard
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-sim-sven-miracle" style="color: #c4b5fd; font-size: 0.7rem; padding: 6px 4px;">
+                🚀 Sven-Joker
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-sim-tobi-attack" style="color: #facc15; font-size: 0.7rem; padding: 6px 4px;">
+                ⚡ Tobi-Sieg
+              </button>
+            </div>
+
+            <!-- Simulation Outcome Card -->
+            <div class="sim-summary-box" id="sim-summary-box">
+              <!-- Dynamically rendered simulated outcome & table -->
+            </div>
+
+            <div style="margin-top: 12px; text-align: center;">
+              <button type="button" class="btn btn-primary btn-sm btn-block" id="btn-sim-fire-celebration">
+                🎉 Sieger feiern & Konfetti zünden!
+              </button>
+            </div>
           </div>
         </div>
 
@@ -797,13 +865,16 @@
     </div>
   </div>
 
+  <!-- Confetti Canvas -->
+  <canvas id="confetti-canvas"></canvas>
+
   <!-- Toast Notification Container -->
   <div class="toast-container" id="toast-container"></div>
 
   <!-- JavaScript Scripts -->
-  <script src="js/vapid-config.js?v=20260920_v2"></script>
-  <script src="js/supabase-config.js?v=20260920_v2"></script>
-  <script src="js/data.js?v=20260920_v2"></script>
-  <script src="js/app.js?v=20260920_v2"></script>
+  <script src="js/vapid-config.js?v=20260921_v3"></script>
+  <script src="js/supabase-config.js?v=20260921_v3"></script>
+  <script src="js/data.js?v=20260921_v3"></script>
+  <script src="js/app.js?v=20260921_v3"></script>
 </body>
 </html>

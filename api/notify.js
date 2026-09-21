@@ -32,7 +32,7 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-FDS-Secret, Authorization'
   );
 
   if (req.method === 'OPTIONS') {
@@ -45,6 +45,15 @@ module.exports = async function handler(req, res) {
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Optional Secret Protection (if configured in Vercel environment)
+  const expectedSecret = process.env.NOTIFY_SECRET;
+  if (expectedSecret) {
+    const providedSecret = req.headers['x-fds-secret'] || (req.headers['authorization'] || '').replace(/^Bearer\s+/i, '');
+    if (providedSecret !== expectedSecret) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid notification secret' });
+    }
   }
 
   const { title, body, eventId, url } = req.body || {};

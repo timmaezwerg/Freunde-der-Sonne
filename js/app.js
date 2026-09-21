@@ -55,6 +55,541 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshActiveView();
   };
 
+  // --- Micro-Interactions: Haptics & Solar Confetti ---
+  function triggerHaptic(type = 'light') {
+    if (!navigator.vibrate) return;
+    try {
+      if (type === 'light') navigator.vibrate(12);
+      else if (type === 'medium') navigator.vibrate(28);
+      else if (type === 'success') navigator.vibrate([20, 50, 20]);
+      else if (type === 'celebrate') navigator.vibrate([40, 60, 40, 60, 80]);
+    } catch (e) {}
+  }
+
+  function fireSolarConfetti() {
+    triggerHaptic('celebrate');
+    const canvas = document.getElementById('confetti-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const colors = ['#ffb703', '#fb8500', '#ffd166', '#ffffff', '#8b5cf6', '#38bdf8', '#10b981'];
+    const emojis = ['☀️', '👑', '⚡', '✨', '🥩'];
+    const particles = [];
+
+    for (let i = 0; i < 75; i++) {
+      particles.push({
+        x: canvas.width * 0.5 + (Math.random() - 0.5) * 120,
+        y: canvas.height * 0.35 + (Math.random() - 0.5) * 100,
+        vx: (Math.random() - 0.5) * 16,
+        vy: (Math.random() - 0.7) * 16,
+        size: Math.random() * 8 + 4,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        emoji: Math.random() < 0.22 ? emojis[Math.floor(Math.random() * emojis.length)] : null,
+        rotation: Math.random() * 360,
+        rotSpeed: (Math.random() - 0.5) * 12,
+        alpha: 1,
+        decay: Math.random() * 0.012 + 0.008
+      });
+    }
+
+    let animId = null;
+    function renderFrame() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      let aliveCount = 0;
+
+      particles.forEach(p => {
+        if (p.alpha <= 0) return;
+        aliveCount++;
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.32;
+        p.vx *= 0.98;
+        p.rotation += p.rotSpeed;
+        p.alpha -= p.decay;
+
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.alpha);
+        ctx.translate(p.x, p.y);
+        ctx.rotate((p.rotation * Math.PI) / 180);
+
+        if (p.emoji) {
+          ctx.font = `${p.size * 2}px sans-serif`;
+          ctx.fillText(p.emoji, 0, 0);
+        } else {
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+        }
+        ctx.restore();
+      });
+
+      if (aliveCount > 0) {
+        animId = requestAnimationFrame(renderFrame);
+      } else {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        cancelAnimationFrame(animId);
+      }
+    }
+
+    renderFrame();
+  }
+
+  // --- Live Countdown Banner Engine ---
+  let countdownTimerInterval = null;
+
+  function renderCountdownBanner() {
+    const container = document.getElementById('live-countdown-container');
+    if (!container) return;
+
+    const upcomingEvents = store.getEvents().filter(e => e.status !== 'completed');
+    if (!upcomingEvents || upcomingEvents.length === 0) {
+      container.innerHTML = '';
+      if (countdownTimerInterval) clearInterval(countdownTimerInterval);
+      return;
+    }
+
+    const nextEvent = upcomingEvents[0];
+    const organizer = store.getMember(nextEvent.organizerId) || { name: 'Gruppe' };
+
+    function updateTimer() {
+      const timeMatch = (nextEvent.time || '18:00').match(/(\d{1,2}):(\d{2})/);
+      const hours = timeMatch ? timeMatch[1].padStart(2, '0') : '18';
+      const minutes = timeMatch ? timeMatch[2] : '00';
+      const eventTarget = new Date(`${nextEvent.date}T${hours}:${minutes}:00`);
+
+      const now = new Date();
+      const diffMs = eventTarget - now;
+
+      if (diffMs <= 0) {
+        container.innerHTML = `
+          <div class="countdown-card">
+            <div class="countdown-header">
+              <span class="countdown-title">⚡ HEUTE / JETZT</span>
+              <span style="font-size: 0.72rem; color: var(--sun-gold); font-weight: 700;">Live</span>
+            </div>
+            <div class="countdown-event-name">${nextEvent.isSpecial ? '🥩' : `Spieltag ${nextEvent.round}:`} ${nextEvent.title} bei ${organizer.name}</div>
+            <div style="font-size: 0.8rem; color: var(--sun-gold); font-weight: 700; text-align: center; padding: 4px;">
+              Viel Erfolg allen Freunden der Sonne! ☀️
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      const totalSec = Math.floor(diffMs / 1000);
+      const days = Math.floor(totalSec / (3600 * 24));
+      const hoursLeft = Math.floor((totalSec % (3600 * 24)) / 3600);
+      const minutesLeft = Math.floor((totalSec % 3600) / 60);
+      const secondsLeft = Math.floor(totalSec % 60);
+
+      container.innerHTML = `
+        <div class="countdown-card">
+          <div class="countdown-header">
+            <span class="countdown-title">⏳ Nächster Spieltag</span>
+            <span style="font-size: 0.72rem; color: var(--sun-gold); font-weight: 700;">${formatDate(nextEvent.date)} • ${nextEvent.time}</span>
+          </div>
+          <div class="countdown-event-name">
+            ${nextEvent.isSpecial ? '🥩' : `Spieltag ${nextEvent.round}:`} ${nextEvent.title} (bei ${organizer.name})
+          </div>
+          <div class="countdown-grid">
+            <div class="countdown-box">
+              <div class="countdown-val">${days}</div>
+              <div class="countdown-lbl">Tage</div>
+            </div>
+            <div class="countdown-box">
+              <div class="countdown-val">${String(hoursLeft).padStart(2, '0')}</div>
+              <div class="countdown-lbl">Std.</div>
+            </div>
+            <div class="countdown-box">
+              <div class="countdown-val">${String(minutesLeft).padStart(2, '0')}</div>
+              <div class="countdown-lbl">Min.</div>
+            </div>
+            <div class="countdown-box">
+              <div class="countdown-val">${String(secondsLeft).padStart(2, '0')}</div>
+              <div class="countdown-lbl">Sek.</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    if (countdownTimerInterval) clearInterval(countdownTimerInterval);
+    updateTimer();
+    countdownTimerInterval = setInterval(updateTimer, 1000);
+  }
+
+  // --- Calendar Export (.ics) ---
+  function exportEventToCalendar(eventId) {
+    triggerHaptic('medium');
+    const evt = store.getEvent(Number(eventId));
+    if (!evt) return;
+
+    const organizer = store.getMember(evt.organizerId) || { name: 'Freunde der Sonne' };
+    const timeMatch = (evt.time || '18:00').match(/(\d{1,2}):(\d{2})/);
+    const hours = timeMatch ? parseInt(timeMatch[1], 10) : 18;
+    const minutes = timeMatch ? parseInt(timeMatch[2], 10) : 0;
+
+    const startDate = new Date(`${evt.date}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`);
+    const endDate = new Date(startDate.getTime() + 4 * 60 * 60 * 1000);
+
+    function toICSDateTime(d) {
+      return d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+    }
+
+    const dtStart = toICSDateTime(startDate);
+    const dtEnd = toICSDateTime(endDate);
+    const dtStamp = toICSDateTime(new Date());
+
+    const cleanTitle = `Freunde der Sonne: ${evt.title}`;
+    const cleanDesc = `${evt.description || 'Spieltag der Freunde der Sonne'}\\nOrganisator: ${organizer.name}\\nTreffpunkt: ${evt.location}\\nApp: https://freunde-der-sonne.vercel.app`;
+    const cleanLocation = evt.location || 'Treffpunkt wird bekannt gegeben';
+
+    const icsContent = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Freunde der Sonne//DE',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      'BEGIN:VEVENT',
+      `UID:fds-event-${evt.id}-${Date.now()}@freunde-der-sonne.app`,
+      `DTSTAMP:${dtStamp}`,
+      `DTSTART:${dtStart}`,
+      `DTEND:${dtEnd}`,
+      `SUMMARY:${cleanTitle}`,
+      `DESCRIPTION:${cleanDesc}`,
+      `LOCATION:${cleanLocation}`,
+      'STATUS:CONFIRMED',
+      'END:VEVENT',
+      'END:VCALENDAR'
+    ].join('\r\n');
+
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `spieltag_${evt.round || evt.id}_freunde_der_sonne.ics`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showToast('Termin für Kalender erstellt! 📅', '☀️');
+  }
+
+  // --- Live Weather Widget (Open-Meteo API) ---
+  const weatherCache = {};
+
+  async function fetchEventWeather(locationStr, dateStr) {
+    if (!locationStr || locationStr.toLowerCase().includes('bekannt gegeben') || locationStr.toLowerCase().includes('wird von')) {
+      return null;
+    }
+
+    const cacheKey = `${locationStr}_${dateStr}`;
+    if (weatherCache[cacheKey]) return weatherCache[cacheKey];
+
+    try {
+      const cleanLoc = locationStr.split(/[,&/]/)[0].trim();
+      const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cleanLoc)}&count=1&language=de&format=json`;
+      const geoRes = await fetch(geoUrl);
+      if (!geoRes.ok) return null;
+      const geoData = await geoRes.json();
+      if (!geoData.results || geoData.results.length === 0) return null;
+
+      const { latitude, longitude } = geoData.results[0];
+      const forecastUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto`;
+      const forecastRes = await fetch(forecastUrl);
+      if (!forecastRes.ok) return null;
+      const forecastData = await forecastRes.json();
+
+      if (!forecastData.daily || !forecastData.daily.time) return null;
+
+      const dayIdx = forecastData.daily.time.indexOf(dateStr);
+      if (dayIdx === -1) return null;
+
+      const code = forecastData.daily.weathercode[dayIdx];
+      const maxTemp = Math.round(forecastData.daily.temperature_2m_max[dayIdx]);
+      const rainProb = forecastData.daily.precipitation_probability_max[dayIdx];
+
+      let icon = '☀️';
+      let desc = 'Sonnig';
+      if (code === 0) { icon = '☀️'; desc = 'Klar & sonnig'; }
+      else if ([1, 2].includes(code)) { icon = '🌤️'; desc = 'Heiter'; }
+      else if (code === 3) { icon = '☁️'; desc = 'Bewölkt'; }
+      else if ([45, 48].includes(code)) { icon = '🌫️'; desc = 'Neblig'; }
+      else if ([51, 53, 55, 61, 63, 65].includes(code)) { icon = '🌧️'; desc = `Regen (${rainProb}%)`; }
+      else if ([71, 73, 75].includes(code)) { icon = '❄️'; desc = 'Schneefall'; }
+      else if ([80, 81, 82].includes(code)) { icon = '🌦️'; desc = `Schauer (${rainProb}%)`; }
+      else if ([95, 96, 99].includes(code)) { icon = '⛈️'; desc = 'Gewitter'; }
+
+      const result = {
+        icon,
+        desc,
+        temp: `${maxTemp}°C`
+      };
+
+      weatherCache[cacheKey] = result;
+      return result;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function loadEventWeatherBadge(eventId, locationStr, dateStr) {
+    const el = document.getElementById(`weather-event-${eventId}`);
+    if (!el) return;
+
+    const weather = await fetchEventWeather(locationStr, dateStr);
+    if (!weather) return;
+
+    el.innerHTML = `
+      <div class="event-weather-pill" title="Wetter-Vorhersage für den Spieltag (via Open-Meteo)">
+        <span class="weather-icon">${weather.icon}</span>
+        <span>${weather.temp} • ${weather.desc}</span>
+      </div>
+    `;
+  }
+
+  // --- Was-wäre-wenn? Szenarien-Simulator ---
+  const simPredictions = {
+    round7: {
+      ranks: { 1: 1, 4: 2, 6: 3, 2: 4, 5: 5, 7: 6, 3: 7, 8: 8 },
+      jokers: [3]
+    },
+    round8: {
+      ranks: { 4: 1, 1: 2, 2: 3, 6: 4, 3: 5, 5: 6, 7: 7, 8: 8 },
+      jokers: [4]
+    }
+  };
+
+  let simulatorInitialized = false;
+
+  function initSimulator() {
+    if (simulatorInitialized) return;
+    simulatorInitialized = true;
+
+    const toggleBtn = document.getElementById('toggle-simulator');
+    const content = document.getElementById('simulator-content');
+    const chevron = document.getElementById('simulator-chevron');
+
+    if (toggleBtn && content) {
+      toggleBtn.addEventListener('click', () => {
+        triggerHaptic('light');
+        const isHidden = content.style.display === 'none';
+        content.style.display = isHidden ? 'block' : 'none';
+        if (chevron) {
+          chevron.textContent = isHidden ? 'Schließen ▴' : 'Simulieren ▾';
+        }
+        if (isHidden) {
+          renderSimulator();
+        }
+      });
+    }
+
+    const tabR7 = document.getElementById('btn-sim-tab-r7');
+    const tabR8 = document.getElementById('btn-sim-tab-r8');
+    const viewR7 = document.getElementById('sim-view-r7');
+    const viewR8 = document.getElementById('sim-view-r8');
+
+    if (tabR7 && tabR8) {
+      tabR7.addEventListener('click', () => {
+        triggerHaptic('light');
+        tabR7.classList.add('active');
+        tabR8.classList.remove('active');
+        if (viewR7) viewR7.style.display = 'block';
+        if (viewR8) viewR8.style.display = 'none';
+      });
+
+      tabR8.addEventListener('click', () => {
+        triggerHaptic('light');
+        tabR8.classList.add('active');
+        tabR7.classList.remove('active');
+        if (viewR8) viewR8.style.display = 'block';
+        if (viewR7) viewR7.style.display = 'none';
+      });
+    }
+
+    const btnReset = document.getElementById('btn-sim-reset-standard');
+    if (btnReset) {
+      btnReset.addEventListener('click', () => {
+        triggerHaptic('medium');
+        const lb = store.getLeaderboard();
+        lb.forEach((m, idx) => {
+          simPredictions.round7.ranks[m.id] = idx + 1;
+          simPredictions.round8.ranks[m.id] = idx + 1;
+        });
+        simPredictions.round7.jokers = [3];
+        simPredictions.round8.jokers = [4];
+        renderSimulator();
+        showToast('Standard-Prognose geladen!', '⚡');
+      });
+    }
+
+    const btnSven = document.getElementById('btn-sim-sven-miracle');
+    if (btnSven) {
+      btnSven.addEventListener('click', () => {
+        triggerHaptic('medium');
+        simPredictions.round7.ranks[3] = 1;
+        simPredictions.round7.ranks[1] = 2;
+        simPredictions.round7.jokers = [3];
+        simPredictions.round8.ranks[3] = 2;
+        renderSimulator();
+        showToast('🚀 Sven-Joker-Wunder simuliert (+16 Pkt.)!', '🧠');
+      });
+    }
+
+    const btnTobi = document.getElementById('btn-sim-tobi-attack');
+    if (btnTobi) {
+      btnTobi.addEventListener('click', () => {
+        triggerHaptic('medium');
+        simPredictions.round7.ranks[4] = 1;
+        simPredictions.round8.ranks[4] = 1;
+        simPredictions.round8.jokers = [4];
+        simPredictions.round7.ranks[1] = 4;
+        simPredictions.round8.ranks[1] = 5;
+        renderSimulator();
+        showToast('⚡ Tobi greift nach der Krone (+24 Pkt.)!', '⚡');
+      });
+    }
+
+    const btnCelebrate = document.getElementById('btn-sim-fire-celebration');
+    if (btnCelebrate) {
+      btnCelebrate.addEventListener('click', () => {
+        fireSolarConfetti();
+      });
+    }
+  }
+
+  function renderSimulator() {
+    const r7List = document.getElementById('sim-players-r7-list');
+    const r8List = document.getElementById('sim-players-r8-list');
+    const summaryBox = document.getElementById('sim-summary-box');
+    const members = store.getMembers();
+
+    function renderControlRows(roundKey, container) {
+      if (!container) return;
+      container.innerHTML = '';
+
+      members.forEach(m => {
+        const currentRank = simPredictions[roundKey].ranks[m.id] || 4;
+        const hasJokerChecked = (simPredictions[roundKey].jokers || []).includes(m.id);
+        const canUseJoker = m.id === 3 || m.id === 4;
+
+        const row = document.createElement('div');
+        row.className = 'sim-player-row';
+        row.innerHTML = `
+          <div class="sim-player-info">
+            <span style="font-size: 1.1rem;">${m.avatar}</span>
+            <span class="sim-player-name">${m.name}</span>
+          </div>
+          <div class="sim-controls-group">
+            <label style="font-size: 0.7rem; color: var(--text-muted); margin: 0;">Platz:</label>
+            <select class="sim-rank-select" data-round="${roundKey}" data-player="${m.id}">
+              ${[1,2,3,4,5,6,7,8].map(r => `<option value="${r}" ${r === currentRank ? 'selected' : ''}>${r}. (${[0,8,7,6,5,4,3,2,1][r]}P)</option>`).join('')}
+            </select>
+            ${canUseJoker ? `
+              <label class="sim-joker-toggle ${hasJokerChecked ? 'active' : ''}" title="Joker für diesen Spieltag zünden (Punkte x2)">
+                <input type="checkbox" style="display: none;" class="sim-joker-checkbox" data-round="${roundKey}" data-player="${m.id}" ${hasJokerChecked ? 'checked' : ''}>
+                <span>${hasJokerChecked ? '⚡ Joker!' : '🃏 Joker'}</span>
+              </label>
+            ` : ''}
+          </div>
+        `;
+
+        container.appendChild(row);
+      });
+    }
+
+    renderControlRows('round7', r7List);
+    renderControlRows('round8', r8List);
+
+    document.querySelectorAll('.sim-rank-select').forEach(sel => {
+      sel.addEventListener('change', (e) => {
+        triggerHaptic('light');
+        const round = e.target.getAttribute('data-round');
+        const pId = Number(e.target.getAttribute('data-player'));
+        simPredictions[round].ranks[pId] = Number(e.target.value);
+        updateSimOutcome();
+      });
+    });
+
+    document.querySelectorAll('.sim-joker-checkbox').forEach(cb => {
+      cb.addEventListener('change', (e) => {
+        triggerHaptic('medium');
+        const round = e.target.getAttribute('data-round');
+        const pId = Number(e.target.getAttribute('data-player'));
+        const checked = e.target.checked;
+        const jokers = simPredictions[round].jokers || [];
+        if (checked) {
+          if (!jokers.includes(pId)) jokers.push(pId);
+          const otherRound = round === 'round7' ? 'round8' : 'round7';
+          simPredictions[otherRound].jokers = (simPredictions[otherRound].jokers || []).filter(id => id !== pId);
+        } else {
+          simPredictions[round].jokers = jokers.filter(id => id !== pId);
+        }
+        renderSimulator();
+      });
+    });
+
+    function updateSimOutcome() {
+      const sim = store.simulateSeason(simPredictions);
+      const math = store.getMathematicalOdds();
+
+      if (!summaryBox) return;
+
+      const winner = sim.winner;
+      const loser = sim.loser;
+
+      summaryBox.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <div class="sim-crown-winner">👑 Sonnenkönig: ${winner.name} (${winner.simTotalPoints} Pkt.)</div>
+            <div class="sim-grill-loser">🥩 Grillmeister: ${loser.name} (${loser.simTotalPoints} Pkt.)</div>
+          </div>
+          <span style="font-size: 0.72rem; color: #c4b5fd; font-weight: 700; background: rgba(139, 92, 246, 0.2); padding: 4px 8px; border-radius: var(--radius-sm);">
+            Simulierte Endtabelle
+          </span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 8px;">
+          ${sim.table.map(row => {
+            let diffBadge = '';
+            if (row.rankDiff > 0) {
+              diffBadge = `<span class="sim-rank-badge up">▲ +${row.rankDiff}</span>`;
+            } else if (row.rankDiff < 0) {
+              diffBadge = `<span class="sim-rank-badge down">▼ ${row.rankDiff}</span>`;
+            } else {
+              diffBadge = `<span class="sim-rank-badge same">=</span>`;
+            }
+
+            return `
+              <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.78rem; padding: 4px 6px; background: rgba(255, 255, 255, 0.03); border-radius: 4px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span style="font-weight: 800; width: 18px; color: ${row.simRank === 1 ? 'var(--sun-gold)' : row.simRank === 8 ? '#fca5a5' : 'var(--text-muted)'};">${row.simRank}.</span>
+                  <span>${row.avatar}</span>
+                  <span style="font-weight: 600;">${row.name}</span>
+                  ${diffBadge}
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="color: var(--text-muted); font-size: 0.7rem;">(+${row.simAddPoints} P)</span>
+                  <strong style="color: #fff; font-size: 0.82rem;">${row.simTotalPoints} Pkt.</strong>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+
+        <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); font-size: 0.7rem; color: var(--text-muted); line-height: 1.4;">
+          💡 <strong>Rechnerische Chancen:</strong> Noch im Titelrennen: <strong>${math.canWinTitle.map(id => store.getMember(id)?.name).join(', ')}</strong> • Wintergrill-Gefahr: <strong>${math.canEndLast.map(id => store.getMember(id)?.name).join(', ')}</strong>
+        </div>
+      `;
+    }
+
+    updateSimOutcome();
+  }
+
   // --- 1b. User Profile Header & Switcher ("Wer bist du?") ---
   function isImageAvatar(avatarVal) {
     if (!avatarVal || typeof avatarVal !== 'string') return false;
@@ -412,6 +947,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Populate 2025 History
     renderHistory2025();
+
+    // Live Countdown Banner for Next Matchday
+    renderCountdownBanner();
+
+    // Scenario Simulator
+    initSimulator();
+    renderSimulator();
   }
 
   // --- Season 2026 Progression & Fieberkurve Mechanics ---
@@ -1128,27 +1670,80 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      // Packing Checklist Tags
+      // RSVP (Spieltags-Zusagen) for upcoming/open events
+      let rsvpHtml = '';
+      if (!isCompleted) {
+        const rsvps = store.getRsvps(evt.id);
+        const myStatus = (evt.rsvps && evt.rsvps[currentUserId]) || null;
+        const yesCount = rsvps.yes.length;
+
+        let attendeePills = rsvps.yes.map(m => `<span class="rsvp-chip chip-yes">${m.avatar} ${m.name}</span>`).join('');
+        if (rsvps.late.length > 0) {
+          attendeePills += rsvps.late.map(m => `<span class="rsvp-chip chip-late">⏰ ${m.avatar} ${m.name}</span>`).join('');
+        }
+        if (rsvps.no.length > 0) {
+          attendeePills += rsvps.no.map(m => `<span class="rsvp-chip chip-no">✕ ${m.avatar} ${m.name}</span>`).join('');
+        }
+
+        rsvpHtml = `
+          <div class="rsvp-container">
+            <div class="rsvp-header-row">
+              <span class="rsvp-title"><span>🙋‍♂️</span> Wer ist am Start?</span>
+              <span class="rsvp-count-badge">${yesCount} von 8 Freunden dabei</span>
+            </div>
+            <div class="rsvp-actions-bar">
+              <button type="button" class="rsvp-btn ${myStatus === 'yes' ? 'active-yes' : ''} btn-rsvp-action" data-event-id="${evt.id}" data-status="yes">
+                <span>🟢</span> Dabei
+              </button>
+              <button type="button" class="rsvp-btn ${myStatus === 'late' ? 'active-late' : ''} btn-rsvp-action" data-event-id="${evt.id}" data-status="late">
+                <span>🟡</span> Später
+              </button>
+              <button type="button" class="rsvp-btn ${myStatus === 'no' ? 'active-no' : ''} btn-rsvp-action" data-event-id="${evt.id}" data-status="no">
+                <span>🔴</span> Fehle
+              </button>
+            </div>
+            ${attendeePills ? `<div class="rsvp-attendees-summary">${attendeePills}</div>` : `<div style="font-size: 0.7rem; color: var(--text-muted);">Noch keine Rückmeldungen für diesen Spieltag.</div>`}
+          </div>
+        `;
+      }
+
+      // Packing Checklist Tags (Persistent with claiming & checkmark)
       let packingHtml = '';
       if (evt.packingList && evt.packingList.length > 0) {
-        const tags = evt.packingList.map((item, idx) => `
-          <label class="pack-tag" style="cursor: pointer;">
-            <input type="checkbox" style="accent-color: var(--sun-gold); cursor: pointer;" id="pack-${evt.id}-${idx}">
-            <span>${item}</span>
-          </label>
-        `).join('');
+        const rows = evt.packingList.map((item, idx) => {
+          const text = typeof item === 'string' ? item : (item.text || '');
+          const isChecked = typeof item === 'object' && Boolean(item.checked);
+          const broughtBy = typeof item === 'object' ? item.broughtBy : null;
+          const broughtMember = broughtBy ? store.getMember(broughtBy) : null;
+          const claimLabel = broughtMember ? `${broughtMember.avatar} ${broughtMember.name}` : '+ Ich bring\'s mit';
+
+          return `
+            <div class="packing-item-row">
+              <div class="packing-item-main btn-toggle-pack-check" data-event-id="${evt.id}" data-idx="${idx}">
+                <input type="checkbox" style="accent-color: var(--sun-gold); cursor: pointer;" ${isChecked ? 'checked' : ''} onclick="event.stopPropagation()">
+                <span class="packing-item-text ${isChecked ? 'checked' : ''}">${text}</span>
+              </div>
+              <button type="button" class="packing-claim-btn ${broughtMember ? 'claimed' : ''} btn-claim-pack-item" data-event-id="${evt.id}" data-idx="${idx}" title="${broughtMember ? `Wird von ${broughtMember.name} mitgebracht` : 'Tippen, um dieses Mitbringsel zu übernehmen'}">
+                ${claimLabel}
+              </button>
+            </div>
+          `;
+        }).join('');
 
         packingHtml = `
-          <div class="packing-box">
-            <div class="packing-box-title">
-              <span>🎒</span> Was mitnehmen:
+          <div class="packing-box" style="margin-top: 10px;">
+            <div class="packing-box-title" style="margin-bottom: 6px;">
+              <span>🎒</span> Packliste & Mitbringsel:
             </div>
-            <div class="packing-items-list">
-              ${tags}
+            <div class="packing-items-list" style="display: flex; flex-direction: column; gap: 4px;">
+              ${rows}
             </div>
           </div>
         `;
       }
+
+      // Calendar Export Button for all events
+      const calendarBtnHtml = `<button type="button" class="btn btn-secondary btn-sm btn-export-calendar" data-event-id="${evt.id}"><span>📅</span> Kalender</button>`;
 
       // Actions Builder
       let actionsHtml = '';
@@ -1163,6 +1758,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <button class="btn btn-secondary btn-sm btn-toggle-wintergrillen-status" data-event-id="${evt.id}">
               <span>${isCompleted ? '🔓 Als geplant markieren' : '✓ Als beendet markieren'}</span>
             </button>
+            ${calendarBtnHtml}
             <span style="font-size: 0.72rem; color: #fca5a5; display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; background: rgba(239, 68, 68, 0.1); border-radius: var(--radius-sm);">
               🛡️ Admin-Modus
             </span>
@@ -1172,12 +1768,14 @@ document.addEventListener('DOMContentLoaded', () => {
             <button class="btn btn-primary btn-sm btn-edit-event" data-event-id="${evt.id}">
               <span>⚙️</span> Grillfest planen & bearbeiten
             </button>
+            ${calendarBtnHtml}
             <span style="font-size: 0.75rem; color: #f97316; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
               🥩 Du bist Grillmeister
             </span>
           `;
         } else {
           actionsHtml = `
+            ${calendarBtnHtml}
             <span style="font-size: 0.75rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;">
               🥩 Traditioneller Jahresabschluss (keine Wertung)
             </span>
@@ -1199,6 +1797,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <button class="btn btn-secondary btn-sm btn-admin-reopen-event" data-event-id="${evt.id}" style="color: #fca5a5; border-color: rgba(239, 68, 68, 0.4);">
               <span>🔓</span> Wiedereröffnen
             </button>
+            ${calendarBtnHtml}
           `;
         } else {
           // Regular members: strictly read-only!
@@ -1206,6 +1805,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <button class="btn btn-secondary btn-sm btn-open-view-scores" data-event-id="${evt.id}">
               <span>🏆</span> Wertung ansehen
             </button>
+            ${calendarBtnHtml}
             <span style="font-size: 0.72rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;">
               ✓ Abgeschlossen
             </span>
@@ -1228,6 +1828,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <button class="btn btn-primary btn-sm btn-open-score-modal" data-event-id="${evt.id}">
               <span>⚖️</span> Wertung erfassen
             </button>
+            ${calendarBtnHtml}
             ${freezeBtnHtml}
             <span style="font-size: 0.72rem; color: #fca5a5; display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; background: rgba(239, 68, 68, 0.1); border-radius: var(--radius-sm);">
               🛡️ Admin-Modus
@@ -1242,6 +1843,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <button class="btn btn-primary btn-sm btn-open-score-modal" data-event-id="${evt.id}">
               <span>⚖️</span> Wertung erfassen
             </button>
+            ${calendarBtnHtml}
             <span class="joker-blocked-chip" title="Kein Joker am eigenen Spieltag erlaubt">
               🚫 Kein Joker am eigenen Spieltag
             </span>
@@ -1294,6 +1896,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
           actionsHtml = `
             ${jokerActionBtn}
+            ${calendarBtnHtml}
           `;
         }
       }
@@ -1338,10 +1941,13 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         </div>
 
+        <div id="weather-event-${evt.id}"></div>
+
         ${evt.description ? `<p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.45;">${evt.description}</p>` : ''}
 
         ${frozenBannerHtml}
         ${pendingJokersHtml}
+        ${rsvpHtml}
         ${packingHtml}
 
         <div class="event-actions-bar" style="flex-wrap: wrap;">
@@ -1350,9 +1956,51 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
 
       eventsContainer.appendChild(card);
+
+      // Async Weather Load for upcoming events
+      if (!isCompleted) {
+        loadEventWeatherBadge(evt.id, evt.location, evt.date);
+      }
     });
 
     // Attach Event Listeners on event cards
+    document.querySelectorAll('.btn-export-calendar').forEach(btn => {
+      btn.addEventListener('click', () => {
+        exportEventToCalendar(Number(btn.getAttribute('data-event-id')));
+      });
+    });
+
+    document.querySelectorAll('.btn-rsvp-action').forEach(btn => {
+      btn.addEventListener('click', () => {
+        triggerHaptic('medium');
+        const eventId = Number(btn.getAttribute('data-event-id'));
+        const status = btn.getAttribute('data-status');
+        store.setRsvp(eventId, currentUserId, status);
+        showToast(`Rückmeldung gespeichert: ${status === 'yes' ? 'Dabei 🟢' : status === 'late' ? 'Später 🟡' : 'Fehle 🔴'}`, '🙋‍♂️');
+        renderEvents();
+      });
+    });
+
+    document.querySelectorAll('.btn-toggle-pack-check').forEach(el => {
+      el.addEventListener('click', () => {
+        triggerHaptic('light');
+        const eventId = Number(el.getAttribute('data-event-id'));
+        const idx = Number(el.getAttribute('data-idx'));
+        store.togglePackingItem(eventId, idx);
+        renderEvents();
+      });
+    });
+
+    document.querySelectorAll('.btn-claim-pack-item').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        triggerHaptic('medium');
+        const eventId = Number(btn.getAttribute('data-event-id'));
+        const idx = Number(btn.getAttribute('data-idx'));
+        store.claimPackingItem(eventId, idx, currentUserId);
+        renderEvents();
+      });
+    });
     document.querySelectorAll('.btn-edit-event').forEach(btn => {
       btn.addEventListener('click', () => {
         openEditEventModal(btn.getAttribute('data-event-id'));
@@ -1619,6 +2267,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (success) {
       closeAllModals();
       showToast(isCorrection ? `Wertung für Spieltag ${evt.round} erfolgreich korrigiert! ✏️` : `Spieltag ${evt.round} erfolgreich abgeschlossen! 🏆`, '✓');
+      fireSolarConfetti();
       refreshActiveView();
     } else {
       alert('Fehler beim Speichern der Wertung.');
@@ -2973,10 +3622,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Register Service Worker for PWA & Apple Web Push
+  // Register Service Worker for PWA Offline Cache & Apple Web Push
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js')
+      navigator.serviceWorker.register('./sw.js')
         .then(reg => {
           console.log('✅ ServiceWorker registriert:', reg.scope);
           updatePushNotificationButtonState();
@@ -2988,6 +3637,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Initial Boot
+  initSimulator();
   initLocationAutocomplete();
   refreshActiveView();
 });
