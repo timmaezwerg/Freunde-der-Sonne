@@ -481,7 +481,7 @@ document.addEventListener('DOMContentLoaded', () => {
         row.className = 'sim-player-row';
         row.innerHTML = `
           <div class="sim-player-info">
-            <span style="font-size: 1.1rem;">${m.avatar}</span>
+            <div class="avatar-sm" style="width: 24px; height: 24px; font-size: 0.9rem; flex-shrink: 0;">${renderAvatar(m.avatar)}</div>
             <span class="sim-player-name">${m.name}</span>
           </div>
           <div class="sim-controls-group">
@@ -568,7 +568,7 @@ document.addEventListener('DOMContentLoaded', () => {
               <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.78rem; padding: 4px 6px; background: rgba(255, 255, 255, 0.03); border-radius: 4px;">
                 <div style="display: flex; align-items: center; gap: 6px;">
                   <span style="font-weight: 800; width: 18px; color: ${row.simRank === 1 ? 'var(--sun-gold)' : row.simRank === 8 ? '#fca5a5' : 'var(--text-muted)'};">${row.simRank}.</span>
-                  <span>${row.avatar}</span>
+                  <div class="avatar-sm" style="width: 20px; height: 20px; font-size: 0.75rem; flex-shrink: 0;">${renderAvatar(row.avatar)}</div>
                   <span style="font-weight: 600;">${row.name}</span>
                   ${diffBadge}
                 </div>
@@ -1677,12 +1677,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const myStatus = (evt.rsvps && evt.rsvps[currentUserId]) || null;
         const yesCount = rsvps.yes.length;
 
-        let attendeePills = rsvps.yes.map(m => `<span class="rsvp-chip chip-yes">${m.avatar} ${m.name}</span>`).join('');
+        let attendeePills = rsvps.yes.map(m => `<span class="rsvp-chip chip-yes"><span class="avatar-sm" style="width: 16px; height: 16px; font-size: 0.65rem; display: inline-flex;">${renderAvatar(m.avatar)}</span> ${m.name}</span>`).join('');
         if (rsvps.late.length > 0) {
-          attendeePills += rsvps.late.map(m => `<span class="rsvp-chip chip-late">⏰ ${m.avatar} ${m.name}</span>`).join('');
+          attendeePills += rsvps.late.map(m => `<span class="rsvp-chip chip-late">⏰ <span class="avatar-sm" style="width: 16px; height: 16px; font-size: 0.65rem; display: inline-flex;">${renderAvatar(m.avatar)}</span> ${m.name}</span>`).join('');
         }
         if (rsvps.no.length > 0) {
-          attendeePills += rsvps.no.map(m => `<span class="rsvp-chip chip-no">✕ ${m.avatar} ${m.name}</span>`).join('');
+          attendeePills += rsvps.no.map(m => `<span class="rsvp-chip chip-no">✕ <span class="avatar-sm" style="width: 16px; height: 16px; font-size: 0.65rem; display: inline-flex;">${renderAvatar(m.avatar)}</span> ${m.name}</span>`).join('');
         }
 
         rsvpHtml = `
@@ -1710,12 +1710,29 @@ document.addEventListener('DOMContentLoaded', () => {
       // Packing Checklist Tags (Persistent with claiming & checkmark)
       let packingHtml = '';
       if (evt.packingList && evt.packingList.length > 0) {
+        const isLocked = isCompleted || isFrozen;
         const rows = evt.packingList.map((item, idx) => {
           const text = typeof item === 'string' ? item : (item.text || '');
           const isChecked = typeof item === 'object' && Boolean(item.checked);
           const broughtBy = typeof item === 'object' ? item.broughtBy : null;
           const broughtMember = broughtBy ? store.getMember(broughtBy) : null;
-          const claimLabel = broughtMember ? `${broughtMember.avatar} ${broughtMember.name}` : '+ Ich bring\'s mit';
+
+          if (isLocked) {
+            return `
+              <div class="packing-item-row locked" style="opacity: 0.85;">
+                <div class="packing-item-main" style="cursor: default;">
+                  <input type="checkbox" style="accent-color: var(--sun-gold); cursor: default;" ${isChecked ? 'checked' : ''} disabled>
+                  <span class="packing-item-text ${isChecked ? 'checked' : ''}">${text}</span>
+                </div>
+                ${broughtMember ? `
+                  <span class="packing-claim-btn claimed" style="cursor: default; pointer-events: none; display: inline-flex; align-items: center; gap: 4px;">
+                    <span class="avatar-sm" style="width: 16px; height: 16px; font-size: 0.65rem; display: inline-flex;">${renderAvatar(broughtMember.avatar)}</span>
+                    <span>${broughtMember.name}</span>
+                  </span>
+                ` : ''}
+              </div>
+            `;
+          }
 
           return `
             <div class="packing-item-row">
@@ -1724,7 +1741,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 <span class="packing-item-text ${isChecked ? 'checked' : ''}">${text}</span>
               </div>
               <button type="button" class="packing-claim-btn ${broughtMember ? 'claimed' : ''} btn-claim-pack-item" data-event-id="${evt.id}" data-idx="${idx}" title="${broughtMember ? `Wird von ${broughtMember.name} mitgebracht` : 'Tippen, um dieses Mitbringsel zu übernehmen'}">
-                ${claimLabel}
+                ${broughtMember ? `
+                  <span class="avatar-sm" style="width: 16px; height: 16px; font-size: 0.65rem; display: inline-flex;">${renderAvatar(broughtMember.avatar)}</span>
+                  <span>${broughtMember.name}</span>
+                ` : '+ Ich bring\'s mit'}
               </button>
             </div>
           `;
@@ -1983,8 +2003,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.querySelectorAll('.btn-toggle-pack-check').forEach(el => {
       el.addEventListener('click', () => {
-        triggerHaptic('light');
         const eventId = Number(el.getAttribute('data-event-id'));
+        const evt = store.getEvent(eventId);
+        if (evt && (evt.status === 'completed' || store.isEventFrozen(evt))) return;
+        triggerHaptic('light');
         const idx = Number(el.getAttribute('data-idx'));
         store.togglePackingItem(eventId, idx);
         renderEvents();
@@ -1994,8 +2016,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.btn-claim-pack-item').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        triggerHaptic('medium');
         const eventId = Number(btn.getAttribute('data-event-id'));
+        const evt = store.getEvent(eventId);
+        if (evt && (evt.status === 'completed' || store.isEventFrozen(evt))) return;
+        triggerHaptic('medium');
         const idx = Number(btn.getAttribute('data-idx'));
         store.claimPackingItem(eventId, idx, currentUserId);
         renderEvents();

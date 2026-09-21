@@ -54,7 +54,7 @@ const INITIAL_EVENTS = [
     organizerId: 2, // Oli
     date: '2026-01-24',
     time: '18:00 Uhr',
-    location: 'Olis Poker-Lounge',
+    location: 'Am Galgenberg 1, 73230 Kirchheim unter Teck',
     description: 'Auftakt-Spieltag 2026 bei Oli! Großes Texas Hold\'em Pokerturnier. Alle Plätze von 1 bis 8 wurden regulär ausgespielt – kein Spieler hat einen Joker gesetzt.',
     packingList: ['Pokerface', 'Gute Laune', 'Durst'],
     status: 'completed',
@@ -78,7 +78,7 @@ const INITIAL_EVENTS = [
     organizerId: 1, // Lukas
     date: '2026-03-13',
     time: '19:00 Uhr',
-    location: 'Kneipen-Bar & Quiz-Arena',
+    location: 'QUIZ ZONE Stuttgart, Kesselstraße 17, 70327 Stuttgart',
     description: 'Wissensduell im Kneipenformat bei Lukas! Tim, Oli und Tomi haben vorab ihren Jahres-Joker gezündet und jeweils 12 Punkte (6x2) abgeräumt!',
     packingList: ['Allgemeinwissen', 'Schnelle Finger', 'Teamgeist'],
     status: 'completed',
@@ -102,7 +102,7 @@ const INITIAL_EVENTS = [
     organizerId: 3, // Sven
     date: '2026-04-10',
     time: '18:30 Uhr',
-    location: 'LaserZone Arena',
+    location: 'Laserbase Esslingen, Röntgenstraße 1, 73730 Esslingen am Neckar',
     description: 'Taktische Gefechte im Laser-Labyrinth bei Sven! Lukas schaltete seinen Joker scharf und sackte mit Rang 2 stolze 14 Punkte (7x2) ein.',
     packingList: ['Dunkle Kleidung', 'Hallenschuhe', 'Handtuch'],
     status: 'completed',
@@ -126,7 +126,7 @@ const INITIAL_EVENTS = [
     organizerId: 8, // Aaron
     date: '2026-05-16',
     time: '17:00 Uhr',
-    location: 'Kegelsportzentrum',
+    location: 'TEV Fellbach Kegelbahn, Kienbachstraße 21, 70734 Fellbach',
     description: 'Volle Neun bei Aarons Heimspiel! Tomi sicherte sich 8 Punkte als Tagessieger. Gabi zündete ihren Joker und verdoppelte auf 10 Punkte (5x2)!',
     packingList: ['Hallensportschuhe', 'Durst', 'Gute Laune'],
     status: 'completed',
@@ -150,7 +150,7 @@ const INITIAL_EVENTS = [
     organizerId: 5, // Tomi
     date: '2026-08-07',
     time: '16:00 Uhr',
-    location: 'Tomis Obstwiese & Park',
+    location: 'GAMER – Die Gameshow, Martinstraße 15, 73728 Esslingen am Neckar',
     description: 'Geschicklichkeits-Challenges & Garten-Minigames bei Tomi. Oli setzte sich durch und holte sich den Tagessieg mit 8 Punkten! Aaron zündete seinen Joker und verdoppelte auf 4 Punkte (2x2).',
     packingList: ['Bequeme Kleidung', 'Sneaker', 'Sonnenschutz'],
     status: 'completed',
@@ -174,7 +174,7 @@ const INITIAL_EVENTS = [
     organizerId: 4, // Tobi
     date: '2026-08-29',
     time: '14:00 Uhr',
-    location: 'Squash & Fitness Center',
+    location: 'Match Center Filderstadt, Mahlestraße 70, 70794 Filderstadt',
     description: 'Rasante Duelle auf dem Squash-Court bei Tobi! Tobi dominierte sein Heim-Event mit 8 Punkten.',
     packingList: ['Squashschläger', 'Helle Hallensohlen', 'Handtuch', 'Viel Wasser'],
     status: 'completed',
@@ -1052,6 +1052,7 @@ class DataStore {
   togglePackingItem(eventId, itemIdx) {
     const evt = this.getEvent(eventId);
     if (!evt || !evt.packingList || !evt.packingList[itemIdx]) return false;
+    if (evt.status === 'completed' || this.isEventFrozen(evt)) return false;
 
     if (typeof evt.packingList[itemIdx] === 'string') {
       evt.packingList[itemIdx] = { text: evt.packingList[itemIdx], checked: true, broughtBy: null };
@@ -1066,6 +1067,7 @@ class DataStore {
   claimPackingItem(eventId, itemIdx, memberId) {
     const evt = this.getEvent(eventId);
     if (!evt || !evt.packingList || !evt.packingList[itemIdx]) return false;
+    if (evt.status === 'completed' || this.isEventFrozen(evt)) return false;
 
     const mId = Number(memberId);
     if (typeof evt.packingList[itemIdx] === 'string') {
