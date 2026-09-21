@@ -2179,18 +2179,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     members.forEach((m, idx) => {
       const existing = existingScores.find(s => s.playerId === m.id);
-      const isPendingJoker = isCorrection
-        ? (existing ? existing.jokerApplied : false)
-        : (evt.pendingJokers && evt.pendingJokers.includes(m.id));
+      // Secret Joker Rule: In regular scoring (!isCorrection), jokers are strictly SECRET!
+      // Only in Admin Correction mode (on an already completed matchday) are jokers displayed.
+      const showJoker = isCorrection ? (existing ? existing.jokerApplied : false) : false;
 
       const initialRank = existing ? existing.rank : (idx + 1);
       const basePoints = 9 - initialRank;
-      const initialFinalPoints = isPendingJoker ? basePoints * 2 : basePoints;
+      const initialFinalPoints = showJoker ? basePoints * 2 : basePoints;
 
       const row = document.createElement('div');
       row.className = 'score-input-row';
       row.setAttribute('data-player-id', m.id);
-      row.setAttribute('data-has-joker', isPendingJoker ? '1' : '0');
+      row.setAttribute('data-has-joker', showJoker ? '1' : '0');
 
       let rankOptionsHtml = '';
       rankOptionsList.forEach(opt => {
@@ -2202,15 +2202,15 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="avatar-sm">${renderAvatar(m.avatar)}</div>
           <div>
             <div class="score-player-name">${m.name}</div>
-            ${isPendingJoker ? '<div style="font-size: 0.68rem; color: #a78bfa; font-weight: 700;">⚡ Joker aktiv (x2)</div>' : ''}
+            ${showJoker ? '<div style="font-size: 0.68rem; color: #a78bfa; font-weight: 700;">⚡ Joker aktiv (x2)</div>' : ''}
           </div>
         </div>
         <div class="score-controls" style="display: flex; align-items: center; gap: 8px;">
           <select class="score-rank-select" data-player-id="${m.id}">
             ${rankOptionsHtml}
           </select>
-          <div class="score-points-badge ${isPendingJoker ? 'has-joker' : ''}" id="pts-badge-${m.id}">
-            +${initialFinalPoints} Pkt.${isPendingJoker ? ' ⚡' : ''}
+          <div class="score-points-badge ${showJoker ? 'has-joker' : ''}" id="pts-badge-${m.id}">
+            +${initialFinalPoints} Pkt.${showJoker ? ' ⚡' : ''}
           </div>
         </div>
       `;
@@ -2220,10 +2220,10 @@ document.addEventListener('DOMContentLoaded', () => {
       selectEl.addEventListener('change', (e) => {
         const chosenRank = Number(e.target.value);
         const pts = 9 - chosenRank;
-        const finalPts = isPendingJoker ? pts * 2 : pts;
+        const finalPts = showJoker ? pts * 2 : pts;
         const badge = row.querySelector(`#pts-badge-${m.id}`);
         if (badge) {
-          badge.textContent = `+${finalPts} Pkt.${isPendingJoker ? ' ⚡' : ''}`;
+          badge.textContent = `+${finalPts} Pkt.${showJoker ? ' ⚡' : ''}`;
         }
       });
 
@@ -2235,21 +2235,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Quick fill button in score modal: standard 1. to 8. place
   document.getElementById('btn-quick-fill-standard-scores').addEventListener('click', () => {
-    const evt = store.getEvent(Number(document.getElementById('score-event-id').value));
+    const isCorrection = document.getElementById('score-event-is-correction').value === '1';
     const rows = document.querySelectorAll('#score-inputs-container .score-input-row');
     rows.forEach((row, idx) => {
       const playerId = Number(row.getAttribute('data-player-id'));
-      const hasJoker = row.getAttribute('data-has-joker') === '1';
+      const showJoker = isCorrection && (row.getAttribute('data-has-joker') === '1');
       const rankSelect = row.querySelector('.score-rank-select');
       const newRank = idx + 1;
       if (rankSelect) {
         rankSelect.value = String(newRank);
       }
       const pts = 9 - newRank;
-      const finalPts = hasJoker ? pts * 2 : pts;
+      const finalPts = showJoker ? pts * 2 : pts;
       const badge = row.querySelector(`#pts-badge-${playerId}`);
       if (badge) {
-        badge.textContent = `+${finalPts} Pkt.${hasJoker ? ' ⚡' : ''}`;
+        badge.textContent = `+${finalPts} Pkt.${showJoker ? ' ⚡' : ''}`;
       }
     });
     showToast('Standard-Plätze (1. bis 8.) vergeben!', '⚡');
@@ -2263,6 +2263,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const evt = store.getEvent(eventId);
     if (!evt) return;
 
+    // Detect secret jokers before saving if !isCorrection
+    const secretJokerPlayerIds = (!isCorrection && evt.pendingJokers) ? [...evt.pendingJokers] : [];
+
     const rows = document.querySelectorAll('#score-inputs-container .score-input-row');
     const rawScores = [];
 
@@ -2270,7 +2273,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Plätze können mehrfach vergeben werden (Gleichstand!)
     rows.forEach(row => {
       const playerId = Number(row.getAttribute('data-player-id'));
-      const hasJoker = row.getAttribute('data-has-joker') === '1';
+      const hasJoker = isCorrection ? (row.getAttribute('data-has-joker') === '1') : false;
       const rank = Number(row.querySelector('.score-rank-select').value);
       const basePoints = 9 - rank;
 
@@ -2290,13 +2293,68 @@ document.addEventListener('DOMContentLoaded', () => {
     const success = store.saveEventScoring(eventId, rawScores, isCorrection);
     if (success) {
       closeAllModals();
-      showToast(isCorrection ? `Wertung für Spieltag ${evt.round} erfolgreich korrigiert! ✏️` : `Spieltag ${evt.round} erfolgreich abgeschlossen! 🏆`, '✓');
+      triggerHaptic('heavy');
       fireSolarConfetti();
+
+      // If secret jokers were played on this matchday, open the Joker Reveal celebration modal!
+      if (!isCorrection && secretJokerPlayerIds.length > 0) {
+        const updatedEvt = store.getEvent(eventId);
+        const revealContainer = document.getElementById('joker-reveal-list');
+        const subtitleEl = document.getElementById('joker-reveal-subtitle');
+        if (subtitleEl) {
+          subtitleEl.textContent = `Spieltag ${evt.round} (${evt.title}) ist abgeschlossen. Folgende geheime Joker wurden soeben aufgedeckt:`;
+        }
+        if (revealContainer) {
+          revealContainer.innerHTML = '';
+          secretJokerPlayerIds.forEach(id => {
+            const m = store.getMember(id) || { name: 'Mitglied', avatar: '👤' };
+            const s = (updatedEvt?.scores || []).find(sc => sc.playerId === id);
+            const basePts = s ? s.basePoints : 0;
+            const finalPts = s ? s.points : 0;
+            const rank = s ? s.rank : 0;
+
+            const card = document.createElement('div');
+            card.className = 'glass-card';
+            card.style.display = 'flex';
+            card.style.alignItems = 'center';
+            card.style.justifyContent = 'space-between';
+            card.style.padding = '12px 14px';
+            card.style.borderColor = 'rgba(139, 92, 246, 0.5)';
+            card.style.background = 'linear-gradient(135deg, rgba(139, 92, 246, 0.18) 0%, rgba(255, 183, 3, 0.12) 100%)';
+            card.innerHTML = `
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div class="avatar-sm" style="width: 38px; height: 38px; font-size: 1.15rem;">${renderAvatar(m.avatar)}</div>
+                <div>
+                  <div style="font-weight: 800; font-size: 0.95rem; color: #fff;">${m.name}</div>
+                  <div style="font-size: 0.72rem; color: #c4b5fd;">${rank}. Platz (${basePts} Pkt. x 2 verdoppelt)</div>
+                </div>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-family: var(--font-display); font-size: 1.35rem; font-weight: 900; color: var(--sun-gold);">+${finalPts} Pkt.</div>
+                <div style="font-size: 0.65rem; color: #a78bfa; font-weight: 700;">⚡ JOKER AKTIV</div>
+              </div>
+            `;
+            revealContainer.appendChild(card);
+          });
+        }
+        document.getElementById('modal-joker-reveal').classList.add('open');
+      } else {
+        showToast(isCorrection ? `Wertung für Spieltag ${evt.round} erfolgreich korrigiert! ✏️` : `Spieltag ${evt.round} erfolgreich abgeschlossen! 🏆`, '✓');
+      }
+
       refreshActiveView();
     } else {
       alert('Fehler beim Speichern der Wertung.');
     }
   });
+
+  const btnCloseJokerReveal = document.getElementById('btn-close-joker-reveal');
+  if (btnCloseJokerReveal) {
+    btnCloseJokerReveal.addEventListener('click', () => {
+      closeAllModals();
+      switchView('view-standings');
+    });
+  }
 
   // --- 5b. Modal: View Scores (Read-only for Completed Events) ---
   function openViewScoresModal(eventId) {

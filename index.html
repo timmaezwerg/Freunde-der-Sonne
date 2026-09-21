@@ -15,8 +15,8 @@
   <link rel="manifest" href="manifest.json">
   
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/style.css?v=20260921_v5">
-  <link rel="stylesheet" href="css/components.css?v=20260921_v5">
+  <link rel="stylesheet" href="css/style.css?v=20260921_v6">
+  <link rel="stylesheet" href="css/components.css?v=20260921_v6">
   
   <!-- Supabase JS CDN Library -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -664,6 +664,9 @@
         <p style="font-size: 0.76rem; color: var(--sun-gold); line-height: 1.35; margin: 0;">
           <strong>🏆 Punkte nach Platzierung:</strong> Weise jedem Freund seinen Platz zu (1. Platz = 8 Pkt., 2. Platz = 7 Pkt. etc.). <strong>Plätze können bei Gleichstand auch mehrfach vergeben werden!</strong>
         </p>
+        <p style="font-size: 0.72rem; color: #c4b5fd; line-height: 1.35; margin: 6px 0 0 0;">
+          🎭 <strong>Geheime Joker:</strong> Wer einen Joker gesetzt hat, bleibt bis zum Abschluss geheim! Erst nach dem Klick auf „Endgültig abschließen & werten“ werden aktive Joker enthüllt und die Punkte automatisch verdoppelt (x2).
+        </p>
       </div>
 
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
@@ -711,6 +714,28 @@
       </div>
 
       <button type="button" class="btn btn-secondary btn-block close-modal-btn">Schließen</button>
+    </div>
+  </div>
+
+  <!-- 1c2. Joker Reveal Celebration Modal -->
+  <div class="modal-backdrop" id="modal-joker-reveal">
+    <div class="modal-sheet" style="max-height: 85vh; overflow-y: auto; text-align: center; padding: 22px 18px;">
+      <div class="sheet-handle"></div>
+      <div style="font-size: 2.8rem; margin-bottom: 6px; line-height: 1;">🎭 ➔ ⚡</div>
+      <h3 style="font-family: var(--font-display); font-size: 1.35rem; font-weight: 800; color: var(--sun-gold); margin-bottom: 4px;">
+        Joker-Enthüllung!
+      </h3>
+      <p style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 16px;" id="joker-reveal-subtitle">
+        Die geheimen Joker für diesen Spieltag wurden soeben aufgedeckt:
+      </p>
+
+      <div id="joker-reveal-list" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; text-align: left;">
+        <!-- Dynamically filled with player cards, placements and doubled points -->
+      </div>
+
+      <button type="button" class="btn btn-primary btn-block" id="btn-close-joker-reveal">
+        🏆 Gesamttabelle ansehen
+      </button>
     </div>
   </div>
 
@@ -872,9 +897,9 @@
   <div class="toast-container" id="toast-container"></div>
 
   <!-- JavaScript Scripts -->
-  <script src="js/vapid-config.js?v=20260921_v5"></script>
-  <script src="js/supabase-config.js?v=20260921_v5"></script>
-  <script src="js/data.js?v=20260921_v5"></script>
-  <script src="js/app.js?v=20260921_v5"></script>
+  <script src="js/vapid-config.js?v=20260921_v6"></script>
+  <script src="js/supabase-config.js?v=20260921_v6"></script>
+  <script src="js/data.js?v=20260921_v6"></script>
+  <script src="js/app.js?v=20260921_v6"></script>
 </body>
 </html>
