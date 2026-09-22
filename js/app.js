@@ -22,7 +22,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  function switchView(viewId) {
+  const VIEW_HASH_MAP = {
+    '#tabelle': 'view-leaderboard',
+    '#spieltage': 'view-events',
+    '#kader': 'view-members'
+  };
+  const HASH_VIEW_MAP = {
+    'view-leaderboard': '#tabelle',
+    'view-events': '#spieltage',
+    'view-members': '#kader'
+  };
+
+  function switchView(viewId, updateHash = true) {
     activeViewId = viewId;
     navItems.forEach(nav => {
       nav.classList.toggle('active', nav.getAttribute('data-target') === viewId);
@@ -35,8 +46,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // Scroll to top of content
     document.getElementById('main-content').scrollTop = 0;
 
+    if (updateHash && HASH_VIEW_MAP[viewId] && window.location.hash !== HASH_VIEW_MAP[viewId]) {
+      history.replaceState(null, '', HASH_VIEW_MAP[viewId]);
+    }
+
     refreshActiveView();
   }
+
+  function handleHashNavigation() {
+    const hash = (window.location.hash || '').toLowerCase();
+    if (VIEW_HASH_MAP[hash]) {
+      switchView(VIEW_HASH_MAP[hash], false);
+    }
+  }
+
+  window.addEventListener('hashchange', handleHashNavigation);
 
   function refreshActiveView() {
     const isAuthed = store.isAuthenticated();
@@ -3122,13 +3146,23 @@ document.addEventListener('DOMContentLoaded', () => {
       text += `📍 Treffpunkt: ${nextUpcoming.location}\n`;
       text += `👤 Orga: ${org}\n`;
       if (nextUpcoming.packingList && nextUpcoming.packingList.length > 0) {
-        text += `🎒 Mitbringen: ${nextUpcoming.packingList.join(', ')}\n`;
+        const itemsStr = nextUpcoming.packingList
+          .map(item => typeof item === 'string' ? item : (item.text || ''))
+          .filter(Boolean)
+          .join(', ');
+        if (itemsStr) {
+          text += `🎒 Mitbringen: ${itemsStr}\n`;
+        }
       }
       if (nextUpcoming.pendingJokers && nextUpcoming.pendingJokers.length > 0) {
         text += `🎭 Geheime Joker: ${nextUpcoming.pendingJokers.length} angemeldet (wird am Ende aufgelöst!)\n`;
       }
     }
 
+    const appUrl = window.location.origin && window.location.origin.startsWith('http') ? window.location.origin : '';
+    if (appUrl) {
+      text += `\n🔗 *App öffnen:* ${appUrl}\n`;
+    }
     text += `\n_Erstellt mit der Freunde der Sonne Web-App ☀️_`;
     return text;
   }
@@ -3722,5 +3756,6 @@ document.addEventListener('DOMContentLoaded', () => {
   initSimulator();
   initLocationAutocomplete();
   refreshActiveView();
+  handleHashNavigation();
 });
 
