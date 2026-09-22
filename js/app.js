@@ -2615,6 +2615,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Global Escape key to close modals
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && store.isAuthenticated()) {
+      closeAllModals();
+    }
+  });
+
   function closeAllModals(force = false) {
     if (!force && !store.isAuthenticated()) {
       openUserPickerModal();
@@ -2663,7 +2670,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.fdsUpdateLocationMapBtn) {
       window.fdsUpdateLocationMapBtn(evt.location || '');
     }
-    document.getElementById('edit-event-packing').value = (evt.packingList || []).join(', ');
+    const packingTexts = (evt.packingList || []).map(it => (typeof it === 'string' ? it : it.text || '')).filter(Boolean);
+    document.getElementById('edit-event-packing').value = packingTexts.join(', ');
     document.getElementById('edit-event-desc').value = evt.description || '';
 
     // Organizer select: Fixed for normal events; flexible for Admin on Wintergrillen!
@@ -2705,9 +2713,16 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     const eventId = Number(document.getElementById('edit-event-id').value);
     const packingRaw = document.getElementById('edit-event-packing').value;
-    const packingList = packingRaw.split(',').map(s => s.trim()).filter(Boolean);
-
+    const newPackingTexts = packingRaw.split(',').map(s => s.trim()).filter(Boolean);
     const oldEvt = store.getEvent(eventId);
+    const existingList = oldEvt && Array.isArray(oldEvt.packingList) ? oldEvt.packingList : [];
+    const packingList = newPackingTexts.map(text => {
+      const matched = existingList.find(item => (typeof item === 'string' ? item : item.text) === text);
+      if (matched && typeof matched === 'object') {
+        return { text, checked: Boolean(matched.checked), broughtBy: matched.broughtBy || null };
+      }
+      return { text, checked: false, broughtBy: null };
+    });
     const isSpecial = oldEvt && (oldEvt.isSpecial || oldEvt.id === 9);
     const newTitle = document.getElementById('edit-event-title').value.trim();
     const newDate = document.getElementById('edit-event-date').value;

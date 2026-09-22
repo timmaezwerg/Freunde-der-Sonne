@@ -367,7 +367,7 @@ class DataStore {
           this.state.members.length !== 8 || 
           !this.state.events || 
           this.state.events.length < 8 ||
-          this.state.events[0].title !== 'Poker-Turnier & Drinks'
+          !this.state.events[0].id
         ) {
           this.reset();
         } else {
@@ -990,7 +990,12 @@ class DataStore {
     });
 
     for (let i = 0; i < leaderboard.length; i++) {
-      if (i > 0 && leaderboard[i].totalPoints === leaderboard[i - 1].totalPoints) {
+      if (
+        i > 0 && 
+        leaderboard[i].totalPoints === leaderboard[i - 1].totalPoints &&
+        leaderboard[i].wins === leaderboard[i - 1].wins &&
+        leaderboard[i].podiums === leaderboard[i - 1].podiums
+      ) {
         leaderboard[i].rank = leaderboard[i - 1].rank;
       } else {
         leaderboard[i].rank = i + 1;
