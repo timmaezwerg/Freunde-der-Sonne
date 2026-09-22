@@ -1863,15 +1863,25 @@ document.addEventListener('DOMContentLoaded', () => {
           </button>
         `;
 
+        const scoreBtnHtml = isFrozen
+          ? `
+            <button class="btn btn-primary btn-sm btn-open-score-modal" data-event-id="${evt.id}">
+              <span>⚖️</span> Wertung erfassen
+            </button>
+          `
+          : `
+            <button class="btn btn-secondary btn-sm btn-open-score-modal" data-event-id="${evt.id}" title="Spieltag muss zuerst gestartet & Joker eingefroren werden">
+              <span>🔒</span> Wertung erfassen <small style="opacity: 0.8; font-size: 0.72rem;">(Erst starten)</small>
+            </button>
+          `;
+
         if (isAdmin) {
           // Admin view on upcoming event
           actionsHtml = `
             <button class="btn btn-primary btn-sm btn-edit-event" data-event-id="${evt.id}">
               <span>⚙️</span> Orga bearbeiten
             </button>
-            <button class="btn btn-primary btn-sm btn-open-score-modal" data-event-id="${evt.id}">
-              <span>⚖️</span> Wertung erfassen
-            </button>
+            ${scoreBtnHtml}
             ${calendarBtnHtml}
             ${freezeBtnHtml}
             <span style="font-size: 0.72rem; color: #fca5a5; display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; background: rgba(239, 68, 68, 0.1); border-radius: var(--radius-sm);">
@@ -1884,9 +1894,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <button class="btn btn-primary btn-sm btn-edit-event" data-event-id="${evt.id}">
               <span>⚙️</span> Spieltag bearbeiten
             </button>
-            <button class="btn btn-primary btn-sm btn-open-score-modal" data-event-id="${evt.id}">
-              <span>⚖️</span> Wertung erfassen
-            </button>
+            ${scoreBtnHtml}
             ${calendarBtnHtml}
             <span class="joker-blocked-chip" title="Kein Joker am eigenen Spieltag erlaubt">
               🚫 Kein Joker am eigenen Spieltag
@@ -2057,7 +2065,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.querySelectorAll('.btn-open-score-modal').forEach(btn => {
       btn.addEventListener('click', () => {
-        openScoreEventModal(Number(btn.getAttribute('data-event-id')));
+        const eventId = Number(btn.getAttribute('data-event-id'));
+        const evt = store.getEvent(eventId);
+        if (evt && evt.status !== 'completed' && !store.isEventFrozen(evt)) {
+          const confirmStart = confirm(
+            `🔒 Bevor die Wertung erfasst werden kann, muss der Spieltag gestartet und die Joker eingefroren werden!\n\nMöchtest du Spieltag ${evt.round} (${evt.title || 'Matchday'}) jetzt starten und alle Joker einfrieren?`
+          );
+          if (confirmStart) {
+            const res = store.toggleEventFreeze(eventId);
+            if (res.success && res.isFrozen) {
+              showToast('🔒 Spieltag gestartet & Joker eingefroren!', '✅');
+              refreshActiveView();
+              openScoreEventModal(eventId);
+            } else {
+              showToast(res.message || 'Fehler beim Starten des Spieltags.', '❌');
+            }
+          }
+          return;
+        }
+        openScoreEventModal(eventId);
       });
     });
 
@@ -2154,8 +2180,14 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    if (!store.canScoreEvent(eventId, currentUserId)) {
+    const isAuthorized = evt.organizerId === Number(currentUserId) || isAdmin;
+    if (!isAuthorized) {
       showToast('Nur der Organisator oder die Spielleitung darf die Wertung erfassen!', '🔒');
+      return;
+    }
+
+    if (!isCorrection && !store.isEventFrozen(evt)) {
+      showToast('🔒 Bitte starte zuerst den Spieltag und friere die Joker ein!', '⚠️');
       return;
     }
 
@@ -2368,7 +2400,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       refreshActiveView();
     } else {
-      alert('Fehler beim Speichern der Wertung.');
+      if (!isCorrection && !store.isEventFrozen(evt)) {
+        alert('Fehler: Der Spieltag muss zuerst gestartet und die Joker eingefroren werden!');
+      } else {
+        alert('Fehler beim Speichern der Wertung.');
+      }
     }
   });
 

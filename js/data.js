@@ -685,6 +685,7 @@ class DataStore {
   }
 
   // Can score event: Organizer scores normally; Admin can also score or correct completed events!
+  // Rule: For upcoming events, the matchday MUST be started & frozen first!
   canScoreEvent(eventId, playerId = null) {
     const pId = playerId !== null ? playerId : this.getCurrentUserId();
     if (!pId) return false;
@@ -693,8 +694,10 @@ class DataStore {
     if (evt.id === 9 || evt.isSpecial) return false; // Wintergrillen has no scoring!
     // Once completed: ONLY the Admin can correct the scores!
     if (evt.status === 'completed') return this.isAdmin();
-    // Open/upcoming event: organizer or admin
-    return evt.organizerId === Number(pId) || this.isAdmin();
+    // Open/upcoming event: must be organizer or admin AND matchday must be frozen (started)!
+    const isAuthorized = evt.organizerId === Number(pId) || this.isAdmin();
+    if (!isAuthorized) return false;
+    return this.isEventFrozen(evt);
   }
 
   // Joker rules:
@@ -885,6 +888,8 @@ class DataStore {
     const isAlreadyCompleted = evt.status === 'completed';
     // If completed: only allowed if isCorrection AND isAdmin()!
     if (isAlreadyCompleted && (!isCorrection || !this.isAdmin())) return false;
+    // Rule: Matchday MUST be started & frozen before scores can be saved!
+    if (!isCorrection && !this.isEventFrozen(evt)) return false;
 
     const pendingJokers = evt.pendingJokers || [];
     const previousScores = evt.scores || [];
