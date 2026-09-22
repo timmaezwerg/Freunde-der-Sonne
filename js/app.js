@@ -588,13 +588,31 @@ document.addEventListener('DOMContentLoaded', () => {
               diffBadge = `<span class="sim-rank-badge same">=</span>`;
             }
 
+            // Tie-break check in simulated table
+            const simTied = sim.table.filter(r => r.id !== row.id && r.simTotalPoints === row.simTotalPoints);
+            let simTieBreakHtml = '';
+            if (simTied.length > 0) {
+              const simHigher = simTied.filter(r => r.simRank < row.simRank);
+              const simLower = simTied.filter(r => r.simRank > row.simRank);
+              if (simLower.length > 0) {
+                const opp = simLower[0];
+                const crit = row.wins > opp.wins ? `${row.wins} Siege (vs. ${opp.wins})` : `${row.podiums} Podeste (vs. ${opp.podiums})`;
+                simTieBreakHtml = `<span class="tiebreak-chip ahead" style="font-size: 0.6rem; padding: 1px 5px;" title="Tie-Break Vorteil vor ${opp.name} durch ${crit}">⚖️ ${crit}</span>`;
+              } else if (simHigher.length > 0) {
+                const opp = simHigher[simHigher.length - 1];
+                const crit = row.wins < opp.wins ? `${row.wins} Siege (vs. ${opp.wins})` : `${row.podiums} Podeste (vs. ${opp.podiums})`;
+                simTieBreakHtml = `<span class="tiebreak-chip behind" style="font-size: 0.6rem; padding: 1px 5px;" title="Tie-Break hinter ${opp.name} wegen ${crit}">⚖️ ${crit}</span>`;
+              }
+            }
+
             return `
               <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.78rem; padding: 4px 6px; background: rgba(255, 255, 255, 0.03); border-radius: 4px;">
-                <div style="display: flex; align-items: center; gap: 6px;">
+                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                   <span style="font-weight: 800; width: 18px; color: ${row.simRank === 1 ? 'var(--sun-gold)' : row.simRank === 8 ? '#fca5a5' : 'var(--text-muted)'};">${row.simRank}.</span>
                   <div class="avatar-sm" style="width: 20px; height: 20px; font-size: 0.75rem; flex-shrink: 0;">${renderAvatar(row.avatar)}</div>
                   <span style="font-weight: 600;">${row.name}</span>
                   ${diffBadge}
+                  ${simTieBreakHtml}
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <span style="color: var(--text-muted); font-size: 0.7rem;">(+${row.simAddPoints} P)</span>
@@ -846,6 +864,55 @@ document.addEventListener('DOMContentLoaded', () => {
     const listContainer = document.getElementById('rankings-list-container');
     listContainer.innerHTML = '';
 
+    // Tie-break determination helper: Explains exactly why player A is ahead of player B with equal points
+    function getTieBreakInfo(player, fullLeaderboard) {
+      if (!player || player.totalPoints === 0) return null;
+      // Find other players with the exact same totalPoints
+      const tied = fullLeaderboard.filter(p => p.id !== player.id && p.totalPoints === player.totalPoints);
+      if (tied.length === 0) return null;
+
+      const higher = tied.filter(p => p.rank < player.rank);
+      const lower = tied.filter(p => p.rank > player.rank);
+
+      if (lower.length > 0) {
+        // Ranked ahead of someone with equal points
+        const opp = lower[0];
+        if (player.wins > opp.wins) {
+          return {
+            type: 'ahead',
+            shortText: `${player.wins} Siege (vs. ${opp.wins})`,
+            fullText: `Tie-Break: ${player.name} führt vor ${opp.name} bei Punktgleichheit (${player.totalPoints} Pkt.) durch mehr Tagessiege (${player.wins} vs. ${opp.wins}).`
+          };
+        } else if (player.podiums > opp.podiums) {
+          return {
+            type: 'ahead',
+            shortText: `${player.podiums} Podeste (vs. ${opp.podiums})`,
+            fullText: `Tie-Break: ${player.name} führt vor ${opp.name} bei Punktgleichheit (${player.totalPoints} Pkt.) durch mehr Podestplätze (${player.podiums} vs. ${opp.podiums}).`
+          };
+        }
+      }
+
+      if (higher.length > 0) {
+        // Ranked behind someone with equal points
+        const opp = higher[higher.length - 1];
+        if (player.wins < opp.wins) {
+          return {
+            type: 'behind',
+            shortText: `${player.wins} Siege (vs. ${opp.wins})`,
+            fullText: `Tie-Break: ${player.name} rangiert hinter ${opp.name} bei Punktgleichheit (${player.totalPoints} Pkt.) wegen weniger Tagessiegen (${player.wins} vs. ${opp.wins}).`
+          };
+        } else if (player.podiums < opp.podiums) {
+          return {
+            type: 'behind',
+            shortText: `${player.podiums} Podeste (vs. ${opp.podiums})`,
+            fullText: `Tie-Break: ${player.name} rangiert hinter ${opp.name} bei Punktgleichheit (${player.totalPoints} Pkt.) wegen weniger Podestplätzen (${player.podiums} vs. ${opp.podiums}).`
+          };
+        }
+      }
+
+      return null;
+    }
+
     leaderboard.forEach((player, index) => {
       const rank = player.rank;
       const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : rank === 8 ? 'rank-8' : '';
@@ -863,6 +930,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } else {
         jokerBadgeHtml = `<span class="joker-chip available" title="Jahres-Joker noch verfügbar">🟢 Joker frei</span>`;
+      }
+
+      // Tie-Break detection: Only when multiple players have the exact same total points!
+      const tieBreakInfo = getTieBreakInfo(player, leaderboard);
+      let tieBreakHtml = '';
+      if (tieBreakInfo) {
+        tieBreakHtml = `
+          <span>•</span>
+          <span class="tiebreak-chip ${tieBreakInfo.type}" 
+                data-tiebreak-info="${encodeURIComponent(tieBreakInfo.fullText)}"
+                title="${tieBreakInfo.fullText}">
+            ⚖️ Tie-Break: ${tieBreakInfo.shortText}
+          </span>
+        `;
       }
 
       const card = document.createElement('div');
@@ -885,6 +966,7 @@ document.addEventListener('DOMContentLoaded', () => {
               <span>${player.nickname || ''}</span>
               <span>•</span>
               ${jokerBadgeHtml}
+              ${tieBreakHtml}
             </div>
           </div>
         </div>
@@ -897,6 +979,16 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
 
       listContainer.appendChild(card);
+    });
+
+    // Attach click listeners to tie-break chips for easy mobile reading
+    document.querySelectorAll('.tiebreak-chip').forEach(chip => {
+      chip.addEventListener('click', (e) => {
+        e.stopPropagation();
+        triggerHaptic('light');
+        const text = decodeURIComponent(chip.getAttribute('data-tiebreak-info') || '');
+        if (text) showToast(text, '⚖️');
+      });
     });
 
     // Wintergrillen Verlierer Spotlight (Rank 8)
@@ -2063,6 +2155,22 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
 
+    // Helper to send push notification when matchday is started & frozen
+    function notifyMatchdayFrozenAndStarted(evt) {
+      if (!evt) return;
+      const org = store.getMember(evt.organizerId)?.name || 'Organisator';
+      const pendingCount = (evt.pendingJokers || []).length;
+      const jokerInfo = pendingCount > 0
+        ? `${pendingCount} geheime(r) Joker im Spiel! 🎭`
+        : 'Keine Joker gesetzt.';
+      dispatchPushNotification({
+        title: `🔒 Spieltag ${evt.round} gestartet!`,
+        body: `${evt.title} bei ${org}: Spieltag läuft & alle Joker sind eingefroren (${jokerInfo}). Mögen die Spiele beginnen! ☀️🏆`,
+        eventId: evt.id,
+        url: '/#spieltage'
+      });
+    }
+
     document.querySelectorAll('.btn-open-score-modal').forEach(btn => {
       btn.addEventListener('click', () => {
         const eventId = Number(btn.getAttribute('data-event-id'));
@@ -2075,6 +2183,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = store.toggleEventFreeze(eventId);
             if (res.success && res.isFrozen) {
               showToast('🔒 Spieltag gestartet & Joker eingefroren!', '✅');
+              notifyMatchdayFrozenAndStarted(evt);
               refreshActiveView();
               openScoreEventModal(eventId);
             } else {
@@ -2134,6 +2243,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const res = store.toggleEventFreeze(eventId);
         if (res.success) {
           showToast(res.message, res.isFrozen ? '🔒' : '🔓');
+          if (res.isFrozen) {
+            const evt = store.getEvent(eventId);
+            notifyMatchdayFrozenAndStarted(evt);
+          }
           refreshActiveView();
         } else {
           showToast(res.message, '❌');

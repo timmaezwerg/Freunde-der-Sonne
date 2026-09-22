@@ -1146,7 +1146,12 @@ class DataStore {
     });
 
     for (let i = 0; i < simResults.length; i++) {
-      if (i > 0 && simResults[i].simTotalPoints === simResults[i - 1].simTotalPoints) {
+      if (
+        i > 0 && 
+        simResults[i].simTotalPoints === simResults[i - 1].simTotalPoints &&
+        simResults[i].wins === simResults[i - 1].wins &&
+        simResults[i].podiums === simResults[i - 1].podiums
+      ) {
         simResults[i].simRank = simResults[i - 1].simRank;
       } else {
         simResults[i].simRank = i + 1;
