@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS public.events (
 
 -- Migration für bestehende Datenbanken
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS rsvps JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ;
 
 CREATE TABLE IF NOT EXISTS public.history_seasons (
     year INT PRIMARY KEY,

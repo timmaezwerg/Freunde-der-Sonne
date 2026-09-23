@@ -50,6 +50,10 @@ document.addEventListener('DOMContentLoaded', () => {
       history.replaceState(null, '', HASH_VIEW_MAP[viewId]);
     }
 
+    if (store.isAuthenticated() && !store.isAdmin()) {
+      store.recordMemberActivity();
+    }
+
     refreshActiveView();
   }
 
@@ -2578,6 +2582,35 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('modal-view-scores').classList.add('open');
   }
 
+  // Format last activity timestamp for Admin: e.g. "Heute, 09:15 Uhr" or "23.09.2026, 09:15 Uhr"
+  function formatLastActive(isoString) {
+    if (!isoString) return 'Noch nicht erfasst';
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return 'Noch nicht erfasst';
+
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const isYesterday = d.toDateString() === yesterday.toDateString();
+
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+
+    const timeStr = `${hours}:${minutes} Uhr`;
+    const dateStr = `${day}.${month}.${year}`;
+
+    if (isToday) {
+      return `Heute, ${timeStr}`;
+    } else if (isYesterday) {
+      return `Gestern, ${timeStr}`;
+    }
+    return `${dateStr}, ${timeStr}`;
+  }
+
   // --- 6. View: Kader & Members ---
   function renderMembers() {
     const container = document.getElementById('members-list-container');
@@ -2657,6 +2690,12 @@ document.addEventListener('DOMContentLoaded', () => {
             <div style="font-size: 0.68rem; color: var(--text-secondary); margin-top: 2px;">
               ${jokerDesc}
             </div>
+            ${store.isAdmin() ? `
+              <div class="admin-last-active" style="font-size: 0.68rem; color: #38bdf8; margin-top: 5px; display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; background: rgba(56, 189, 248, 0.08); border-radius: var(--radius-pill); border: 1px solid rgba(56, 189, 248, 0.22);" title="Admin-Info: Letzte Aktivität">
+                <span>🕒</span>
+                <span>Zuletzt aktiv: <strong>${formatLastActive(member.lastActiveAt)}</strong></span>
+              </div>
+            ` : ''}
           </div>
         </div>
         <div>
@@ -2703,6 +2742,32 @@ document.addEventListener('DOMContentLoaded', () => {
       const dataMgmtCard = document.getElementById('card-data-management');
       if (dataMgmtCard) {
         dataMgmtCard.style.display = store.isAdmin() ? 'block' : 'none';
+      }
+
+      // Populate Admin Activity Overview
+      if (store.isAdmin()) {
+        const activityContainer = document.getElementById('admin-activity-list');
+        if (activityContainer) {
+          activityContainer.innerHTML = '';
+          const members = store.getMembers();
+          members.forEach(m => {
+            const item = document.createElement('div');
+            item.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; background: rgba(255, 255, 255, 0.04); border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.05);';
+            item.innerHTML = `
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <div class="avatar" style="width: 24px; height: 24px; font-size: 0.95rem; flex-shrink: 0;">
+                  ${renderAvatar(m.avatar)}
+                </div>
+                <strong style="color: #fff; font-size: 0.76rem;">${m.name}</strong>
+                <span style="color: var(--text-muted); font-size: 0.68rem;">(${m.nickname || '–'})</span>
+              </div>
+              <div style="color: ${m.lastActiveAt ? '#38bdf8' : 'var(--text-muted)'}; font-size: 0.72rem; font-weight: 600;">
+                ${formatLastActive(m.lastActiveAt)}
+              </div>
+            `;
+            activityContainer.appendChild(item);
+          });
+        }
       }
     }
   }
@@ -2955,6 +3020,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const pinResetBox = document.getElementById('admin-member-pin-reset-box');
     if (pinResetBox) {
       pinResetBox.style.display = isAdmin ? 'block' : 'none';
+    }
+
+    // Show/hide Admin info: last active
+    const lastActiveBox = document.getElementById('admin-member-last-active-box');
+    const lastActiveVal = document.getElementById('admin-member-last-active-val');
+    if (lastActiveBox && lastActiveVal) {
+      if (isAdmin) {
+        lastActiveBox.style.display = 'block';
+        lastActiveVal.textContent = formatLastActive(member.lastActiveAt);
+      } else {
+        lastActiveBox.style.display = 'none';
+      }
     }
 
     document.getElementById('modal-edit-member').classList.add('open');
@@ -3917,6 +3994,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Initial Boot
+  if (store.isAuthenticated() && !store.isAdmin()) {
+    store.recordMemberActivity();
+  }
   initSimulator();
   initLocationAutocomplete();
   refreshActiveView();

@@ -17,14 +17,14 @@ const ADMIN_ACCOUNT = {
 };
 
 const INITIAL_MEMBERS = [
-  { id: 1, name: 'Lukas', nickname: 'Luki', avatar: '🎯', pin: '1234', color: '#38bdf8', isAdmin: false },
-  { id: 2, name: 'Oli', nickname: 'Oli-Wan', avatar: '🧢', pin: '1234', color: '#ec4899', isAdmin: false },
-  { id: 3, name: 'Sven', nickname: 'Der Stratege', avatar: '🧠', pin: '1234', color: '#a855f7', isAdmin: false },
-  { id: 4, name: 'Tobi', nickname: 'Kraftpaket', avatar: '⚡', pin: '1234', color: '#facc15', isAdmin: false },
-  { id: 5, name: 'Tomi', nickname: 'Sonnenanbeter', avatar: '☀️', pin: '1234', color: '#ea580c', isAdmin: false },
-  { id: 6, name: 'Tim', nickname: 'Der Macher', avatar: '👑', pin: '1234', color: '#f59e0b', isAdmin: false },
-  { id: 7, name: 'Gabi', nickname: 'Dauerläufer', avatar: '🏃‍♂️', pin: '1234', color: '#059669', isAdmin: false },
-  { id: 8, name: 'Aaron', nickname: 'Glückspilz', avatar: '🍀', pin: '1234', color: '#a3e635', isAdmin: false }
+  { id: 1, name: 'Lukas', nickname: 'Luki', avatar: '🎯', pin: '1234', color: '#38bdf8', isAdmin: false, lastActiveAt: null },
+  { id: 2, name: 'Oli', nickname: 'Oli-Wan', avatar: '🧢', pin: '1234', color: '#ec4899', isAdmin: false, lastActiveAt: null },
+  { id: 3, name: 'Sven', nickname: 'Der Stratege', avatar: '🧠', pin: '1234', color: '#a855f7', isAdmin: false, lastActiveAt: null },
+  { id: 4, name: 'Tobi', nickname: 'Kraftpaket', avatar: '⚡', pin: '1234', color: '#facc15', isAdmin: false, lastActiveAt: null },
+  { id: 5, name: 'Tomi', nickname: 'Sonnenanbeter', avatar: '☀️', pin: '1234', color: '#ea580c', isAdmin: false, lastActiveAt: null },
+  { id: 6, name: 'Tim', nickname: 'Der Macher', avatar: '👑', pin: '1234', color: '#f59e0b', isAdmin: false, lastActiveAt: null },
+  { id: 7, name: 'Gabi', nickname: 'Dauerläufer', avatar: '🏃‍♂️', pin: '1234', color: '#059669', isAdmin: false, lastActiveAt: null },
+  { id: 8, name: 'Aaron', nickname: 'Glückspilz', avatar: '🍀', pin: '1234', color: '#a3e635', isAdmin: false, lastActiveAt: null }
 ];
 
 const HISTORICAL_SEASONS = [
@@ -249,12 +249,13 @@ function fromDbMember(m) {
     avatar: m.avatar || '👤',
     pin: String(m.pin || '1234'),
     color: m.color || '#38bdf8',
-    isAdmin: Boolean(m.is_admin)
+    isAdmin: Boolean(m.is_admin),
+    lastActiveAt: m.last_active_at || null
   };
 }
 
 function toDbMember(m) {
-  return {
+  const row = {
     id: m.id,
     name: m.name,
     nickname: m.nickname,
@@ -264,6 +265,10 @@ function toDbMember(m) {
     is_admin: Boolean(m.isAdmin),
     updated_at: new Date().toISOString()
   };
+  if (m.lastActiveAt) {
+    row.last_active_at = m.lastActiveAt;
+  }
+  return row;
 }
 
 function fromDbEvent(e) {
@@ -526,6 +531,7 @@ class DataStore {
 
     if (pinTrimmed === member.pin || pinTrimmed === adminPin) {
       this.setCurrentUser(member.id);
+      this.recordMemberActivity(member.id);
       return { success: true, member };
     }
     return { success: false, message: 'Falscher PIN-Code! Bitte erneut versuchen.' };
@@ -1234,10 +1240,11 @@ class DataStore {
     this.updateCloudStatus('syncing', 'Sync...');
 
     try {
-      // 1. Fetch remote members & events
-      const [membersRes, eventsRes] = await Promise.all([
+      // 1. Fetch remote members, events & activity meta
+      const [membersRes, eventsRes, activityRes] = await Promise.all([
         client.from('members').select('*').order('id', { ascending: true }),
-        client.from('events').select('*').order('id', { ascending: true })
+        client.from('events').select('*').order('id', { ascending: true }),
+        client.from('history_seasons').select('scores').eq('year', 9999).maybeSingle()
       ]);
 
       if (membersRes.error || eventsRes.error) {
@@ -1251,6 +1258,9 @@ class DataStore {
 
       if (remoteMembers.length > 0 && remoteEvents.length > 0) {
         this.mergeRemoteData(remoteMembers, remoteEvents);
+        if (activityRes && activityRes.data && activityRes.data.scores) {
+          this.mergeActivityData(activityRes.data.scores);
+        }
         localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
         this.updateCloudStatus('connected', 'Live');
         if (typeof window.fdsRefreshUI === 'function') {
@@ -1273,11 +1283,87 @@ class DataStore {
 
   mergeRemoteData(remoteMembers, remoteEvents) {
     if (Array.isArray(remoteMembers) && remoteMembers.length > 0) {
-      this.state.members = remoteMembers.map(fromDbMember);
+      this.state.members = remoteMembers.map(m => {
+        const parsed = fromDbMember(m);
+        const local = (this.state.members || []).find(lm => lm.id === parsed.id);
+        if (local && local.lastActiveAt) {
+          if (!parsed.lastActiveAt || new Date(local.lastActiveAt) > new Date(parsed.lastActiveAt)) {
+            parsed.lastActiveAt = local.lastActiveAt;
+          }
+        }
+        return parsed;
+      });
     }
     if (Array.isArray(remoteEvents) && remoteEvents.length > 0) {
       this.state.events = remoteEvents.map(fromDbEvent);
     }
+  }
+
+  mergeActivityData(activityMap) {
+    if (!activityMap || typeof activityMap !== 'object') return;
+    let changed = false;
+    (this.state.members || []).forEach(m => {
+      const remoteTime = activityMap[m.id] || activityMap[String(m.id)];
+      if (remoteTime) {
+        if (!m.lastActiveAt || new Date(remoteTime) > new Date(m.lastActiveAt)) {
+          m.lastActiveAt = remoteTime;
+          changed = true;
+        }
+      }
+    });
+    if (changed) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
+    }
+  }
+
+  recordMemberActivity(memberId = null) {
+    const currentId = this.getCurrentUserId();
+    const mId = memberId !== null ? Number(memberId) : (currentId === 'admin' ? null : Number(currentId));
+    if (!mId || isNaN(mId)) return;
+    const member = this.getMember(mId);
+    if (!member) return;
+
+    const now = new Date();
+    const nowIso = now.toISOString();
+
+    if (member.lastActiveAt) {
+      const lastDate = new Date(member.lastActiveAt);
+      if (!isNaN(lastDate.getTime()) && (now.getTime() - lastDate.getTime()) < 2 * 60 * 1000) {
+        return; // Throttled within 2 minutes
+      }
+    }
+
+    member.lastActiveAt = nowIso;
+    this.save();
+    this.pushActivityToCloud(mId, nowIso);
+  }
+
+  async pushActivityToCloud(memberId, timestampIso) {
+    const client = window.fdsSupabase && window.fdsSupabase.getClient();
+    if (!client) return;
+
+    const activityMap = {};
+    (this.state.members || []).forEach(m => {
+      if (m.lastActiveAt) activityMap[m.id] = m.lastActiveAt;
+    });
+    activityMap[memberId] = timestampIso;
+
+    try {
+      await client.from('history_seasons').upsert({
+        year: 9999,
+        title: 'fds_app_meta',
+        summary: 'Member Activity Ledger',
+        scores: activityMap,
+        updated_at: new Date().toISOString()
+      });
+    } catch (err) {
+      console.warn('pushActivityToCloud error:', err);
+    }
+
+    // Also attempt direct update on members table if last_active_at column exists
+    try {
+      await client.from('members').update({ last_active_at: timestampIso }).eq('id', memberId);
+    } catch (e) {}
   }
 
   setupRealtimeSubscription(client) {
@@ -1291,6 +1377,9 @@ class DataStore {
           const updated = fromDbMember(payload.new);
           const idx = this.state.members.findIndex(m => m.id === updated.id);
           if (idx !== -1) {
+            if (!updated.lastActiveAt && this.state.members[idx].lastActiveAt) {
+              updated.lastActiveAt = this.state.members[idx].lastActiveAt;
+            }
             this.state.members[idx] = updated;
           } else {
             this.state.members.push(updated);
@@ -1309,6 +1398,12 @@ class DataStore {
             this.state.events.push(updated);
           }
           localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
+          if (typeof window.fdsRefreshUI === 'function') window.fdsRefreshUI();
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'history_seasons' }, payload => {
+        if (payload.new && payload.new.year === 9999 && payload.new.scores) {
+          this.mergeActivityData(payload.new.scores);
           if (typeof window.fdsRefreshUI === 'function') window.fdsRefreshUI();
         }
       })

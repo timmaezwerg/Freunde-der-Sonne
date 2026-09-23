@@ -15,8 +15,8 @@
   <link rel="manifest" href="manifest.json">
   
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/style.css?v=20260922_v10">
-  <link rel="stylesheet" href="css/components.css?v=20260922_v10">
+  <link rel="stylesheet" href="css/style.css?v=20260923_v1">
+  <link rel="stylesheet" href="css/components.css?v=20260923_v1">
   
   <!-- Supabase JS CDN Library -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -328,6 +328,14 @@
             <button class="btn btn-secondary btn-block" id="btn-reset-data" style="color: #ff8888; border-color: rgba(239,35,60,0.3);">
               <span>🔄</span> Auf Demo-Daten zurücksetzen
             </button>
+            <div id="admin-activity-overview-box" style="margin-top: 6px; padding: 12px; background: rgba(0, 0, 0, 0.25); border-radius: var(--radius-sm); border: 1px solid rgba(56, 189, 248, 0.25);">
+              <div style="font-weight: 700; font-size: 0.8rem; color: #38bdf8; display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+                <span>🕒</span> Zuletzt aktiv (Login & Nutzung)
+              </div>
+              <div id="admin-activity-list" style="display: flex; flex-direction: column; gap: 6px; font-size: 0.74rem;">
+                <!-- Populated dynamically for Admin -->
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -815,6 +823,16 @@
           <input type="text" id="edit-member-avatar" class="form-input" style="font-size: 1.4rem;" maxlength="8" placeholder="👑">
         </div>
 
+        <!-- Admin Info: Last active (only visible to admin) -->
+        <div id="admin-member-last-active-box" style="margin-top: 14px; padding: 10px 12px; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: var(--radius-sm); display: none;">
+          <div style="font-size: 0.75rem; color: #38bdf8; font-weight: 700; margin-bottom: 2px;">
+            🕒 Admin-Info: Letzte Aktivität
+          </div>
+          <div style="font-size: 0.8rem; color: #fff; font-weight: 600;" id="admin-member-last-active-val">
+            –
+          </div>
+        </div>
+
         <!-- Admin PIN Reset for forgotten PINs -->
         <div id="admin-member-pin-reset-box" style="margin-top: 14px; padding: 10px 12px; background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: var(--radius-sm); display: none;">
           <div style="font-size: 0.75rem; color: var(--sun-gold); font-weight: 700; margin-bottom: 6px;">
@@ -897,9 +915,9 @@
   <div class="toast-container" id="toast-container"></div>
 
   <!-- JavaScript Scripts -->
-  <script src="js/vapid-config.js?v=20260922_v10"></script>
-  <script src="js/supabase-config.js?v=20260922_v10"></script>
-  <script src="js/data.js?v=20260922_v10"></script>
-  <script src="js/app.js?v=20260922_v10"></script>
+  <script src="js/vapid-config.js?v=20260923_v1"></script>
+  <script src="js/supabase-config.js?v=20260923_v1"></script>
+  <script src="js/data.js?v=20260923_v1"></script>
+  <script src="js/app.js?v=20260923_v1"></script>
 </body>
 </html>
