@@ -4403,8 +4403,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // If countdown is running on a beer, players automatically focus on that active countdown beer
     let activeIdx = bt.activeBeerIndex !== undefined ? bt.activeBeerIndex : 0;
-    if (!canManage && cd && cd.isRunning && cd.endsAt && cd.endsAt > now && cd.activeBeerIndex !== undefined) {
-      activeIdx = cd.activeBeerIndex;
+    if (!canManage) {
+      if (cd && cd.isRunning && cd.endsAt && cd.endsAt > now && cd.activeBeerIndex !== undefined) {
+        activeIdx = cd.activeBeerIndex;
+        window._localBeerActiveIdx = cd.activeBeerIndex;
+      } else if (window._localBeerActiveIdx !== undefined && window._localBeerActiveIdx !== null) {
+        activeIdx = window._localBeerActiveIdx;
+      }
     }
 
     const currentStage = activeIdx < 10 ? 1 : (activeIdx < 20 ? 2 : 3);
@@ -4467,6 +4472,13 @@ document.addEventListener('DOMContentLoaded', () => {
           newIdx = curIdx;
         }
 
+        if (!canManage) {
+          window._localBeerActiveIdx = newIdx;
+          triggerHaptic('light');
+          renderTimbersports();
+          return;
+        }
+
         store.setBeerTastingActiveBeer(newIdx);
         triggerHaptic('light');
         renderTimbersports();
@@ -4477,7 +4489,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const servedNameEl = document.getElementById('ts-served-name');
     const servedTagEl = document.getElementById('ts-served-tag');
     const sol = bt.solutions[activeIdx];
-    const myCurrentGuess = bt.guesses && bt.guesses[currentUserId] && bt.guesses[currentUserId][activeIdx];
+    const userGuesses = (bt.guesses && (bt.guesses[currentUserId] || bt.guesses[String(currentUserId)] || bt.guesses[Number(currentUserId)])) || {};
+    const myCurrentGuess = userGuesses[activeIdx] !== undefined ? userGuesses[activeIdx] : userGuesses[String(activeIdx)];
 
     if (servedNameEl && servedTagEl) {
       if (canManage) {
@@ -4515,7 +4528,7 @@ document.addEventListener('DOMContentLoaded', () => {
             servedTagEl.style.background = 'rgba(16, 185, 129, 0.25)';
             servedTagEl.style.color = '#34d399';
           } else {
-            servedTagEl.textContent = '✗ Falsch getippt';
+            servedTagEl.textContent = myCurrentGuess ? `✗ Falsch (Tipp: ${myCurrentGuess})` : '✗ Falsch (Kein Tipp)';
             servedTagEl.style.background = 'rgba(239, 68, 68, 0.25)';
             servedTagEl.style.color = '#fca5a5';
           }
@@ -4651,13 +4664,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const selectorRow = document.getElementById('ts-beer-selector-row');
     if (selectorRow) {
       let pillsHtml = '';
+      const maxAllowedBeer = bt.activeBeerIndex !== undefined ? bt.activeBeerIndex : 0;
       for (let i = stageStart; i < stageEnd; i++) {
         const isCurrent = i === activeIdx;
-        const myGuess = bt.guesses && bt.guesses[currentUserId] && bt.guesses[currentUserId][i];
+        const myGuess = userGuesses[i] !== undefined ? userGuesses[i] : userGuesses[String(i)];
         const isGuessed = Boolean(myGuess);
         const beerSol = bt.solutions[i];
         const isLockedPill = Boolean(bt.lockedBeers && bt.lockedBeers[i]);
-        const isFutureLocked = !canManage && i > activeIdx;
+        const isFutureLocked = !canManage && i > maxAllowedBeer && !isStageRevealed;
 
         let extraClass = '';
         let icon = isGuessed ? '✓' : '•';
@@ -4692,8 +4706,15 @@ document.addEventListener('DOMContentLoaded', () => {
       selectorRow.querySelectorAll('.ts-beer-num-pill').forEach(btn => {
         btn.addEventListener('click', () => {
           const idx = Number(btn.getAttribute('data-idx'));
-          if (!canManage && idx > activeIdx) {
+          const maxIdx = bt.activeBeerIndex !== undefined ? bt.activeBeerIndex : 0;
+          if (!canManage && idx > maxIdx && !isStageRevealed) {
             showToast(`Bier #${idx + 1} wurde noch nicht ausgeschenkt! ⏳`, '🔒');
+            return;
+          }
+          if (!canManage) {
+            window._localBeerActiveIdx = idx;
+            triggerHaptic('light');
+            renderTimbersports();
             return;
           }
           store.setBeerTastingActiveBeer(idx);
@@ -4712,7 +4733,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (canManage) {
       // --- ADMIN VIEW: Does NOT select a beer; monitors friends' submissions live ---
       const activeMembers = members.filter(m => m.id !== 'admin');
-      const submittedCount = activeMembers.filter(m => bt.guesses && bt.guesses[m.id] && bt.guesses[m.id][activeIdx]).length;
+      const submittedCount = activeMembers.filter(m => {
+        const mGuesses = (bt.guesses && (bt.guesses[m.id] || bt.guesses[String(m.id)] || bt.guesses[Number(m.id)])) || {};
+        return Boolean(mGuesses[activeIdx] !== undefined ? mGuesses[activeIdx] : mGuesses[String(activeIdx)]);
+      }).length;
 
       if (titleEl) titleEl.textContent = `📋 Live-Abgaben für Bier #${activeIdx + 1}`;
       if (hintEl) {
@@ -4726,7 +4750,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (gridEl) {
         let gridHtml = '';
         activeMembers.forEach(m => {
-          const mGuess = bt.guesses && bt.guesses[m.id] && bt.guesses[m.id][activeIdx];
+          const mGuesses = (bt.guesses && (bt.guesses[m.id] || bt.guesses[String(m.id)] || bt.guesses[Number(m.id)])) || {};
+          const mGuess = mGuesses[activeIdx] !== undefined ? mGuesses[activeIdx] : mGuesses[String(activeIdx)];
           const hasGuessed = Boolean(mGuess);
 
           if (isStageRevealed && sol) {
@@ -4758,9 +4783,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (hintEl) {
         if (isStageRevealed) {
           if (sol && myCurrentGuess && myCurrentGuess === sol) {
-            hintEl.innerHTML = `<span style="color:#34d399; font-weight:700;">✓ Volltreffer! Dein Tipp auf ${sol} war genau richtig (+1 Punkt).</span>`;
+            hintEl.innerHTML = `<span style="color:#34d399; font-weight:700;">✓ Volltreffer! Dein Tipp auf „${sol}“ war genau richtig (+1 Punkt).</span>`;
           } else if (sol) {
-            hintEl.innerHTML = `<span style="color:#fca5a5; font-weight:700;">✗ Leider daneben! Du hast ${myCurrentGuess ? 'auf &bdquo;' + myCurrentGuess + '&ldquo;' : 'keinen Tipp'} getippt. Die richtige Lösung war <span style="color:#34d399;">${sol}</span>.</span>`;
+            hintEl.innerHTML = `<span style="color:#fca5a5; font-weight:700;">✗ Leider daneben! Dein Tipp: ${myCurrentGuess ? '„' + myCurrentGuess + '“' : '<em>Kein Tipp</em>'} &nbsp;|&nbsp; Wahre Lösung: <strong style="color:#34d399;">${sol}</strong></span>`;
           } else {
             hintEl.textContent = 'Etappe aufgedeckt – Tipps sind gesperrt:';
           }
@@ -4781,17 +4806,17 @@ document.addEventListener('DOMContentLoaded', () => {
             pickBadge.textContent = `✓ Richtig: ${myCurrentGuess}`;
             pickBadge.className = 'ts-current-pick-badge revealed-correct';
           } else if (sol && myCurrentGuess) {
-            pickBadge.textContent = `✗ Falsch: ${myCurrentGuess}`;
+            pickBadge.textContent = `✗ Dein Tipp: ${myCurrentGuess}`;
             pickBadge.className = 'ts-current-pick-badge revealed-wrong';
           } else if (sol) {
-            pickBadge.textContent = `Wahr: ${sol}`;
-            pickBadge.className = 'ts-current-pick-badge revealed-correct';
+            pickBadge.textContent = `✗ Kein Tipp (Wahr: ${sol})`;
+            pickBadge.className = 'ts-current-pick-badge revealed-wrong';
           } else {
             pickBadge.textContent = myCurrentGuess || 'Kein Tipp';
             pickBadge.className = 'ts-current-pick-badge';
           }
         } else {
-          const myJokerBeer = bt.jokers && bt.jokers[currentUserId];
+          const myJokerBeer = bt.jokers && (bt.jokers[currentUserId] !== undefined ? bt.jokers[currentUserId] : (bt.jokers[String(currentUserId)] !== undefined ? bt.jokers[String(currentUserId)] : bt.jokers[Number(currentUserId)]));
           const hasJokerOnThis = myJokerBeer === activeIdx;
           const jokerSuffix = hasJokerOnThis ? ' 👑 (Joker)' : '';
 
@@ -4806,7 +4831,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       // Joker Button (Goldener Kronkorken) for Player View
-      const myJokerBeer = bt.jokers && bt.jokers[currentUserId];
+      const myJokerBeer = bt.jokers && (bt.jokers[currentUserId] !== undefined ? bt.jokers[currentUserId] : (bt.jokers[String(currentUserId)] !== undefined ? bt.jokers[String(currentUserId)] : bt.jokers[Number(currentUserId)]));
       const hasJokerOnThis = myJokerBeer === activeIdx;
       let jokerBtnHtml = '';
       if (!isRoundLocked && !canManage) {
@@ -4836,9 +4861,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       // Build map of used beers by current user in other rounds
-      const myAllGuesses = (bt.guesses && bt.guesses[currentUserId]) || {};
       const usedBeersMap = {};
-      Object.entries(myAllGuesses).forEach(([idxStr, bName]) => {
+      Object.entries(userGuesses).forEach(([idxStr, bName]) => {
         const idx = Number(idxStr);
         if (idx !== activeIdx && bName) {
           usedBeersMap[bName] = idx + 1;
@@ -4868,7 +4892,7 @@ document.addEventListener('DOMContentLoaded', () => {
               gridHtml += `
                 <div class="ts-beer-opt revealed-correct">
                   <span>🍺</span>
-                  <span style="flex:1;">${beerName}</span>
+                  <span class="beer-name" style="flex:1;">${beerName}</span>
                   <span class="revealed-badge">✓ Dein Treffer! (+1)</span>
                   ${steckbriefBtn}
                 </div>
@@ -4877,7 +4901,7 @@ document.addEventListener('DOMContentLoaded', () => {
               gridHtml += `
                 <div class="ts-beer-opt revealed-wrong">
                   <span>🍺</span>
-                  <span style="flex:1;">${beerName}</span>
+                  <span class="beer-name" style="flex:1;">${beerName}</span>
                   <span class="revealed-badge">✗ Dein Tipp (falsch)</span>
                   ${steckbriefBtn}
                 </div>
@@ -4886,7 +4910,7 @@ document.addEventListener('DOMContentLoaded', () => {
               gridHtml += `
                 <div class="ts-beer-opt revealed-correct">
                   <span>🍺</span>
-                  <span style="flex:1;">${beerName}</span>
+                  <span class="beer-name" style="flex:1;">${beerName}</span>
                   <span class="revealed-badge">✓ Wahre Lösung</span>
                   ${steckbriefBtn}
                 </div>
@@ -4895,7 +4919,7 @@ document.addEventListener('DOMContentLoaded', () => {
               gridHtml += `
                 <div class="ts-beer-opt" style="opacity: 0.35; ${isAll3StagesRevealed ? 'cursor:pointer;' : 'pointer-events: none;'}">
                   <span>🍺</span>
-                  <span style="flex:1;">${beerName}</span>
+                  <span class="beer-name" style="flex:1;">${beerName}</span>
                   ${steckbriefBtn}
                 </div>
               `;
@@ -4904,30 +4928,30 @@ document.addEventListener('DOMContentLoaded', () => {
             gridHtml += `
               <div class="ts-beer-opt selected" data-beer="${beerName}" style="${isRoundLocked ? 'cursor:default;' : ''}">
                 <span>🍺</span>
-                <span style="flex:1;">${beerName}</span>
+                <span class="beer-name" style="flex:1;">${beerName}</span>
                 <span style="color:var(--sun-gold); font-size: 0.85rem;">${isRoundLocked ? '🔒' : '✓'}</span>
               </div>
             `;
           } else if (isUsed) {
             gridHtml += `
-              <div class="ts-beer-opt used" title="Bereits bei Bier #${usedNum} getippt">
+              <div class="ts-beer-opt used" data-beer="${beerName}" data-used-num="${usedNum}" title="Bereits bei Bier #${usedNum} getippt">
                 <span>🍺</span>
-                <span style="flex:1;">${beerName}</span>
-                <span class="used-badge">bei #${usedNum}</span>
+                <span class="beer-name" style="flex:1;">${beerName}</span>
+                <span class="used-badge">🔒 Bei Bier #${usedNum} gewählt</span>
               </div>
             `;
           } else if (isRoundLocked) {
             gridHtml += `
               <div class="ts-beer-opt" style="opacity: 0.45; pointer-events: none;">
                 <span>🍺</span>
-                <span style="flex:1;">${beerName}</span>
+                <span class="beer-name" style="flex:1;">${beerName}</span>
               </div>
             `;
           } else {
             gridHtml += `
               <div class="ts-beer-opt" data-beer="${beerName}">
                 <span>🍺</span>
-                <span style="flex:1;">${beerName}</span>
+                <span class="beer-name" style="flex:1;">${beerName}</span>
               </div>
             `;
           }
@@ -4958,6 +4982,17 @@ document.addEventListener('DOMContentLoaded', () => {
           });
         });
 
+        // Wire Used beers click feedback
+        gridEl.querySelectorAll('.ts-beer-opt.used').forEach(opt => {
+          opt.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const bName = opt.getAttribute('data-beer');
+            const uNum = opt.getAttribute('data-used-num');
+            triggerHaptic('warning');
+            showToast(`„${bName}“ hast du bereits bei Bier #${uNum} eingeloggt! Jedes Bier darf nur einmal gewählt werden.`, '🔒');
+          });
+        });
+
         if (!isRoundLocked) {
           gridEl.querySelectorAll('.ts-beer-opt:not(.used):not([disabled])').forEach(opt => {
             opt.addEventListener('click', () => {
@@ -4965,10 +5000,12 @@ document.addEventListener('DOMContentLoaded', () => {
               if (!bName) return;
               const res = store.saveBeerGuess(currentUserId, activeIdx, bName);
               if (res.success) {
+                fdsAudio.playPlopp();
                 triggerHaptic('success');
                 showToast(`Bier #${activeIdx + 1}: ${bName} eingeloggt! 🍺`, '✓');
                 renderTimbersports();
               } else {
+                triggerHaptic('warning');
                 showToast(res.message, '⚠️');
               }
             });
@@ -4996,37 +5033,99 @@ document.addEventListener('DOMContentLoaded', () => {
         // Detailed stage score summary
         const stageScores = members.map(m => {
           let correct = 0;
+          const mGuesses = (bt.guesses && (bt.guesses[m.id] || bt.guesses[String(m.id)] || bt.guesses[Number(m.id)])) || {};
           for (let i = stageStart; i < stageEnd; i++) {
             const bSol = bt.solutions[i];
-            const guess = bt.guesses && bt.guesses[m.id] && bt.guesses[m.id][i];
-            if (bSol && guess && bSol === guess) correct++;
+            const g = mGuesses[i] !== undefined ? mGuesses[i] : mGuesses[String(i)];
+            if (bSol && g && bSol === g) correct++;
           }
           return { member: m, correct };
         });
         stageScores.sort((a, b) => b.correct - a.correct);
 
-        let tableRowsHtml = stageScores.map((sc, idx) => `
-          <tr style="border-bottom: 1px solid var(--border-subtle);">
-            <td style="padding: 8px 6px; font-weight: 800; color: ${idx === 0 ? 'var(--sun-gold)' : 'var(--text-muted)'};">#${idx + 1}</td>
-            <td style="padding: 8px 6px; display: flex; align-items: center; gap: 8px;">
-              <span class="avatar-sm">${renderAvatar(sc.member.avatar)}</span>
-              <strong>${sc.member.name}</strong>
-            </td>
-            <td style="padding: 8px 6px; text-align: right; font-weight: 800; color: #34d399;">
-              ${sc.correct} / ${stageEnd - stageStart}
-            </td>
-          </tr>
-        `).join('');
+        // 1. Calculate player's personal score and summary for this stage
+        const myStageGuesses = [];
+        let myCorrectCount = 0;
+        const totalInStage = stageEnd - stageStart;
+        for (let i = stageStart; i < stageEnd; i++) {
+          const bSol = bt.solutions[i];
+          const mGuess = userGuesses[i] !== undefined ? userGuesses[i] : userGuesses[String(i)];
+          const isMatch = Boolean(bSol && mGuess && bSol === mGuess);
+          if (isMatch) myCorrectCount++;
+          myStageGuesses.push({
+            beerNum: i + 1,
+            solution: bSol || '–',
+            guess: mGuess || null,
+            isMatch
+          });
+        }
+
+        // Personal Summary Card (especially clear for the player!)
+        let mySummaryBannerHtml = '';
+        if (!canManage) {
+          const itemsSummaryHtml = myStageGuesses.map(item => `
+            <div class="ts-my-stage-item ${item.isMatch ? 'correct' : 'wrong'}">
+              <span style="font-weight:700;">#${item.beerNum}</span>
+              <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:110px;" title="Tipp: ${item.guess || 'Kein Tipp'} | Wahr: ${item.solution}">
+                ${item.guess ? item.guess : '<em style="color:var(--text-muted);">Kein Tipp</em>'}
+              </span>
+              <span style="font-weight:800; color:${item.isMatch ? '#34d399' : '#fca5a5'};">
+                ${item.isMatch ? '✓' : '✗'}
+              </span>
+            </div>
+          `).join('');
+
+          mySummaryBannerHtml = `
+            <div class="ts-my-stage-summary-card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div>
+                  <div style="font-size: 0.72rem; text-transform: uppercase; color: var(--sun-gold); font-weight: 800; letter-spacing: 0.5px;">
+                    🎯 Deine Auswertung – Etappe ${currentStage}
+                  </div>
+                  <div style="font-size: 1.1rem; font-weight: 900; color: #fff; margin-top: 2px;">
+                    ${myCorrectCount} von ${totalInStage} Biere richtig!
+                  </div>
+                </div>
+                <div style="text-align: right;">
+                  <div style="font-size: 1.5rem; font-weight: 900; color: ${myCorrectCount > 0 ? '#34d399' : '#fca5a5'};">
+                    +${myCorrectCount} Pkt
+                  </div>
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px; margin-top: 8px;">
+                ${itemsSummaryHtml}
+              </div>
+            </div>
+          `;
+        }
+
+        let tableRowsHtml = stageScores.map((sc, idx) => {
+          const isMe = sc.member.id === currentUserId || Number(sc.member.id) === Number(currentUserId);
+          return `
+            <tr style="border-bottom: 1px solid var(--border-subtle); ${isMe ? 'background: rgba(245, 158, 11, 0.12); font-weight: 800;' : ''}">
+              <td style="padding: 8px 6px; font-weight: 800; color: ${idx === 0 ? 'var(--sun-gold)' : 'var(--text-muted)'};">#${idx + 1}</td>
+              <td style="padding: 8px 6px; display: flex; align-items: center; gap: 8px;">
+                <span class="avatar-sm">${renderAvatar(sc.member.avatar)}</span>
+                <strong>${sc.member.name}${isMe ? ' (Du)' : ''}</strong>
+              </td>
+              <td style="padding: 8px 6px; text-align: right; font-weight: 800; color: #34d399;">
+                ${sc.correct} / ${totalInStage}
+              </td>
+            </tr>
+          `;
+        }).join('');
 
         let beerDetailsHtml = '';
         for (let i = stageStart; i < stageEnd; i++) {
           const bSol = bt.solutions[i] || 'Nicht erfasst';
           const friendGuesses = members.map(m => {
-            const g = bt.guesses && bt.guesses[m.id] && bt.guesses[m.id][i];
+            const mGuesses = (bt.guesses && (bt.guesses[m.id] || bt.guesses[String(m.id)] || bt.guesses[Number(m.id)])) || {};
+            const g = mGuesses[i] !== undefined ? mGuesses[i] : mGuesses[String(i)];
             const isMatch = g && g === bSol;
+            const isMe = m.id === currentUserId || Number(m.id) === Number(currentUserId);
             return `
-              <span style="font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; background: ${isMatch ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.15)'}; color: ${isMatch ? '#34d399' : '#fca5a5'};">
-                ${m.name}: ${g || '–'} ${isMatch ? '✓' : '✗'}
+              <span style="font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; background: ${isMatch ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.15)'}; color: ${isMatch ? '#34d399' : '#fca5a5'}; border: ${isMe ? '1px solid var(--sun-gold)' : 'none'};">
+                ${m.name}${isMe ? ' (Du)' : ''}: ${g || '–'} ${isMatch ? '✓' : '✗'}
               </span>
             `;
           }).join(' ');
@@ -5053,9 +5152,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         revealBox.innerHTML = `
           <div>
+            ${mySummaryBannerHtml}
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
               <h4 style="font-size: 0.95rem; font-weight: 800; color: #fff; margin: 0;">
-                📊 Zwischenabrechnung Etappe ${currentStage} (Bier ${stageStart + 1}–${stageEnd})
+                📊 Gesamt-Rangliste Etappe ${currentStage} (Bier ${stageStart + 1}–${stageEnd})
               </h4>
               <span style="font-size: 0.7rem; background: rgba(16, 185, 129, 0.2); color: #34d399; padding: 2px 8px; border-radius: var(--radius-pill); font-weight: 800;">Aufgedeckt ✓</span>
             </div>
@@ -5071,7 +5171,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${tableRowsHtml}
               </tbody>
             </table>
-            <details style="font-size: 0.76rem; color: var(--text-secondary); cursor: pointer;">
+            <details style="font-size: 0.76rem; color: var(--text-secondary); cursor: pointer;" ${!canManage ? 'open' : ''}>
               <summary style="font-weight: 700; color: var(--sun-gold); margin-bottom: 6px;">Detail-Auflösung aller Biere ansehen ▾</summary>
               ${beerDetailsHtml}
             </details>

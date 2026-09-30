@@ -1766,12 +1766,155 @@ class DataStore {
     }
   }
 
+  mergeTimbersportsQuizzes(baseQuiz, incomingQuiz) {
+    if (!baseQuiz) return incomingQuiz ? JSON.parse(JSON.stringify(incomingQuiz)) : null;
+    if (!incomingQuiz) return JSON.parse(JSON.stringify(baseQuiz));
+
+    const result = JSON.parse(JSON.stringify(baseQuiz));
+
+    // 1. Top-level flags
+    if (incomingQuiz.activeSubTab !== undefined) result.activeSubTab = incomingQuiz.activeSubTab;
+    if (incomingQuiz.isUnlockedForAll !== undefined) result.isUnlockedForAll = Boolean(baseQuiz.isUnlockedForAll || incomingQuiz.isUnlockedForAll);
+    if (incomingQuiz.isArchived !== undefined) result.isArchived = Boolean(incomingQuiz.isArchived);
+
+    // 2. Beer Tasting
+    if (incomingQuiz.beerTasting) {
+      if (!result.beerTasting) result.beerTasting = {};
+      const btBase = result.beerTasting;
+      const btInc = incomingQuiz.beerTasting;
+
+      if (btInc.beerPool && Array.isArray(btInc.beerPool) && btInc.beerPool.length > 0) {
+        btBase.beerPool = btInc.beerPool;
+      }
+      if (btInc.activeBeerIndex !== undefined) {
+        btBase.activeBeerIndex = btInc.activeBeerIndex;
+      }
+
+      // Solutions (Admin) - merge element by element
+      if (Array.isArray(btInc.solutions)) {
+        if (!Array.isArray(btBase.solutions)) btBase.solutions = Array(25).fill(null);
+        btInc.solutions.forEach((sol, i) => {
+          if (sol !== null && sol !== undefined) btBase.solutions[i] = sol;
+        });
+      }
+
+      // Locked beers (Admin / Timer)
+      if (Array.isArray(btInc.lockedBeers)) {
+        if (!Array.isArray(btBase.lockedBeers)) btBase.lockedBeers = Array(25).fill(false);
+        btInc.lockedBeers.forEach((lck, i) => {
+          if (lck) btBase.lockedBeers[i] = true;
+        });
+      }
+
+      // Stage reveals
+      if (btInc.stage1Revealed !== undefined) btBase.stage1Revealed = Boolean(btInc.stage1Revealed);
+      if (btInc.stage2Revealed !== undefined) btBase.stage2Revealed = Boolean(btInc.stage2Revealed);
+      if (btInc.stage3Revealed !== undefined) btBase.stage3Revealed = Boolean(btInc.stage3Revealed);
+
+      // Countdown - latest timestamp wins
+      if (btInc.countdown) {
+        const baseEnds = btBase.countdown ? (btBase.countdown.endsAt || 0) : 0;
+        const incEnds = btInc.countdown.endsAt || 0;
+        if (incEnds >= baseEnds) {
+          btBase.countdown = btInc.countdown;
+        }
+      } else if (btInc.countdown === null) {
+        // Countdown stopped or reset
+        btBase.countdown = null;
+      }
+
+      // Jokers - merge per member
+      if (btInc.jokers) {
+        if (!btBase.jokers) btBase.jokers = {};
+        Object.assign(btBase.jokers, btInc.jokers);
+      }
+
+      // GUESSES - CRUCIAL DEEP MERGE per member and per beerIndex!
+      if (btInc.guesses) {
+        if (!btBase.guesses) btBase.guesses = {};
+        Object.keys(btInc.guesses).forEach(memberId => {
+          if (!btBase.guesses[memberId]) btBase.guesses[memberId] = {};
+          Object.assign(btBase.guesses[memberId], btInc.guesses[memberId]);
+        });
+      }
+    }
+
+    // 3. Saw Contest
+    if (incomingQuiz.sawContest) {
+      if (!result.sawContest) result.sawContest = {};
+      const sawBase = result.sawContest;
+      const sawInc = incomingQuiz.sawContest;
+
+      if (sawInc.targetWeight) sawBase.targetWeight = sawInc.targetWeight;
+      if (sawInc.revealed !== undefined) sawBase.revealed = Boolean(sawInc.revealed);
+
+      // Jokers
+      if (sawInc.jokers) {
+        if (!sawBase.jokers) sawBase.jokers = {};
+        Object.assign(sawBase.jokers, sawInc.jokers);
+      }
+
+      // Entries (cuts) - merge per member
+      if (sawInc.entries) {
+        if (!sawBase.entries) sawBase.entries = {};
+        Object.keys(sawInc.entries).forEach(memberId => {
+          if (!sawBase.entries[memberId]) sawBase.entries[memberId] = {};
+          const incEntry = sawInc.entries[memberId];
+          if (incEntry.cut1 !== null && incEntry.cut1 !== undefined) sawBase.entries[memberId].cut1 = incEntry.cut1;
+          if (incEntry.cut2 !== null && incEntry.cut2 !== undefined) sawBase.entries[memberId].cut2 = incEntry.cut2;
+        });
+      }
+    }
+
+    // 4. Trivia
+    if (incomingQuiz.trivia) {
+      if (!result.trivia) result.trivia = {};
+      const trBase = result.trivia;
+      const trInc = incomingQuiz.trivia;
+
+      if (trInc.questions && Array.isArray(trInc.questions) && trInc.questions.length > 0) {
+        trBase.questions = trInc.questions;
+      }
+      if (trInc.activeQuestionId) trBase.activeQuestionId = trInc.activeQuestionId;
+      if (trInc.revealed !== undefined) trBase.revealed = Boolean(trInc.revealed);
+      if (trInc.isFrozen !== undefined) trBase.isFrozen = Boolean(trInc.isFrozen);
+
+      if (trInc.countdown) {
+        const baseEnds = trBase.countdown ? (trBase.countdown.endsAt || 0) : 0;
+        const incEnds = trInc.countdown.endsAt || 0;
+        if (incEnds >= baseEnds) {
+          trBase.countdown = trInc.countdown;
+        }
+      } else if (trInc.countdown === null) {
+        trBase.countdown = null;
+      }
+
+      // Jokers
+      if (trInc.jokers) {
+        if (!trBase.jokers) trBase.jokers = {};
+        Object.assign(trBase.jokers, trInc.jokers);
+      }
+
+      // Answers - CRUCIAL DEEP MERGE per questionId and per memberId!
+      if (trInc.answers) {
+        if (!trBase.answers) trBase.answers = {};
+        Object.keys(trInc.answers).forEach(qId => {
+          if (!trBase.answers[qId]) trBase.answers[qId] = {};
+          Object.assign(trBase.answers[qId], trInc.answers[qId]);
+        });
+      }
+    }
+
+    return result;
+  }
+
   applyRemoteTimbersportsQuiz(remoteQuiz) {
     if (!remoteQuiz || typeof remoteQuiz !== 'object') return;
     const evt8 = this.getEvent(8);
     if (!evt8) return;
 
-    evt8.timbersportsQuiz = remoteQuiz;
+    // Deep merge incoming remote quiz with local state to preserve un-synced user guesses
+    evt8.timbersportsQuiz = this.mergeTimbersportsQuizzes(evt8.timbersportsQuiz, remoteQuiz);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
 
     if (typeof window.fdsRefreshUI === 'function') {
@@ -1783,11 +1926,26 @@ class DataStore {
     const client = window.fdsSupabase && window.fdsSupabase.getClient();
     if (!client || !quiz) return;
     try {
+      // First fetch latest remote data to merge and prevent clobbering other players' guesses or admin changes
+      let merged = quiz;
+      const { data } = await client
+        .from('history_seasons')
+        .select('scores')
+        .eq('year', 8888)
+        .maybeSingle();
+
+      if (data && data.scores) {
+        merged = this.mergeTimbersportsQuizzes(data.scores, quiz);
+        const evt8 = this.getEvent(8);
+        if (evt8) evt8.timbersportsQuiz = merged;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
+      }
+
       const res = await client.from('history_seasons').upsert({
         year: 8888,
         title: 'timbersports_live',
         summary: 'Timbersports Live State',
-        scores: quiz,
+        scores: merged,
         updated_at: new Date().toISOString()
       });
       if (res.error) console.warn('pushTimbersportsToCloud error:', res.error);
@@ -2089,7 +2247,25 @@ class DataStore {
       }
     }
 
+    // Check if player has already used this beer in another glass
+    const mIdStr = String(memberId);
+    const memberGuesses = (quiz.beerTasting.guesses && (quiz.beerTasting.guesses[memberId] || quiz.beerTasting.guesses[mIdStr])) || {};
+    for (const [otherIdxStr, otherBeerName] of Object.entries(memberGuesses)) {
+      const otherIdx = Number(otherIdxStr);
+      if (otherIdx !== idx && otherBeerName === beerName) {
+        return {
+          success: false,
+          message: `Du hast „${beerName}“ bereits bei Bier #${otherIdx + 1} getippt! Wähle ein anderes Bier.`
+        };
+      }
+    }
+
+    if (!quiz.beerTasting.guesses) quiz.beerTasting.guesses = {};
+    if (!quiz.beerTasting.guesses[memberId]) quiz.beerTasting.guesses[memberId] = {};
     quiz.beerTasting.guesses[memberId][idx] = beerName;
+    if (mIdStr !== String(memberId) || !quiz.beerTasting.guesses[mIdStr]) {
+      quiz.beerTasting.guesses[mIdStr] = quiz.beerTasting.guesses[memberId];
+    }
     this.saveTimbersportsQuiz(quiz);
     return { success: true };
   }
@@ -2188,9 +2364,21 @@ class DataStore {
   revealBeerStage(stageNum, isRevealed) {
     if (!this.canManageTimbersports()) return false;
     const quiz = this.getTimbersportsQuiz();
-    if (stageNum === 1) quiz.beerTasting.stage1Revealed = Boolean(isRevealed);
-    if (stageNum === 2) quiz.beerTasting.stage2Revealed = Boolean(isRevealed);
-    if (stageNum === 3) quiz.beerTasting.stage3Revealed = Boolean(isRevealed);
+    const isRev = Boolean(isRevealed);
+    if (stageNum === 1) quiz.beerTasting.stage1Revealed = isRev;
+    if (stageNum === 2) quiz.beerTasting.stage2Revealed = isRev;
+    if (stageNum === 3) quiz.beerTasting.stage3Revealed = isRev;
+
+    // If admin un-reveals a stage (to let friends test / tip again), unlock those beers
+    if (!isRev) {
+      const start = stageNum === 1 ? 0 : (stageNum === 2 ? 10 : 20);
+      const end = stageNum === 1 ? 10 : (stageNum === 2 ? 20 : 25);
+      if (!Array.isArray(quiz.beerTasting.lockedBeers)) quiz.beerTasting.lockedBeers = Array(25).fill(false);
+      for (let i = start; i < end; i++) {
+        quiz.beerTasting.lockedBeers[i] = false;
+      }
+    }
+
     this.saveTimbersportsQuiz(quiz);
     return true;
   }
@@ -2430,13 +2618,16 @@ class DataStore {
     if (quiz.beerTasting.lockedBeers && quiz.beerTasting.lockedBeers[bIdx]) {
       return { success: false, message: 'Runde ist bereits beendet. Joker kann nicht mehr geändert werden.' };
     }
-    const currentJoker = quiz.beerTasting.jokers[memberId];
+    const mIdStr = String(memberId);
+    const currentJoker = quiz.beerTasting.jokers[memberId] !== undefined ? quiz.beerTasting.jokers[memberId] : quiz.beerTasting.jokers[mIdStr];
     if (currentJoker === bIdx) {
       delete quiz.beerTasting.jokers[memberId];
+      delete quiz.beerTasting.jokers[mIdStr];
       this.saveTimbersportsQuiz(quiz);
       return { success: true, active: false, message: 'Goldener Kronkorken entfernt.' };
     }
     quiz.beerTasting.jokers[memberId] = bIdx;
+    quiz.beerTasting.jokers[mIdStr] = bIdx;
     this.saveTimbersportsQuiz(quiz);
     return { success: true, active: true, message: `Goldener Kronkorken auf Bier #${bIdx + 1} gesetzt! 👑` };
   }
@@ -2490,10 +2681,12 @@ class DataStore {
       const sol = bt.solutions[i];
       if (sol && bt.stage1Revealed) {
         members.forEach(m => {
-          if (bt.guesses[m.id] && bt.guesses[m.id][i] === sol) {
+          const mGuesses = bt.guesses && (bt.guesses[m.id] || bt.guesses[String(m.id)]);
+          const mJoker = bt.jokers && (bt.jokers[m.id] !== undefined ? bt.jokers[m.id] : bt.jokers[String(m.id)]);
+          if (mGuesses && mGuesses[i] === sol) {
             beerScores[m.id].stage1++;
             beerScores[m.id].total++;
-            if (bt.jokers && bt.jokers[m.id] === i) {
+            if (mJoker === i) {
               beerScores[m.id].jokerBonus++;
               beerScores[m.id].total++;
             }
@@ -2506,10 +2699,12 @@ class DataStore {
       const sol = bt.solutions[i];
       if (sol && bt.stage2Revealed) {
         members.forEach(m => {
-          if (bt.guesses[m.id] && bt.guesses[m.id][i] === sol) {
+          const mGuesses = bt.guesses && (bt.guesses[m.id] || bt.guesses[String(m.id)]);
+          const mJoker = bt.jokers && (bt.jokers[m.id] !== undefined ? bt.jokers[m.id] : bt.jokers[String(m.id)]);
+          if (mGuesses && mGuesses[i] === sol) {
             beerScores[m.id].stage2++;
             beerScores[m.id].total++;
-            if (bt.jokers && bt.jokers[m.id] === i) {
+            if (mJoker === i) {
               beerScores[m.id].jokerBonus++;
               beerScores[m.id].total++;
             }
@@ -2522,10 +2717,12 @@ class DataStore {
       const sol = bt.solutions[i];
       if (sol && bt.stage3Revealed) {
         members.forEach(m => {
-          if (bt.guesses[m.id] && bt.guesses[m.id][i] === sol) {
+          const mGuesses = bt.guesses && (bt.guesses[m.id] || bt.guesses[String(m.id)]);
+          const mJoker = bt.jokers && (bt.jokers[m.id] !== undefined ? bt.jokers[m.id] : bt.jokers[String(m.id)]);
+          if (mGuesses && mGuesses[i] === sol) {
             beerScores[m.id].stage3++;
             beerScores[m.id].total++;
-            if (bt.jokers && bt.jokers[m.id] === i) {
+            if (mJoker === i) {
               beerScores[m.id].jokerBonus++;
               beerScores[m.id].total++;
             }
