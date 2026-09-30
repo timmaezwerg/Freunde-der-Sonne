@@ -2570,6 +2570,17 @@ body.auth-locked #modal-select-user .sheet-handle {
   color: #fde047;
 }
 
+.ts-stage-pill.locked {
+  opacity: 0.55;
+  cursor: not-allowed;
+  border-style: dashed;
+}
+
+.ts-stage-pill.locked:hover {
+  border-color: var(--border-subtle);
+  color: var(--text-secondary);
+}
+
 /* Active Served Banner */
 .ts-served-banner {
   display: flex;
@@ -2715,6 +2726,24 @@ body.auth-locked #modal-select-user .sheet-handle {
   border-color: rgba(245, 158, 11, 0.45);
   background: rgba(245, 158, 11, 0.12);
   color: var(--sun-gold);
+}
+
+.ts-beer-num-pill.future-locked {
+  opacity: 0.4;
+  cursor: not-allowed !important;
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text-muted);
+}
+
+.ts-beer-num-pill.active {
+  animation: pulseGoldBorder 2.2s infinite ease-in-out;
+}
+
+@keyframes pulseGoldBorder {
+  0% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.6); }
+  70% { box-shadow: 0 0 0 6px rgba(251, 191, 36, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
 }
 
 .ts-beer-opt.admin-friend-tipped {

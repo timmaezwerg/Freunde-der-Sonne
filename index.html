@@ -15,8 +15,8 @@
   <link rel="manifest" href="manifest.json">
   
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/style.css?v=20260930_ts7">
-  <link rel="stylesheet" href="css/components.css?v=20260930_ts7">
+  <link rel="stylesheet" href="css/style.css?v=20260930_ts8">
+  <link rel="stylesheet" href="css/components.css?v=20260930_ts8">
   
   <!-- Supabase JS CDN Library -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -39,6 +39,9 @@
           <h1>Freunde der Sonne ☀️</h1>
           <span class="subtitle">8 Freunde • 1 König • 1 Grillmeister</span>
         </div>
+        <button type="button" class="header-collapse-toggle" id="btn-toggle-header" title="Header ein-/ausklappen" aria-label="Header einklappen">
+          <span id="header-collapse-icon">▲</span>
+        </button>
       </div>
       <div class="header-actions">
         <div class="cloud-sync-badge" id="btn-cloud-status" title="Cloud-Sync Status (Supabase)">
@@ -514,6 +517,13 @@
                 </button>
                 <button type="button" class="btn btn-secondary" id="btn-reset-beer-countdown" style="flex: 0 0 auto;" title="Timer komplett zurücksetzen">
                   <span>🔄</span>
+                </button>
+              </div>
+
+              <!-- Quick Next Beer Action -->
+              <div style="margin-top: 8px;">
+                <button type="button" class="btn btn-gold btn-block" id="btn-admin-next-beer" style="font-weight: 800; padding: 9px; font-size: 0.84rem;">
+                  <span>⏭️</span> Weiter zu nächstem Bier ➔
                 </button>
               </div>
 
@@ -1457,9 +1467,9 @@
   <div class="toast-container" id="toast-container"></div>
 
   <!-- JavaScript Scripts -->
-  <script src="js/vapid-config.js?v=20260930_ts7"></script>
-  <script src="js/supabase-config.js?v=20260930_ts7"></script>
-  <script src="js/data.js?v=20260930_ts7"></script>
-  <script src="js/app.js?v=20260930_ts7"></script>
+  <script src="js/vapid-config.js?v=20260930_ts8"></script>
+  <script src="js/supabase-config.js?v=20260930_ts8"></script>
+  <script src="js/data.js?v=20260930_ts8"></script>
+  <script src="js/app.js?v=20260930_ts8"></script>
 </body>
 </html>

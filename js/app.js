@@ -84,6 +84,23 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.classList.toggle('auth-locked', !isAuthed);
     updateUserHeader();
     updateTimbersportsTabVisibility();
+
+    // Auto-compact header when not on table / leaderboard view
+    const appHeader = document.querySelector('.app-header');
+    const headerCollapseIcon = document.getElementById('header-collapse-icon');
+    if (appHeader) {
+      const isLeaderboard = activeViewId === 'view-leaderboard';
+      const isManuallyCollapsed = appHeader.classList.contains('header-collapsed');
+      if (!isLeaderboard) {
+        appHeader.classList.add('compact-header');
+      } else if (!isManuallyCollapsed) {
+        appHeader.classList.remove('compact-header');
+      }
+      if (headerCollapseIcon) {
+        headerCollapseIcon.textContent = isManuallyCollapsed ? '▼' : (isLeaderboard ? '▲' : '▼');
+      }
+    }
+
     if (activeViewId === 'view-leaderboard') renderLeaderboard();
     if (activeViewId === 'view-events') renderEvents();
     if (activeViewId === 'view-members') renderMembers();
@@ -746,6 +763,34 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   document.getElementById('btn-user-switcher').addEventListener('click', openUserPickerModal);
+
+  const btnToggleHeader = document.getElementById('btn-toggle-header');
+  const headerBrand = document.querySelector('.header-brand');
+  const toggleHeaderCollapse = () => {
+    const appHeader = document.querySelector('.app-header');
+    const headerCollapseIcon = document.getElementById('header-collapse-icon');
+    if (appHeader) {
+      const isCollapsed = appHeader.classList.toggle('header-collapsed');
+      if (headerCollapseIcon) {
+        headerCollapseIcon.textContent = isCollapsed ? '▼' : '▲';
+      }
+      triggerHaptic('light');
+    }
+  };
+
+  if (btnToggleHeader) {
+    btnToggleHeader.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleHeaderCollapse();
+    });
+  }
+  if (headerBrand) {
+    headerBrand.addEventListener('click', (e) => {
+      // Don't trigger if clicked on child button (like btnToggleHeader itself)
+      if (e.target.closest('#btn-toggle-header')) return;
+      toggleHeaderCollapse();
+    });
+  }
 
   document.querySelectorAll('.btn-push-toggle, #btn-toggle-push-notifications').forEach(btn => {
     btn.addEventListener('click', togglePushNotifications);
@@ -4346,8 +4391,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // Update Stage Pills & Click Handlers to switch between Etappe 1, 2, and 3
     document.querySelectorAll('.ts-stage-pill').forEach(pill => {
       const pStage = Number(pill.getAttribute('data-ts-stage'));
+      const isLocked = !canManage && (
+        (pStage === 2 && !bt.stage1Revealed && bt.activeBeerIndex < 10) ||
+        (pStage === 3 && !bt.stage2Revealed && bt.activeBeerIndex < 20)
+      );
+      pill.classList.toggle('locked', isLocked);
       pill.classList.toggle('active', pStage === currentStage);
       pill.onclick = () => {
+        if (isLocked) {
+          showToast(`Etappe ${pStage} startet erst nach Aufdeckung der vorherigen Etappe! ⏳`, '🔒');
+          return;
+        }
         let newIdx = 0;
         if (pStage === 1) newIdx = 0;
         else if (pStage === 2) newIdx = 10;
@@ -4379,6 +4433,14 @@ document.addEventListener('DOMContentLoaded', () => {
           servedTagEl.textContent = 'Aufgedeckt ✓';
           servedTagEl.style.background = 'rgba(16, 185, 129, 0.25)';
           servedTagEl.style.color = '#34d399';
+        } else if (activeIdx === 9 && (isBeerFrozen || isCdExpired) && !bt.stage1Revealed) {
+          servedTagEl.textContent = '🏁 Etappe 1 fertig';
+          servedTagEl.style.background = 'rgba(245, 158, 11, 0.25)';
+          servedTagEl.style.color = 'var(--sun-gold)';
+        } else if (activeIdx === 19 && (isBeerFrozen || isCdExpired) && !bt.stage2Revealed) {
+          servedTagEl.textContent = '🏁 Etappe 2 fertig';
+          servedTagEl.style.background = 'rgba(245, 158, 11, 0.25)';
+          servedTagEl.style.color = 'var(--sun-gold)';
         } else if (isBeerFrozen || isCdExpired) {
           servedTagEl.textContent = '🔒 Runde eingefroren';
           servedTagEl.style.background = 'rgba(239, 68, 68, 0.2)';
@@ -4404,6 +4466,16 @@ document.addEventListener('DOMContentLoaded', () => {
             servedTagEl.style.background = 'rgba(239, 68, 68, 0.25)';
             servedTagEl.style.color = '#fca5a5';
           }
+        } else if (activeIdx === 9 && (isBeerFrozen || isCdExpired) && !bt.stage1Revealed) {
+          servedNameEl.textContent = `Probierglas #10 (Etappe 1 Finale)`;
+          servedTagEl.textContent = '🏁 Etappe 1 beendet – Auswertung folgt';
+          servedTagEl.style.background = 'rgba(245, 158, 11, 0.25)';
+          servedTagEl.style.color = 'var(--sun-gold)';
+        } else if (activeIdx === 19 && (isBeerFrozen || isCdExpired) && !bt.stage2Revealed) {
+          servedNameEl.textContent = `Probierglas #20 (Etappe 2 Finale)`;
+          servedTagEl.textContent = '🏁 Etappe 2 beendet – Auswertung folgt';
+          servedTagEl.style.background = 'rgba(245, 158, 11, 0.25)';
+          servedTagEl.style.color = 'var(--sun-gold)';
         } else if (isBeerFrozen || isCdExpired) {
           servedNameEl.textContent = `Probierglas #${activeIdx + 1}`;
           servedTagEl.textContent = '🔒 Runde eingefroren';
@@ -4487,9 +4559,25 @@ document.addEventListener('DOMContentLoaded', () => {
               clearInterval(window._tsBeerTimerInterval);
               window._tsBeerTimerInterval = null;
               fdsAudio.playBuzzer();
-              store.setBeerLocked(activeIdx, true);
               triggerHaptic('warning');
-              showToast(`Zeit abgelaufen für Bier #${activeIdx + 1} – Auswahl eingefroren!`, '⏳');
+              store.setBeerLocked(activeIdx, true);
+
+              // Auto-advance logic:
+              if (activeIdx === 9) {
+                // End of Etappe 1: Halt and wait for Admin to reveal Etappe 1
+                showToast(`Etappe 1 beendet! Warten auf Auswertung durch den Spielleiter. 🏁`, '⏳');
+              } else if (activeIdx === 19) {
+                // End of Etappe 2: Halt and wait for Admin to reveal Etappe 2
+                showToast(`Etappe 2 beendet! Warten auf Auswertung durch den Spielleiter. 🏁`, '⏳');
+              } else if (activeIdx >= 24) {
+                // Tasting completely finished
+                showToast(`Biertasting komplett abgeschlossen! 🏆`, '🎉');
+              } else {
+                // Auto-advance to next beer
+                const nextBeer = activeIdx + 1;
+                showToast(`Zeit abgelaufen für Bier #${activeIdx + 1}! Weiter zu Bier #${nextBeer + 1} ➔`, '⏱️');
+                store.setBeerTastingActiveBeer(nextBeer);
+              }
               renderTimbersports();
             }
           }, 500);
@@ -4516,11 +4604,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const isGuessed = Boolean(myGuess);
         const beerSol = bt.solutions[i];
         const isLockedPill = Boolean(bt.lockedBeers && bt.lockedBeers[i]);
+        const isFutureLocked = !canManage && i > activeIdx;
 
         let extraClass = '';
         let icon = isGuessed ? '✓' : '•';
 
-        if (isStageRevealed && beerSol) {
+        if (isFutureLocked) {
+          extraClass = 'future-locked';
+          icon = '🔒';
+        } else if (isStageRevealed && beerSol) {
           if (myGuess && myGuess === beerSol) {
             extraClass = 'stage-correct';
             icon = '✓';
@@ -4536,7 +4628,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         pillsHtml += `
-          <button type="button" class="ts-beer-num-pill ${isCurrent ? 'active' : ''} ${extraClass}" data-idx="${i}" title="Bier #${i + 1}${isLockedPill ? ' (Eingefroren)' : ''}">
+          <button type="button" class="ts-beer-num-pill ${isCurrent ? 'active' : ''} ${extraClass}" data-idx="${i}" ${isFutureLocked ? 'disabled' : ''} title="Bier #${i + 1}${isFutureLocked ? ' (Noch nicht ausgeschenkt)' : (isLockedPill ? ' (Eingefroren)' : '')}">
             <span class="num">#${i + 1}</span>
             <span class="status-icon">${icon}</span>
           </button>
@@ -4547,6 +4639,10 @@ document.addEventListener('DOMContentLoaded', () => {
       selectorRow.querySelectorAll('.ts-beer-num-pill').forEach(btn => {
         btn.addEventListener('click', () => {
           const idx = Number(btn.getAttribute('data-idx'));
+          if (!canManage && idx > activeIdx) {
+            showToast(`Bier #${idx + 1} wurde noch nicht ausgeschenkt! ⏳`, '🔒');
+            return;
+          }
           store.setBeerTastingActiveBeer(idx);
           triggerHaptic('light');
           renderTimbersports();
@@ -4615,6 +4711,10 @@ document.addEventListener('DOMContentLoaded', () => {
           } else {
             hintEl.textContent = 'Etappe aufgedeckt – Tipps sind gesperrt:';
           }
+        } else if (activeIdx === 9 && (isBeerFrozen || isCdExpired) && !bt.stage1Revealed) {
+          hintEl.innerHTML = `<span style="color:var(--sun-gold); font-weight:700;">🏁 Runde 10 beendet! Der Spielleiter wertet jetzt Etappe 1 aus und deckt auf. Danach startet automatisch Etappe 2!</span>`;
+        } else if (activeIdx === 19 && (isBeerFrozen || isCdExpired) && !bt.stage2Revealed) {
+          hintEl.innerHTML = `<span style="color:var(--sun-gold); font-weight:700;">🏁 Runde 20 beendet! Der Spielleiter wertet jetzt Etappe 2 aus und deckt auf. Danach startet automatisch Etappe 3!</span>`;
         } else if (isRoundLocked) {
           hintEl.innerHTML = `<span style="color:#ef4444; font-weight:700;">🔒 Die Verkostungsrunde für Bier #${activeIdx + 1} ist beendet. Dein Tipp ist eingefroren.</span>`;
         } else {
@@ -5006,8 +5106,48 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btnStopTimer) {
           btnStopTimer.onclick = () => {
             store.stopBeerCountdown();
+            store.setBeerLocked(activeIdx, true);
             triggerHaptic('warning');
-            showToast(`Bier #${activeIdx + 1} gestoppt & eingefroren! ⏹️`, '⚠️');
+
+            if (activeIdx === 9) {
+              showToast(`Bier #10 gestoppt! Etappe 1 beendet – bereit zur Auswertung & Aufdeckung! 🏁`, '⏹️');
+            } else if (activeIdx === 19) {
+              showToast(`Bier #20 gestoppt! Etappe 2 beendet – bereit zur Auswertung & Aufdeckung! 🏁`, '⏹️');
+            } else if (activeIdx >= 24) {
+              showToast(`Biertasting komplett beendet! 🏆`, '🎉');
+            } else {
+              const nextIdx = activeIdx + 1;
+              store.setBeerTastingActiveBeer(nextIdx);
+              showToast(`Bier #${activeIdx + 1} gestoppt & eingefroren! Weiter zu Bier #${nextIdx + 1} ➔`, '⏭️');
+            }
+            renderTimbersports();
+          };
+        }
+
+        const btnAdminNextBeer = document.getElementById('btn-admin-next-beer');
+        if (btnAdminNextBeer) {
+          btnAdminNextBeer.onclick = () => {
+            store.stopBeerCountdown();
+            store.setBeerLocked(activeIdx, true);
+
+            if (activeIdx === 9 && !bt.stage1Revealed) {
+              showToast('Etappe 1 ist beendet! Bitte zuerst unten Etappe 1 aufdecken, um Etappe 2 zu starten. 📊', '⚠️');
+              renderTimbersports();
+              return;
+            } else if (activeIdx === 19 && !bt.stage2Revealed) {
+              showToast('Etappe 2 ist beendet! Bitte zuerst unten Etappe 2 aufdecken, um Etappe 3 zu starten. 📊', '⚠️');
+              renderTimbersports();
+              return;
+            } else if (activeIdx >= 24) {
+              showToast('Alle 25 Biere wurden bereits verkostet! 🏆', 'ℹ️');
+              renderTimbersports();
+              return;
+            }
+
+            const nextBeer = activeIdx + 1;
+            store.setBeerTastingActiveBeer(nextBeer);
+            triggerHaptic('success');
+            showToast(`Weiter zu Bier #${nextBeer + 1}! 🍺`, '⏭️');
             renderTimbersports();
           };
         }
@@ -5120,13 +5260,25 @@ document.addEventListener('DOMContentLoaded', () => {
           if (b1) b1.onclick = () => {
             const next = !bt.stage1Revealed;
             store.revealBeerStage(1, next);
-            if (next) fireSolarConfetti();
+            if (next) {
+              fireSolarConfetti();
+              if (activeIdx <= 9) {
+                store.setBeerTastingActiveBeer(10);
+                showToast('Etappe 1 aufgedeckt! Automatisch weiter zu Etappe 2 (Bier 11) ➔', '🎉');
+              }
+            }
             renderTimbersports();
           };
           if (b2) b2.onclick = () => {
             const next = !bt.stage2Revealed;
             store.revealBeerStage(2, next);
-            if (next) fireSolarConfetti();
+            if (next) {
+              fireSolarConfetti();
+              if (activeIdx <= 19) {
+                store.setBeerTastingActiveBeer(20);
+                showToast('Etappe 2 aufgedeckt! Automatisch weiter zu Etappe 3 (Bier 21) ➔', '🏆');
+              }
+            }
             renderTimbersports();
           };
           if (b3) b3.onclick = () => {

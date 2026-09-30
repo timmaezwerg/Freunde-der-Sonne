@@ -154,12 +154,15 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  transition: padding 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.25s ease;
 }
 
 .header-brand {
   display: flex;
   align-items: center;
   gap: 10px;
+  cursor: pointer;
+  user-select: none;
 }
 
 .app-logo-badge {
@@ -171,6 +174,7 @@ html, body {
   box-shadow: 0 4px 12px var(--sun-glow);
   border: 1px solid var(--border-solar);
   flex-shrink: 0;
+  transition: width 0.25s ease, height 0.25s ease;
 }
 
 .app-logo-badge img {
@@ -190,6 +194,7 @@ html, body {
   display: flex;
   align-items: center;
   gap: 4px;
+  transition: font-size 0.25s ease;
 }
 
 .header-titles .subtitle {
@@ -198,6 +203,80 @@ html, body {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.8px;
+  transition: opacity 0.2s ease, max-height 0.25s ease;
+}
+
+.header-collapse-toggle {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 0.65rem;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  margin-left: 2px;
+}
+
+.header-collapse-toggle:hover {
+  color: var(--sun-gold);
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.12);
+}
+
+/* Compact Mode (when not on Table / Leaderboard tab) */
+.app-header.compact-header {
+  padding: calc(var(--safe-top) + 5px) 14px 5px;
+}
+
+.app-header.compact-header .app-logo-badge {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+}
+
+.app-header.compact-header .header-titles h1 {
+  font-size: 0.95rem;
+}
+
+.app-header.compact-header .header-titles .subtitle {
+  display: none;
+}
+
+.app-header.compact-header #btn-share-trigger {
+  display: none;
+}
+
+.app-header.compact-header .user-pill-btn {
+  padding: 4px 8px;
+  font-size: 0.78rem;
+}
+
+.app-header.compact-header .cloud-sync-badge {
+  padding: 3px 7px;
+  font-size: 0.65rem;
+}
+
+/* Full Collapsed Mode (User triggered) */
+.app-header.header-collapsed {
+  padding: calc(var(--safe-top) + 4px) 12px 4px;
+}
+
+.app-header.header-collapsed .header-titles {
+  display: none;
+}
+
+.app-header.header-collapsed .app-logo-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+}
+
+.app-header.header-collapsed #btn-share-trigger {
+  display: none;
 }
 
 .header-actions {
