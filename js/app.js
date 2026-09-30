@@ -3087,7 +3087,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('edit-member-id').value = member.id;
     const nameInput = document.getElementById('edit-member-name');
     nameInput.value = member.name;
-    nameInput.disabled = true; // Fixed group member name!
+    nameInput.disabled = false; // Name is editable by member or admin
 
     document.getElementById('edit-member-nickname').value = member.nickname || '';
     
@@ -3241,7 +3241,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  document.getElementById('form-edit-member').addEventListener('submit', (e) => {
+  document.getElementById('form-edit-member').addEventListener('submit', async (e) => {
     e.preventDefault();
     const memberId = Number(document.getElementById('edit-member-id').value);
     const currentUserId = store.getCurrentUserId();
@@ -3252,18 +3252,33 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const emojiVal = document.getElementById('edit-member-avatar').value.trim();
-    const finalAvatar = currentEditingAvatar || emojiVal || '👤';
+    const member = store.getMember(memberId);
+    if (!member) return;
 
-    // Keep group name fixed, only update nickname and avatar
+    const emojiVal = document.getElementById('edit-member-avatar').value.trim();
+    const finalAvatar = currentEditingAvatar || emojiVal || member.avatar || '👤';
+    const nameVal = document.getElementById('edit-member-name').value.trim();
+    const nicknameVal = document.getElementById('edit-member-nickname').value.trim();
+
     store.updateMember(memberId, {
-      nickname: document.getElementById('edit-member-nickname').value.trim(),
+      name: nameVal || member.name,
+      nickname: nicknameVal,
       avatar: finalAvatar
     });
 
     closeAllModals();
-    showToast('Profil aktualisiert!', finalAvatar);
+    showToast('Profil aktualisiert! ☀️', finalAvatar);
     refreshActiveView();
+
+    // Ensure immediate cloud push to Supabase
+    try {
+      const res = await store.pushMemberToCloud(store.getMember(memberId));
+      if (res && res.error) {
+        console.warn('pushMemberToCloud fehler:', res.error);
+      }
+    } catch (err) {
+      console.warn('Fehler beim Speichern in Cloud:', err);
+    }
   });
 
   // Admin Single PIN Reset inside Edit Member modal

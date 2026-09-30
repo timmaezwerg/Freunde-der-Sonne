@@ -534,25 +534,22 @@ function fromDbMember(m) {
     pin: String(m.pin || '1234'),
     color: m.color || '#38bdf8',
     isAdmin: Boolean(m.is_admin),
-    lastActiveAt: m.last_active_at || null
+    lastActiveAt: m.last_active_at || null,
+    updated_at: m.updated_at || null
   };
 }
 
 function toDbMember(m) {
-  const row = {
-    id: m.id,
+  return {
+    id: Number(m.id),
     name: m.name,
-    nickname: m.nickname,
-    avatar: m.avatar,
-    pin: m.pin,
-    color: m.color,
+    nickname: m.nickname || '',
+    avatar: m.avatar || '👤',
+    pin: String(m.pin || '1234'),
+    color: m.color || '#38bdf8',
     is_admin: Boolean(m.isAdmin),
-    updated_at: new Date().toISOString()
+    updated_at: m.updated_at || new Date().toISOString()
   };
-  if (m.lastActiveAt) {
-    row.last_active_at = m.lastActiveAt;
-  }
-  return row;
 }
 
 function fromDbEvent(e) {
@@ -901,6 +898,7 @@ class DataStore {
     }
 
     member.pin = String(newPin).trim();
+    member.updated_at = new Date().toISOString();
     this.save(member);
     return { success: true, message: 'PIN erfolgreich geändert!' };
   }
@@ -911,6 +909,7 @@ class DataStore {
     if (!member) return { success: false, message: 'Mitglied nicht gefunden.' };
 
     member.pin = String(newPin).trim();
+    member.updated_at = new Date().toISOString();
     this.save(member);
     return { success: true, message: `PIN für ${member.name} wurde zurückgesetzt!` };
   }
@@ -1344,6 +1343,7 @@ class DataStore {
     const member = this.getMember(memberId);
     if (!member) return false;
     Object.assign(member, fields);
+    member.updated_at = new Date().toISOString();
     this.save(member);
     return true;
   }
@@ -1616,17 +1616,45 @@ class DataStore {
 
   mergeRemoteData(remoteMembers, remoteEvents) {
     if (Array.isArray(remoteMembers) && remoteMembers.length > 0) {
+      const unsyncedMembers = [];
+
       this.state.members = remoteMembers.map(m => {
         const parsed = fromDbMember(m);
         const local = (this.state.members || []).find(lm => lm.id === parsed.id);
-        if (local && local.lastActiveAt) {
-          if (!parsed.lastActiveAt || new Date(local.lastActiveAt) > new Date(parsed.lastActiveAt)) {
-            parsed.lastActiveAt = local.lastActiveAt;
+
+        if (local) {
+          // 1. Preserve highest lastActiveAt
+          if (local.lastActiveAt) {
+            if (!parsed.lastActiveAt || new Date(local.lastActiveAt) > new Date(parsed.lastActiveAt)) {
+              parsed.lastActiveAt = local.lastActiveAt;
+            }
+          }
+
+          // 2. Conflict resolution: If local has newer updated_at than remote, keep local edits
+          const localTime = local.updated_at ? new Date(local.updated_at).getTime() : 0;
+          const remoteTime = parsed.updated_at ? new Date(parsed.updated_at).getTime() : 0;
+
+          if (localTime > remoteTime) {
+            parsed.name = local.name || parsed.name;
+            parsed.nickname = local.nickname !== undefined ? local.nickname : parsed.nickname;
+            parsed.avatar = local.avatar || parsed.avatar;
+            parsed.pin = local.pin || parsed.pin;
+            parsed.color = local.color || parsed.color;
+            parsed.updated_at = local.updated_at;
+            unsyncedMembers.push(parsed);
           }
         }
         return parsed;
       });
+
+      // Background sync if any local member was ahead of remote
+      if (unsyncedMembers.length > 0) {
+        unsyncedMembers.forEach(mem => {
+          this.pushMemberToCloud(mem).catch(() => {});
+        });
+      }
     }
+
     if (Array.isArray(remoteEvents) && remoteEvents.length > 0) {
       this.state.events = remoteEvents.map(fromDbEvent);
     }
@@ -2011,6 +2039,22 @@ class DataStore {
           this.applyRemoteTimbersportsQuiz(payload.quiz);
         }
       })
+      .on('broadcast', { event: 'member_sync' }, ({ payload }) => {
+        if (payload && payload.member && payload.member.id) {
+          const updated = fromDbMember(payload.member);
+          const idx = this.state.members.findIndex(m => m.id === updated.id);
+          if (idx !== -1) {
+            if (!updated.lastActiveAt && this.state.members[idx].lastActiveAt) {
+              updated.lastActiveAt = this.state.members[idx].lastActiveAt;
+            }
+            this.state.members[idx] = { ...this.state.members[idx], ...updated };
+          } else {
+            this.state.members.push(updated);
+          }
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
+          if (typeof window.fdsRefreshUI === 'function') window.fdsRefreshUI();
+        }
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, payload => {
         if (payload.new && payload.new.id) {
           const updated = fromDbMember(payload.new);
@@ -2019,7 +2063,7 @@ class DataStore {
             if (!updated.lastActiveAt && this.state.members[idx].lastActiveAt) {
               updated.lastActiveAt = this.state.members[idx].lastActiveAt;
             }
-            this.state.members[idx] = updated;
+            this.state.members[idx] = { ...this.state.members[idx], ...updated };
           } else {
             this.state.members.push(updated);
           }
@@ -2853,11 +2897,30 @@ class DataStore {
 
   async pushMemberToCloud(member) {
     const client = window.fdsSupabase && window.fdsSupabase.getClient();
-    if (!client || !member) return;
+    if (!client || !member) return { success: false, error: 'No client or member' };
     try {
-      await client.from('members').upsert(toDbMember(member));
+      const dbRow = toDbMember(member);
+      const res = await client.from('members').upsert(dbRow);
+      if (res.error) {
+        console.warn('pushMemberToCloud error:', res.error);
+        return { success: false, error: res.error };
+      }
+
+      // Also broadcast member change across realtime channel for instantaneous multi-device sync
+      if (this.realtimeChannel) {
+        try {
+          this.realtimeChannel.send({
+            type: 'broadcast',
+            event: 'member_sync',
+            payload: { member: dbRow, senderId: this.getCurrentUserId() }
+          }).catch(() => {});
+        } catch (e) {}
+      }
+
+      return { success: true };
     } catch (e) {
       console.warn('pushMemberToCloud error:', e);
+      return { success: false, error: e };
     }
   }
 
