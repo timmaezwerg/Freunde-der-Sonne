@@ -73,6 +73,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const navItem = document.getElementById('nav-item-timbersports');
     if (navItem) {
       navItem.style.display = isVisible ? 'flex' : 'none';
+      const quiz = store.getTimbersportsQuiz();
+      const cd = quiz && quiz.beerTasting && quiz.beerTasting.countdown;
+      const isCdActive = Boolean(cd && cd.isRunning && cd.endsAt && Date.now() < cd.endsAt);
+      navItem.classList.toggle('has-live-countdown', isCdActive);
     }
     if (!isVisible && activeViewId === 'view-timbersports') {
       switchView('view-leaderboard');
@@ -4361,7 +4365,15 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Sub-Controller: Biertasting ---
   function renderTimbersportsBeer(quiz, canManage, currentUserId, members) {
     const bt = quiz.beerTasting;
-    const activeIdx = bt.activeBeerIndex !== undefined ? bt.activeBeerIndex : 0;
+    const cd = bt.countdown;
+    const now = Date.now();
+
+    // If countdown is running on a beer, players automatically focus on that active countdown beer
+    let activeIdx = bt.activeBeerIndex !== undefined ? bt.activeBeerIndex : 0;
+    if (!canManage && cd && cd.isRunning && cd.endsAt && cd.endsAt > now && cd.activeBeerIndex !== undefined) {
+      activeIdx = cd.activeBeerIndex;
+    }
+
     const currentStage = activeIdx < 10 ? 1 : (activeIdx < 20 ? 2 : 3);
     const stageStart = currentStage === 1 ? 0 : (currentStage === 2 ? 10 : 20);
     const stageEnd = currentStage === 1 ? 10 : (currentStage === 2 ? 20 : 25);
@@ -4371,9 +4383,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const isBeerFrozen = Boolean(bt.lockedBeers && bt.lockedBeers[activeIdx]);
 
     // Countdown timing for this beer
-    const cd = bt.countdown;
     const isCdForActive = Boolean(cd && cd.activeBeerIndex === activeIdx);
-    const now = Date.now();
     let cdRemaining = 0;
     let cdTotalSecs = 60;
     let isCdRunning = false;
@@ -4384,6 +4394,16 @@ document.addEventListener('DOMContentLoaded', () => {
       isCdRunning = Boolean(cd.isRunning);
       cdRemaining = Math.max(0, Math.ceil(((cd.endsAt || now) - now) / 1000));
       isCdExpired = cdRemaining <= 0 || (!isCdRunning && cd.endsAt && now >= cd.endsAt);
+    }
+
+    // Audio & Toast notification when a countdown starts for players
+    if (!canManage && isCdRunning && cdRemaining > 0) {
+      if (window._lastSeenActiveCountdownBeer !== activeIdx) {
+        window._lastSeenActiveCountdownBeer = activeIdx;
+        fdsAudio.playPlopp();
+        triggerHaptic('medium');
+        showToast(`⏱️ Spielleiter hat den Countdown für Bier #${activeIdx + 1} gestartet!`, '🍺');
+      }
     }
 
     const isRoundLocked = isStageRevealed || isBeerFrozen || isCdExpired;

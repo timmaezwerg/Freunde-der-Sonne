@@ -563,18 +563,23 @@ function fromDbEvent(e) {
   let packingItems = [];
   let rsvps = {};
 
-  if (Array.isArray(e.packing_list)) {
-    packingItems = e.packing_list.map(it => {
+  let packingObj = e.packing_list;
+  if (typeof packingObj === 'string') {
+    try { packingObj = JSON.parse(packingObj); } catch (err) {}
+  }
+
+  if (Array.isArray(packingObj)) {
+    packingItems = packingObj.map(it => {
       if (typeof it === 'string') return { text: it, checked: false, broughtBy: null };
       return it;
     });
-  } else if (e.packing_list && typeof e.packing_list === 'object') {
-    const rawItems = Array.isArray(e.packing_list.items) ? e.packing_list.items : [];
+  } else if (packingObj && typeof packingObj === 'object') {
+    const rawItems = Array.isArray(packingObj.items) ? packingObj.items : [];
     packingItems = rawItems.map(it => {
       if (typeof it === 'string') return { text: it, checked: false, broughtBy: null };
       return it;
     });
-    rsvps = (e.packing_list.rsvps && typeof e.packing_list.rsvps === 'object') ? e.packing_list.rsvps : {};
+    rsvps = (packingObj.rsvps && typeof packingObj.rsvps === 'object') ? packingObj.rsvps : {};
   }
 
   if (e.rsvps && typeof e.rsvps === 'object' && Object.keys(e.rsvps).length > 0) {
@@ -582,8 +587,17 @@ function fromDbEvent(e) {
   }
 
   let timbersportsQuiz = e.timbersportsQuiz || e.timbersports_quiz || null;
-  if (!timbersportsQuiz && e.packing_list && typeof e.packing_list === 'object') {
-    timbersportsQuiz = e.packing_list.timbersportsQuiz || null;
+  if (!timbersportsQuiz && packingObj && typeof packingObj === 'object') {
+    timbersportsQuiz = packingObj.timbersportsQuiz || null;
+  }
+  if (!timbersportsQuiz && e.quiz_data) {
+    let qd = e.quiz_data;
+    if (typeof qd === 'string') {
+      try { qd = JSON.parse(qd); } catch (err) {}
+    }
+    if (qd && typeof qd === 'object' && Object.keys(qd).length > 0) {
+      timbersportsQuiz = qd;
+    }
   }
   if (!timbersportsQuiz && Number(e.id) === 8) {
     timbersportsQuiz = JSON.parse(JSON.stringify(DEFAULT_TIMBERSPORTS_QUIZ));
@@ -636,7 +650,6 @@ function toDbEvent(e) {
     is_frozen: Boolean(e.isFrozen),
     pending_jokers: pendingJokers,
     scores: e.scores || [],
-    quiz_data: e.timbersportsQuiz || {},
     updated_at: new Date().toISOString()
   };
 }
@@ -644,6 +657,7 @@ function toDbEvent(e) {
 class DataStore {
   constructor() {
     this.init();
+    this.initLocalBroadcast();
     setTimeout(() => {
       this.initCloudSync();
     }, 200);
@@ -1551,11 +1565,12 @@ class DataStore {
     this.updateCloudStatus('syncing', 'Sync...');
 
     try {
-      // 1. Fetch remote members, events & activity meta
-      const [membersRes, eventsRes, activityRes] = await Promise.all([
+      // 1. Fetch remote members, events, activity meta & live timbersports state
+      const [membersRes, eventsRes, activityRes, timbersportsRes] = await Promise.all([
         client.from('members').select('*').order('id', { ascending: true }),
         client.from('events').select('*').order('id', { ascending: true }),
-        client.from('history_seasons').select('scores').eq('year', 9999).maybeSingle()
+        client.from('history_seasons').select('scores').eq('year', 9999).maybeSingle(),
+        client.from('history_seasons').select('scores, updated_at').eq('year', 8888).maybeSingle()
       ]);
 
       if (membersRes.error || eventsRes.error) {
@@ -1571,6 +1586,13 @@ class DataStore {
         this.mergeRemoteData(remoteMembers, remoteEvents);
         if (activityRes && activityRes.data && activityRes.data.scores) {
           this.mergeActivityData(activityRes.data.scores);
+        }
+        if (timbersportsRes && timbersportsRes.data && timbersportsRes.data.scores) {
+          const evt8 = this.getEvent(8);
+          if (evt8) {
+            evt8.timbersportsQuiz = timbersportsRes.data.scores;
+            this._lastTimbersportsRemoteTime = timbersportsRes.data.updated_at;
+          }
         }
         localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
         this.updateCloudStatus('connected', 'Live');
@@ -1677,12 +1699,160 @@ class DataStore {
     } catch (e) {}
   }
 
+  initLocalBroadcast() {
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        if (!this.localBroadcastChannel) {
+          this.localBroadcastChannel = new BroadcastChannel('fds_timbersports_local_sync');
+          this.localBroadcastChannel.onmessage = (event) => {
+            if (event.data && event.data.type === 'timbersports_sync' && event.data.quiz) {
+              console.log('⚡ [Local Broadcast] Syncing Timbersports from another tab');
+              this.applyRemoteTimbersportsQuiz(event.data.quiz);
+            }
+          };
+        }
+      } catch (e) {}
+    }
+
+    if (!this._hasStorageListener) {
+      this._hasStorageListener = true;
+      window.addEventListener('storage', (e) => {
+        if (e.key === STORAGE_KEY && e.newValue) {
+          try {
+            const newState = JSON.parse(e.newValue);
+            if (newState && newState.events) {
+              this.state = newState;
+              if (typeof window.fdsRefreshUI === 'function') window.fdsRefreshUI();
+            }
+          } catch (err) {}
+        }
+      });
+    }
+  }
+
+  broadcastTimbersportsQuiz(quiz) {
+    // 1. Same-device cross-tab sync
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        if (!this.localBroadcastChannel) {
+          this.localBroadcastChannel = new BroadcastChannel('fds_timbersports_local_sync');
+        }
+        this.localBroadcastChannel.postMessage({
+          type: 'timbersports_sync',
+          quiz: quiz,
+          senderId: this.getCurrentUserId(),
+          timestamp: Date.now()
+        });
+      } catch (e) {}
+    }
+
+    // 2. Realtime WebSocket Broadcast to all other devices (<100ms latency)
+    if (this.realtimeChannel) {
+      try {
+        this.realtimeChannel.send({
+          type: 'broadcast',
+          event: 'timbersports_sync',
+          payload: {
+            quiz: quiz,
+            senderId: this.getCurrentUserId(),
+            timestamp: Date.now()
+          }
+        }).catch(err => {
+          console.warn('Supabase broadcast send error:', err);
+        });
+      } catch (e) {
+        console.warn('Realtime channel broadcast error:', e);
+      }
+    }
+  }
+
+  applyRemoteTimbersportsQuiz(remoteQuiz) {
+    if (!remoteQuiz || typeof remoteQuiz !== 'object') return;
+    const evt8 = this.getEvent(8);
+    if (!evt8) return;
+
+    evt8.timbersportsQuiz = remoteQuiz;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
+
+    if (typeof window.fdsRefreshUI === 'function') {
+      window.fdsRefreshUI();
+    }
+  }
+
+  async pushTimbersportsToCloud(quiz) {
+    const client = window.fdsSupabase && window.fdsSupabase.getClient();
+    if (!client || !quiz) return;
+    try {
+      const res = await client.from('history_seasons').upsert({
+        year: 8888,
+        title: 'timbersports_live',
+        summary: 'Timbersports Live State',
+        scores: quiz,
+        updated_at: new Date().toISOString()
+      });
+      if (res.error) console.warn('pushTimbersportsToCloud error:', res.error);
+    } catch (e) {
+      console.warn('pushTimbersportsToCloud error:', e);
+    }
+  }
+
+  startLivePolling(client) {
+    if (this._pollingInterval) clearInterval(this._pollingInterval);
+    this._pollingInterval = setInterval(async () => {
+      if (document.hidden || !window.fdsSupabase || !window.fdsSupabase.isConfigured()) return;
+      try {
+        const { data } = await client
+          .from('history_seasons')
+          .select('scores, updated_at')
+          .eq('year', 8888)
+          .maybeSingle();
+
+        if (data && data.scores && data.updated_at) {
+          if (!this._lastTimbersportsRemoteTime || new Date(data.updated_at) > new Date(this._lastTimbersportsRemoteTime)) {
+            this._lastTimbersportsRemoteTime = data.updated_at;
+            this.applyRemoteTimbersportsQuiz(data.scores);
+          }
+        }
+      } catch (err) {}
+    }, 2500);
+
+    if (!this._hasVisibilityListener) {
+      this._hasVisibilityListener = true;
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && client) {
+          client.from('history_seasons')
+            .select('scores, updated_at')
+            .eq('year', 8888)
+            .maybeSingle()
+            .then(({ data }) => {
+              if (data && data.scores && data.updated_at) {
+                if (!this._lastTimbersportsRemoteTime || new Date(data.updated_at) > new Date(this._lastTimbersportsRemoteTime)) {
+                  this._lastTimbersportsRemoteTime = data.updated_at;
+                  this.applyRemoteTimbersportsQuiz(data.scores);
+                }
+              }
+            }).catch(() => {});
+        }
+      });
+    }
+  }
+
   setupRealtimeSubscription(client) {
     if (this.realtimeChannel) {
       try { client.removeChannel(this.realtimeChannel); } catch (e) {}
     }
 
-    this.realtimeChannel = client.channel('fds-realtime-all')
+    this.realtimeChannel = client.channel('fds-realtime-all', {
+      config: {
+        broadcast: { self: false }
+      }
+    })
+      .on('broadcast', { event: 'timbersports_sync' }, ({ payload }) => {
+        if (payload && payload.quiz) {
+          console.log('⚡ [Realtime Broadcast] Live Timbersports update from', payload.senderId);
+          this.applyRemoteTimbersportsQuiz(payload.quiz);
+        }
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, payload => {
         if (payload.new && payload.new.id) {
           const updated = fromDbMember(payload.new);
@@ -1713,9 +1883,14 @@ class DataStore {
         }
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'history_seasons' }, payload => {
-        if (payload.new && payload.new.year === 9999 && payload.new.scores) {
-          this.mergeActivityData(payload.new.scores);
-          if (typeof window.fdsRefreshUI === 'function') window.fdsRefreshUI();
+        if (payload.new) {
+          if (payload.new.year === 9999 && payload.new.scores) {
+            this.mergeActivityData(payload.new.scores);
+            if (typeof window.fdsRefreshUI === 'function') window.fdsRefreshUI();
+          } else if (payload.new.year === 8888 && payload.new.scores) {
+            console.log('⚡ [Realtime Postgres] Live Timbersports update from history_seasons');
+            this.applyRemoteTimbersportsQuiz(payload.new.scores);
+          }
         }
       })
       .subscribe((status) => {
@@ -1725,6 +1900,9 @@ class DataStore {
           this.updateCloudStatus('error', 'Offline');
         }
       });
+
+    // Start background live polling as fallback
+    this.startLivePolling(client);
   }
 
   // --- Timbersports & Biertasting Special (Spieltag 8) ---
@@ -1789,6 +1967,13 @@ class DataStore {
     if (!evt8) return false;
     evt8.timbersportsQuiz = quiz;
     this.save(evt8);
+
+    // Instant local & remote broadcast
+    this.broadcastTimbersportsQuiz(quiz);
+
+    // Instant cloud persistence to dedicated JSON store
+    this.pushTimbersportsToCloud(quiz);
+
     return true;
   }
 
@@ -1925,6 +2110,9 @@ class DataStore {
 
     // Newly started beer is open
     quiz.beerTasting.lockedBeers[newIdx] = false;
+
+    // Set active beer index so all devices switch to this beer
+    quiz.beerTasting.activeBeerIndex = newIdx;
 
     const dur = Math.max(5, Number(durationSeconds) || 60);
     const now = Date.now();
@@ -2466,7 +2654,9 @@ class DataStore {
     const client = window.fdsSupabase && window.fdsSupabase.getClient();
     if (!client || !event) return;
     try {
-      await client.from('events').upsert(toDbEvent(event));
+      const dbEvt = toDbEvent(event);
+      const res = await client.from('events').upsert(dbEvt);
+      if (res.error) console.warn('pushEventToCloud error:', res.error);
     } catch (e) {
       console.warn('pushEventToCloud error:', e);
     }
@@ -2483,6 +2673,10 @@ class DataStore {
         client.from('members').upsert(mRows),
         client.from('events').upsert(eRows)
       ]);
+      const evt8 = this.getEvent(8);
+      if (evt8 && evt8.timbersportsQuiz) {
+        await this.pushTimbersportsToCloud(evt8.timbersportsQuiz);
+      }
       this.updateCloudStatus('connected', 'Live');
     } catch (e) {
       console.warn('pushAllToCloud error:', e);

@@ -2746,6 +2746,17 @@ body.auth-locked #modal-select-user .sheet-handle {
   100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
 }
 
+#nav-item-timbersports.has-live-countdown {
+  color: var(--sun-gold) !important;
+  animation: pulseLiveTab 1.6s infinite ease-in-out;
+}
+
+@keyframes pulseLiveTab {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.12); filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.85)); }
+  100% { transform: scale(1); }
+}
+
 .ts-beer-opt.admin-friend-tipped {
   background: rgba(16, 185, 129, 0.14) !important;
   border-color: rgba(16, 185, 129, 0.45) !important;
