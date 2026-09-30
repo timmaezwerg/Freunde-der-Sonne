@@ -4747,6 +4747,12 @@ document.addEventListener('DOMContentLoaded', () => {
         pickBadge.className = 'ts-current-pick-badge ' + (submittedCount === activeMembers.length ? 'has-pick' : '');
       }
 
+      const jokerSlotEl = document.getElementById('ts-beer-joker-slot');
+      if (jokerSlotEl) {
+        jokerSlotEl.innerHTML = '';
+        jokerSlotEl.style.display = 'none';
+      }
+
       if (gridEl) {
         let gridHtml = '';
         activeMembers.forEach(m => {
@@ -4759,7 +4765,7 @@ document.addEventListener('DOMContentLoaded', () => {
             gridHtml += `
               <div class="ts-beer-opt ${isMatch ? 'revealed-correct' : 'revealed-wrong'}" style="pointer-events:none;">
                 <span class="avatar-sm">${renderAvatar(m.avatar)}</span>
-                <span style="flex:1; font-weight:700;">${m.name}</span>
+                <span class="beer-name">${m.name}</span>
                 <span class="revealed-badge">${isMatch ? '✓ ' + mGuess : '✗ ' + (mGuess || 'Kein Tipp')}</span>
               </div>
             `;
@@ -4767,7 +4773,7 @@ document.addEventListener('DOMContentLoaded', () => {
             gridHtml += `
               <div class="ts-beer-opt ${hasGuessed ? 'admin-friend-tipped' : ''}" style="pointer-events:none;">
                 <span class="avatar-sm">${renderAvatar(m.avatar)}</span>
-                <span style="flex:1; font-weight:700;">${m.name}</span>
+                <span class="beer-name">${m.name}</span>
                 <span class="admin-tip-badge ${hasGuessed ? 'tipped' : 'pending'}">
                   ${hasGuessed ? '✓ Eingeloggt' : '⏳ Wartet...'}
                 </span>
@@ -4837,7 +4843,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!isRoundLocked && !canManage) {
         if (hasJokerOnThis) {
           jokerBtnHtml = `
-            <div style="margin-bottom: 12px;">
+            <div class="ts-joker-banner-wrapper">
               <button type="button" class="ts-joker-btn active" id="btn-toggle-beer-joker">
                 <span>👑</span> Goldener Kronkorken aktiv! (+1 Bonuspunkt bei Treffer)
               </button>
@@ -4845,18 +4851,35 @@ document.addEventListener('DOMContentLoaded', () => {
           `;
         } else if (myJokerBeer !== undefined && myJokerBeer !== null) {
           jokerBtnHtml = `
-            <div style="margin-bottom: 12px; font-size: 0.76rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
-              <span class="ts-joker-badge">👑 Gesetzter Kronkorken</span> bei Bier #${myJokerBeer + 1}
+            <div class="ts-joker-banner-wrapper">
+              <button type="button" class="ts-joker-btn" id="btn-toggle-beer-joker">
+                <span>👑</span> Kronkorken auf Bier #${activeIdx + 1} verschieben (+1 Bonus)
+              </button>
+              <div class="ts-joker-info-text">
+                <span class="ts-joker-badge">👑 Gesetzter Kronkorken</span> liegt aktuell bei Bier #${myJokerBeer + 1}
+              </div>
             </div>
           `;
         } else {
           jokerBtnHtml = `
-            <div style="margin-bottom: 12px;">
+            <div class="ts-joker-banner-wrapper">
               <button type="button" class="ts-joker-btn" id="btn-toggle-beer-joker">
-                <span>👑</span> Goldener Kronkorken für dieses Bier setzen (+1 Bonuspunkt)
+                <span>👑</span> Goldener Kronkorken für Bier #${activeIdx + 1} setzen (+1 Bonuspunkt)
               </button>
             </div>
           `;
+        }
+      }
+
+      // Render Joker outside the beer options grid
+      const jokerSlotEl = document.getElementById('ts-beer-joker-slot');
+      if (jokerSlotEl) {
+        if (jokerBtnHtml) {
+          jokerSlotEl.innerHTML = jokerBtnHtml;
+          jokerSlotEl.style.display = 'block';
+        } else {
+          jokerSlotEl.innerHTML = '';
+          jokerSlotEl.style.display = 'none';
         }
       }
 
@@ -4873,7 +4896,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (gridEl) {
         let gridHtml = '';
-        if (jokerBtnHtml) gridHtml += jokerBtnHtml;
 
         (bt.beerPool || []).forEach(beerName => {
           const isSelected = myCurrentGuess === beerName;
@@ -4885,14 +4907,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const isWrongGuess = Boolean(sol && isSelected && myCurrentGuess !== sol);
             const isTrueSolution = Boolean(sol && beerName === sol);
             const steckbriefBtn = isAll3StagesRevealed
-              ? `<button type="button" class="btn btn-sm btn-secondary btn-beer-card-steckbrief" data-beer="${beerName}" style="padding: 2px 7px; font-size: 0.7rem; margin-left: auto;">ℹ️ Steckbrief</button>`
+              ? `<button type="button" class="btn btn-sm btn-secondary btn-beer-card-steckbrief" data-beer="${beerName}" style="padding: 2px 8px; font-size: 0.72rem; margin-left: auto;">ℹ️ Steckbrief</button>`
               : '';
 
             if (isCorrectGuess) {
               gridHtml += `
                 <div class="ts-beer-opt revealed-correct">
-                  <span>🍺</span>
-                  <span class="beer-name" style="flex:1;">${beerName}</span>
+                  <span class="beer-emoji">🍺</span>
+                  <span class="beer-name">${beerName}</span>
                   <span class="revealed-badge">✓ Dein Treffer! (+1)</span>
                   ${steckbriefBtn}
                 </div>
@@ -4900,8 +4922,8 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (isWrongGuess) {
               gridHtml += `
                 <div class="ts-beer-opt revealed-wrong">
-                  <span>🍺</span>
-                  <span class="beer-name" style="flex:1;">${beerName}</span>
+                  <span class="beer-emoji">🍺</span>
+                  <span class="beer-name">${beerName}</span>
                   <span class="revealed-badge">✗ Dein Tipp (falsch)</span>
                   ${steckbriefBtn}
                 </div>
@@ -4909,8 +4931,8 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (isTrueSolution) {
               gridHtml += `
                 <div class="ts-beer-opt revealed-correct">
-                  <span>🍺</span>
-                  <span class="beer-name" style="flex:1;">${beerName}</span>
+                  <span class="beer-emoji">🍺</span>
+                  <span class="beer-name">${beerName}</span>
                   <span class="revealed-badge">✓ Wahre Lösung</span>
                   ${steckbriefBtn}
                 </div>
@@ -4918,8 +4940,8 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
               gridHtml += `
                 <div class="ts-beer-opt" style="opacity: 0.35; ${isAll3StagesRevealed ? 'cursor:pointer;' : 'pointer-events: none;'}">
-                  <span>🍺</span>
-                  <span class="beer-name" style="flex:1;">${beerName}</span>
+                  <span class="beer-emoji">🍺</span>
+                  <span class="beer-name">${beerName}</span>
                   ${steckbriefBtn}
                 </div>
               `;
@@ -4927,31 +4949,31 @@ document.addEventListener('DOMContentLoaded', () => {
           } else if (isSelected) {
             gridHtml += `
               <div class="ts-beer-opt selected" data-beer="${beerName}" style="${isRoundLocked ? 'cursor:default;' : ''}">
-                <span>🍺</span>
-                <span class="beer-name" style="flex:1;">${beerName}</span>
-                <span style="color:var(--sun-gold); font-size: 0.85rem;">${isRoundLocked ? '🔒' : '✓'}</span>
+                <span class="beer-emoji">🍺</span>
+                <span class="beer-name">${beerName}</span>
+                <span class="pick-indicator">${isRoundLocked ? '🔒 Eingeloggt' : '✓ Gewählt'}</span>
               </div>
             `;
           } else if (isUsed) {
             gridHtml += `
               <div class="ts-beer-opt used" data-beer="${beerName}" data-used-num="${usedNum}" title="Bereits bei Bier #${usedNum} getippt">
-                <span>🍺</span>
-                <span class="beer-name" style="flex:1;">${beerName}</span>
+                <span class="beer-emoji">🍺</span>
+                <span class="beer-name">${beerName}</span>
                 <span class="used-badge">🔒 Bei Bier #${usedNum} gewählt</span>
               </div>
             `;
           } else if (isRoundLocked) {
             gridHtml += `
               <div class="ts-beer-opt" style="opacity: 0.45; pointer-events: none;">
-                <span>🍺</span>
-                <span class="beer-name" style="flex:1;">${beerName}</span>
+                <span class="beer-emoji">🍺</span>
+                <span class="beer-name">${beerName}</span>
               </div>
             `;
           } else {
             gridHtml += `
               <div class="ts-beer-opt" data-beer="${beerName}">
-                <span>🍺</span>
-                <span class="beer-name" style="flex:1;">${beerName}</span>
+                <span class="beer-emoji">🍺</span>
+                <span class="beer-name">${beerName}</span>
               </div>
             `;
           }
@@ -4959,7 +4981,7 @@ document.addEventListener('DOMContentLoaded', () => {
         gridEl.innerHTML = gridHtml;
 
         // Wire Joker button
-        const btnJoker = gridEl.querySelector('#btn-toggle-beer-joker');
+        const btnJoker = document.getElementById('btn-toggle-beer-joker');
         if (btnJoker) {
           btnJoker.onclick = () => {
             const res = store.setBeerJoker(currentUserId, activeIdx);

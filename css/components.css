@@ -2856,46 +2856,123 @@ body.auth-locked #modal-select-user .sheet-handle {
   box-shadow: 0 0 10px rgba(239, 68, 68, 0.25);
 }
 
-.ts-beer-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+/* Dedicated Joker slot above beer grid */
+.ts-beer-joker-slot {
+  margin-bottom: 14px;
+  width: 100%;
 }
 
-@media (max-width: 360px) {
+.ts-joker-banner-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.ts-joker-banner-wrapper .ts-joker-btn {
+  width: 100%;
+  padding: 10px 16px;
+  font-size: 0.88rem;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.ts-joker-info-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  padding: 2px 4px;
+}
+
+/* Beer grid: Full-width list on mobile, 2 columns on tablet/desktop */
+.ts-beer-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+@media (min-width: 680px) {
   .ts-beer-grid {
-    grid-template-columns: 1fr;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
 }
 
 .ts-beer-opt {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 9px 10px;
-  border-radius: var(--radius-sm);
-  background: rgba(10, 15, 26, 0.75);
-  border: 1px solid var(--border-subtle);
+  gap: 12px;
+  padding: 11px 14px;
+  min-height: 50px;
+  border-radius: var(--radius-md);
+  background: rgba(14, 20, 34, 0.88);
+  border: 1.5px solid var(--border-subtle);
   color: var(--text-primary);
-  font-size: 0.76rem;
+  font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;
   text-align: left;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .ts-beer-opt:hover {
   background: rgba(245, 158, 11, 0.1);
-  border-color: rgba(245, 158, 11, 0.35);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.ts-beer-opt:active {
+  transform: scale(0.985);
+}
+
+.ts-beer-opt .beer-emoji {
+  font-size: 1.25rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.ts-beer-opt .beer-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.35;
+  white-space: normal;
+  word-break: normal;
 }
 
 .ts-beer-opt.selected {
-  background: rgba(245, 158, 11, 0.22);
-  border-color: var(--sun-gold);
+  background: rgba(245, 158, 11, 0.22) !important;
+  border-color: var(--sun-gold) !important;
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.35);
+}
+
+.ts-beer-opt.selected .beer-name {
   color: #fff;
   font-weight: 800;
-  box-shadow: 0 0 10px rgba(245, 158, 11, 0.25);
+}
+
+.ts-beer-opt .pick-indicator {
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(245, 158, 11, 0.25);
+  border: 1px solid var(--sun-gold);
+  color: var(--sun-gold);
+  margin-left: auto;
+  flex-shrink: 0;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 /* Revealed states: correct (green) & wrong (red) */
@@ -2903,31 +2980,40 @@ body.auth-locked #modal-select-user .sheet-handle {
   background: rgba(16, 185, 129, 0.22) !important;
   border: 1.5px solid #10b981 !important;
   color: #34d399 !important;
-  font-weight: 800 !important;
   box-shadow: 0 0 12px rgba(16, 185, 129, 0.3) !important;
   pointer-events: none;
+}
+
+.ts-beer-opt.revealed-correct .beer-name {
+  color: #34d399 !important;
+  font-weight: 800;
 }
 
 .ts-beer-opt.revealed-wrong {
   background: rgba(239, 68, 68, 0.22) !important;
   border: 1.5px solid #ef4444 !important;
   color: #fca5a5 !important;
-  font-weight: 700;
-  text-decoration: line-through;
   box-shadow: 0 0 10px rgba(239, 68, 68, 0.25);
   pointer-events: none;
 }
 
+.ts-beer-opt.revealed-wrong .beer-name {
+  text-decoration: line-through !important;
+  color: #fca5a5 !important;
+}
+
 .ts-beer-opt .revealed-badge {
-  font-size: 0.62rem;
+  font-size: 0.7rem;
   font-weight: 800;
-  padding: 2px 6px;
+  padding: 3px 8px;
   border-radius: var(--radius-pill);
   margin-left: auto;
+  flex-shrink: 0;
   text-decoration: none !important;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
+  white-space: nowrap;
 }
 
 .ts-beer-opt.revealed-correct .revealed-badge {
@@ -2946,31 +3032,32 @@ body.auth-locked #modal-select-user .sheet-handle {
 .ts-beer-opt.used {
   opacity: 0.52;
   background: rgba(0, 0, 0, 0.32);
-  border-color: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.25);
   cursor: not-allowed;
   user-select: none;
 }
 
 .ts-beer-opt.used:hover {
   background: rgba(239, 68, 68, 0.08);
-  border-color: rgba(239, 68, 68, 0.4);
+  border-color: rgba(239, 68, 68, 0.45);
 }
 
 .ts-beer-opt.used .beer-name {
   text-decoration: line-through !important;
   color: var(--text-muted);
-  opacity: 0.75;
+  opacity: 0.72;
 }
 
 .ts-beer-opt .used-badge {
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  padding: 2px 7px;
+  padding: 3px 8px;
   border-radius: var(--radius-pill);
   background: rgba(239, 68, 68, 0.22);
-  border: 1px solid rgba(239, 68, 68, 0.4);
+  border: 1px solid rgba(239, 68, 68, 0.45);
   color: #fca5a5;
   margin-left: auto;
+  flex-shrink: 0;
   text-decoration: none !important;
   display: inline-flex;
   align-items: center;
