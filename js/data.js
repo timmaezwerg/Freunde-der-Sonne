@@ -2223,6 +2223,20 @@ class DataStore {
     return true;
   }
 
+  saveSawEntries(entriesMap) {
+    if (!this.canManageTimbersports() || !entriesMap) return false;
+    const quiz = this.getTimbersportsQuiz();
+    if (!quiz.sawContest.entries) quiz.sawContest.entries = {};
+    Object.entries(entriesMap).forEach(([memberId, cuts]) => {
+      quiz.sawContest.entries[memberId] = {
+        cut1: (cuts.cut1 !== '' && cuts.cut1 !== null && cuts.cut1 !== undefined) ? Number(cuts.cut1) : null,
+        cut2: (cuts.cut2 !== '' && cuts.cut2 !== null && cuts.cut2 !== undefined) ? Number(cuts.cut2) : null
+      };
+    });
+    this.saveTimbersportsQuiz(quiz);
+    return true;
+  }
+
   revealSawCuts(revealed) {
     if (!this.canManageTimbersports()) return false;
     const quiz = this.getTimbersportsQuiz();

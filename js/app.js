@@ -4337,7 +4337,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 2. Sub-Navigation Tabs
-    const activeSub = quiz.activeSubTab || 'beer';
+    const now = Date.now();
+    const btCdRunning = Boolean(quiz.beerTasting && quiz.beerTasting.countdown && quiz.beerTasting.countdown.isRunning && quiz.beerTasting.countdown.endsAt && quiz.beerTasting.countdown.endsAt > now);
+    const trCdRunning = Boolean(quiz.trivia && quiz.trivia.countdown && quiz.trivia.countdown.isRunning && quiz.trivia.countdown.endsAt && quiz.trivia.countdown.endsAt > now);
+
+    let activeSub = quiz.activeSubTab || 'beer';
+
+    // If an active countdown is running, automatically direct players to the running event
+    if (!canManage) {
+      if (trCdRunning) {
+        activeSub = 'trivia';
+        window._localTimbersportsSubTab = null;
+      } else if (btCdRunning) {
+        activeSub = 'beer';
+        window._localTimbersportsSubTab = null;
+      } else if (window._localTimbersportsSubTab) {
+        activeSub = window._localTimbersportsSubTab;
+      }
+    }
 
     // Show/hide Admin-only beerpool tab in subnav
     const beerpoolTabBtn = document.getElementById('ts-tab-beerpool');
@@ -4348,8 +4365,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.querySelectorAll('.ts-subnav-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.getAttribute('data-ts-sub') === activeSub);
+      const sub = btn.getAttribute('data-ts-sub');
+      btn.classList.toggle('active', sub === activeSub);
+
+      // Pulse badge for active timers
+      let pulseSpan = btn.querySelector('.ts-live-pulse-badge');
+      const shouldPulse = (sub === 'beer' && btCdRunning) || (sub === 'trivia' && trCdRunning);
+      if (shouldPulse) {
+        if (!pulseSpan) {
+          pulseSpan = document.createElement('span');
+          pulseSpan.className = 'ts-live-pulse-badge';
+          pulseSpan.textContent = '⏱️';
+          btn.appendChild(pulseSpan);
+        }
+      } else if (pulseSpan) {
+        pulseSpan.remove();
+      }
     });
+
     document.querySelectorAll('.ts-subpanel').forEach(panel => {
       panel.classList.toggle('active', panel.id === `ts-subpanel-${activeSub}`);
     });
@@ -5320,6 +5353,43 @@ document.addEventListener('DOMContentLoaded', () => {
     const isRevealed = Boolean(saw.revealed);
     const myEntry = (saw.entries && saw.entries[currentUserId]) || {};
 
+    // Remote reveal celebration
+    if (isRevealed && window._sawWasRevealed === false) {
+      fdsAudio.playFanfare();
+      fireSolarConfetti();
+      triggerHaptic('celebrate');
+      showToast('🪵 Die offizielle Säge-Rangliste wurde aufgedeckt!', '🏆');
+    }
+    window._sawWasRevealed = isRevealed;
+
+    // Live alert for the player when their cuts are weighed by Admin
+    if (!canManage && currentUserId !== 'admin') {
+      const c1 = myEntry.cut1;
+      const c2 = myEntry.cut2;
+      const hasC1 = c1 !== null && c1 !== undefined;
+      const hasC2 = c2 !== null && c2 !== undefined;
+
+      if (window._prevSawState && window._prevSawState.user === currentUserId) {
+        if (hasC1 && window._prevSawState.cut1 === null) {
+          fdsAudio.playPlopp();
+          triggerHaptic('success');
+          showToast(`🪵 Schnitt 1 gewogen: ${c1}g!`, '⚖️');
+        }
+        if (hasC2 && window._prevSawState.cut2 === null) {
+          const total = c1 + c2;
+          const diff = Math.abs(total - saw.targetWeight);
+          fdsAudio.playPlopp();
+          triggerHaptic('success');
+          showToast(`🪵 Beide Schnitte gewogen: Total ${total}g (±${diff}g)!`, '🎯');
+        }
+      }
+      window._prevSawState = {
+        user: currentUserId,
+        cut1: hasC1 ? c1 : null,
+        cut2: hasC2 ? c2 : null
+      };
+    }
+
     // Personal Card
     const mySawCard = document.getElementById('ts-my-saw-card');
     if (mySawCard) {
@@ -5482,6 +5552,8 @@ document.addEventListener('DOMContentLoaded', () => {
           const entry = (saw.entries && saw.entries[m.id]) || {};
           const c1 = entry.cut1 !== null && entry.cut1 !== undefined;
           const c2 = entry.cut2 !== null && entry.cut2 !== undefined;
+          const isJoker = Boolean(saw.jokers && saw.jokers[m.id]);
+          const jokerBadge = isJoker ? ' <span class="ts-joker-badge active" style="font-size:0.65rem; padding: 1px 6px;">🎯 Joker</span>' : '';
           let statusBadge = '';
           if (c1 && c2) {
             statusBadge = '<span style="color: #34d399; font-weight: 800;">Beide Schnitte gewogen 🪵</span>';
@@ -5495,7 +5567,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border-subtle); font-size: 0.8rem;">
               <div style="display: flex; align-items: center; gap: 8px;">
                 <span class="avatar-sm">${renderAvatar(m.avatar)}</span>
-                <strong>${m.name}</strong>
+                <strong>${m.name}</strong> ${jokerBadge}
               </div>
               <div>${statusBadge}</div>
             </div>
@@ -5613,12 +5685,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const entry = (saw.entries && saw.entries[m.id]) || {};
             const c1 = entry.cut1 !== null && entry.cut1 !== undefined ? entry.cut1 : '';
             const c2 = entry.cut2 !== null && entry.cut2 !== undefined ? entry.cut2 : '';
+            const isJoker = Boolean(saw.jokers && saw.jokers[m.id]);
+            const jokerBadge = isJoker ? ' <span class="ts-joker-badge active" style="font-size:0.65rem; padding: 1px 6px;">🎯 Joker</span>' : '';
 
             return `
               <div class="ts-saw-admin-row">
                 <div style="display: flex; align-items: center; gap: 6px;">
                   <span class="avatar-sm">${renderAvatar(m.avatar)}</span>
                   <span style="font-weight: 700; font-size: 0.8rem;">${m.name}</span>
+                  ${jokerBadge}
                 </div>
                 <div>
                   <input type="number" class="form-input saw-input-c1" data-member-id="${m.id}" value="${c1}" placeholder="S1 (g)" style="padding: 6px 8px; font-size: 0.78rem;">
@@ -5634,15 +5709,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const btnSave = document.getElementById('btn-save-saw-entries');
         if (btnSave) {
           btnSave.onclick = () => {
+            const entriesMap = {};
             document.querySelectorAll('.saw-input-c1').forEach(inp1 => {
               const mId = Number(inp1.getAttribute('data-member-id'));
               const inp2 = document.querySelector(`.saw-input-c2[data-member-id="${mId}"]`);
               const v1 = inp1.value.trim();
               const v2 = inp2 ? inp2.value.trim() : '';
-              store.saveSawEntry(mId, v1 !== '' ? Number(v1) : null, v2 !== '' ? Number(v2) : null);
+              entriesMap[mId] = {
+                cut1: v1 !== '' ? Number(v1) : null,
+                cut2: v2 !== '' ? Number(v2) : null
+              };
             });
+            store.saveSawEntries(entriesMap);
             triggerHaptic('success');
-            showToast('Wiegungen erfolgreich gespeichert! 🪵', '💾');
+            showToast('Wiegungen erfolgreich gespeichert & übertragen! 🪵', '💾');
             renderTimbersports();
           };
         }
@@ -5660,6 +5740,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const isQuizRevealed = Boolean(tr.revealed);
     const activeMembers = members.filter(m => m.id !== 'admin');
 
+    // Remote reveal celebration
+    if (isQuizRevealed && window._triviaWasRevealed === false) {
+      fdsAudio.playFanfare();
+      fireSolarConfetti();
+      triggerHaptic('celebrate');
+      showToast('🏆 Das Wissensquiz wurde offiziell aufgelöst!', '🎉');
+    }
+    window._triviaWasRevealed = isQuizRevealed;
+
     if (questions.length === 0) {
       const container = document.getElementById('ts-trivia-active-card-container');
       if (container) {
@@ -5672,6 +5761,9 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    const cd = tr.countdown;
+    const now = Date.now();
+
     // Determine Active Question
     let activeQId = tr.activeQuestionId || questions[0].id;
     let activeIdx = questions.findIndex(x => x.id === activeQId);
@@ -5679,12 +5771,24 @@ document.addEventListener('DOMContentLoaded', () => {
       activeIdx = 0;
       activeQId = questions[0].id;
     }
+
+    // If countdown is running on a question, all players MUST focus on that question!
+    if (!canManage && cd && cd.isRunning && cd.endsAt && cd.endsAt > now && cd.activeQuestionId) {
+      activeQId = cd.activeQuestionId;
+      activeIdx = questions.findIndex(x => x.id === activeQId);
+      if (activeIdx === -1) { activeIdx = 0; activeQId = questions[0].id; }
+      window._localTriviaActiveQId = activeQId;
+    } else if (!canManage && window._localTriviaActiveQId) {
+      const localIdx = questions.findIndex(x => x.id === window._localTriviaActiveQId);
+      if (localIdx !== -1) {
+        activeQId = window._localTriviaActiveQId;
+        activeIdx = localIdx;
+      }
+    }
     const activeQ = questions[activeIdx];
 
     // Countdown timing for Active Question
-    const cd = tr.countdown;
     const isCdForActive = Boolean(cd && cd.activeQuestionId === activeQId);
-    const now = Date.now();
     let cdRemaining = 0;
     let cdTotalSecs = 30;
     let isCdRunning = false;
@@ -5695,6 +5799,16 @@ document.addEventListener('DOMContentLoaded', () => {
       isCdRunning = Boolean(cd.isRunning);
       cdRemaining = Math.max(0, Math.ceil(((cd.endsAt || now) - now) / 1000));
       isCdExpired = cdRemaining <= 0 || (!isCdRunning && cd.endsAt && now >= cd.endsAt);
+    }
+
+    // Audio & Toast notification when a countdown starts for players
+    if (!canManage && isCdRunning && cdRemaining > 0) {
+      if (window._lastSeenActiveCountdownTrivia !== activeQId) {
+        window._lastSeenActiveCountdownTrivia = activeQId;
+        fdsAudio.playPlopp();
+        triggerHaptic('medium');
+        showToast(`⏱️ Spielleiter hat den Countdown für Frage #${activeIdx + 1} gestartet!`, '🌲');
+      }
     }
 
     const isQFrozen = Boolean(activeQ.isFrozen || isCdExpired || isQuizRevealed);
@@ -5752,7 +5866,11 @@ document.addEventListener('DOMContentLoaded', () => {
       selectorRow.querySelectorAll('.ts-trivia-pill').forEach(btn => {
         btn.addEventListener('click', () => {
           const qId = Number(btn.getAttribute('data-qid'));
-          store.setTriviaActiveQuestion(qId);
+          if (canManage) {
+            store.setTriviaActiveQuestion(qId);
+          } else {
+            window._localTriviaActiveQId = qId;
+          }
           triggerHaptic('light');
           renderTimbersports();
         });
@@ -6235,6 +6353,8 @@ document.addEventListener('DOMContentLoaded', () => {
           friendGrid.innerHTML = activeMembers.map(m => {
             const mAns = qAnswers[m.id];
             const hasAns = Boolean(mAns);
+            const isJoker = Boolean(tr.jokers && tr.jokers[m.id] === activeQ.id);
+            const jokerBadge = isJoker ? ' <span class="ts-joker-badge active" style="font-size:0.65rem; padding: 1px 6px;">🃏 Joker</span>' : '';
 
             if (isQFrozen) {
               const isMatch = mAns === activeQ.correctAnswer;
@@ -6242,6 +6362,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="ts-beer-opt ${isMatch ? 'revealed-correct' : 'revealed-wrong'}" style="pointer-events:none; padding: 8px 10px;">
                   <span class="avatar-sm">${renderAvatar(m.avatar)}</span>
                   <span style="flex:1; font-weight:700; font-size:0.78rem;">${m.name}</span>
+                  ${jokerBadge}
                   <span class="revealed-badge" style="font-size:0.7rem;">${isMatch ? '✓ ' + mAns : '✗ ' + (mAns || 'Keine')}</span>
                 </div>
               `;
@@ -6250,6 +6371,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="ts-beer-opt ${hasAns ? 'admin-friend-tipped' : ''}" style="pointer-events:none; padding: 8px 10px;">
                   <span class="avatar-sm">${renderAvatar(m.avatar)}</span>
                   <span style="flex:1; font-weight:700; font-size:0.78rem;">${m.name}</span>
+                  ${jokerBadge}
                   <span class="admin-tip-badge ${hasAns ? 'tipped' : 'pending'}" style="font-size:0.7rem;">
                     ${hasAns ? '✓ Eingeloggt' : '⏳ Überlegt...'}
                   </span>
@@ -6727,7 +6849,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.ts-subnav-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const sub = btn.getAttribute('data-ts-sub');
-      store.setTimbersportsSubTab(sub);
+      const canManage = store.canManageTimbersports();
+      if (canManage) {
+        store.setTimbersportsSubTab(sub);
+      } else {
+        window._localTimbersportsSubTab = sub;
+      }
       triggerHaptic('light');
       renderTimbersports();
     });
