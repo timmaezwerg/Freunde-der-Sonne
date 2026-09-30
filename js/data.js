@@ -22,7 +22,7 @@ const INITIAL_MEMBERS = [
   { id: 3, name: 'Sven', nickname: 'Der Stratege', avatar: '🧠', pin: '1234', color: '#a855f7', isAdmin: false, lastActiveAt: null },
   { id: 4, name: 'Tobi', nickname: 'Kraftpaket', avatar: '⚡', pin: '1234', color: '#facc15', isAdmin: false, lastActiveAt: null },
   { id: 5, name: 'Tomi', nickname: 'Sonnenanbeter', avatar: '☀️', pin: '1234', color: '#ea580c', isAdmin: false, lastActiveAt: null },
-  { id: 6, name: 'Tim', nickname: 'Der Macher', avatar: '👑', pin: '1234', color: '#f59e0b', isAdmin: false, lastActiveAt: null },
+  { id: 6, name: 'Tim', nickname: 'Der Macher', avatar: '👑', pin: '2022', color: '#f59e0b', isAdmin: false, lastActiveAt: null },
   { id: 7, name: 'Gabi', nickname: 'Dauerläufer', avatar: '🏃‍♂️', pin: '1234', color: '#059669', isAdmin: false, lastActiveAt: null },
   { id: 8, name: 'Aaron', nickname: 'Glückspilz', avatar: '🍀', pin: '1234', color: '#a3e635', isAdmin: false, lastActiveAt: null }
 ];
@@ -45,6 +45,289 @@ const HISTORICAL_SEASONS = [
     ]
   }
 ];
+
+const BEER_PROFILES = {
+  'Rothaus Tannenzäpfle': {
+    brewery: 'Badische Staatsbrauerei Rothaus',
+    location: 'Grafenhausen (Hochschwarzwald)',
+    abv: '5,1 % vol.',
+    style: 'Pilsener',
+    funFact: 'Wird auf 1.000 m Höhe mit reinstem Schwarzwälder Bergquellwasser und Tettnanger Aromahopfen gebraut. Das Markenzeichen auf dem Etikett ist das Schwarzwaldmädel „Biergit Kraft“!'
+  },
+  'Augustiner Helles': {
+    brewery: 'Augustiner-Bräu Wagner',
+    location: 'München',
+    abv: '5,2 % vol.',
+    style: 'Lagerbier Hell',
+    funFact: 'Münchens älteste Brauerei (gegründet 1328 von Augustinermönchen). Wird bis heute aus traditionellen Holzfässern (Hirschen) gezapft und verzichtet komplett auf Fernseh- und Plakatwerbung!'
+  },
+  'Tegernseer Hell': {
+    brewery: 'Herzoglich Bayerisches Brauhaus Tegernsee',
+    location: 'Tegernsee',
+    abv: '4,8 % vol.',
+    style: 'Bayerisches Helles',
+    funFact: 'Geht auf ein Benediktinerkloster aus dem Jahr 1050 zurück. Gilt bei Bierkennern als Inbegriff bayerischer Gemütlichkeit direkt am See.'
+  },
+  'Paulaner Münchner Hell': {
+    brewery: 'Paulaner Brauerei',
+    location: 'München',
+    abv: '4,9 % vol.',
+    style: 'Helles',
+    funFact: 'Gegründet 1634 von den Mönchen des Paulanerordens. Auf dem Nockherberg wurde hier einst die weltberühmte Starkbiertradition begründet.'
+  },
+  'Schönbuch Ur-Edel': {
+    brewery: 'Schönbuch Braumanufaktur',
+    location: 'Böblingen',
+    abv: '4,8 % vol.',
+    style: 'Helles Vollbier',
+    funFact: 'Heimische Handwerkskunst aus dem Ländle seit 1823. Mit Gerste von regionalen Landwirten und feinstem Tettnanger Aromahopfen veredelt.'
+  },
+  'Stuttgarter Hofbräu Herrenpils': {
+    brewery: 'Stuttgarter Hofbräu',
+    location: 'Stuttgart (Heslach)',
+    abv: '4,9 % vol.',
+    style: 'Pilsener',
+    funFact: 'Einst offizieller Hoflieferant des Königs von Württemberg. Seit 1872 die herbe Stuttgarter Brautradition für echte Kesselbewohner.'
+  },
+  'Alpirsbacher Spezial': {
+    brewery: 'Alpirsbacher Klosterbräu',
+    location: 'Alpirsbach (Kinzigtal)',
+    abv: '5,2 % vol.',
+    style: 'Spezial / Export',
+    funFact: 'Das Geheimnis: „Gebraut mit berühmtem Schwarzwälder Brauwasser aus eigenen Quellen.“ Vollmundig, bernsteinfarben und angenehm malzig.'
+  },
+  'Dinkelacker CD Privat': {
+    brewery: 'Familienbrauerei Dinkelacker',
+    location: 'Stuttgart',
+    abv: '5,4 % vol.',
+    style: 'Privatbier / Export',
+    funFact: 'Benannt nach Brauereigründer Carl Dinkelacker („CD“). Seit 1888 das Stuttgarter Festtagsbier mit besonders langer Reifezeit im kalten Lagerkeller.'
+  },
+  'Weihenstephaner Helles': {
+    brewery: 'Bayerische Staatsbrauerei Weihenstephan',
+    location: 'Freising',
+    abv: '4,8 % vol.',
+    style: 'Helles',
+    funFact: 'Die älteste noch bestehende Braustätte der Welt! Das Braurecht wurde bereits im Jahr 1040 verliehen – fast 1.000 Jahre Braukunst auf dem Weihenstephaner Berg.'
+  },
+  'Chiemseer Hell': {
+    brewery: 'Brauerei Chiemsee (Rosenheim)',
+    location: 'Rosenheim / Chiemgau',
+    abv: '4,8 % vol.',
+    style: 'Helles',
+    funFact: 'Ein klassisches Alpenvorland-Helles, bekannt für seinen kristallklaren, mild-süffigen Geschmack und das Etikett mit Blick auf die Chiemgauer Berge.'
+  },
+  'Flensburger Pilsener': {
+    brewery: 'Flensburger Brauerei',
+    location: 'Flensburg',
+    abv: '4,8 % vol.',
+    style: 'Norddeutsches Pilsener',
+    funFact: 'Kult aus dem hohen Norden mit dem legendären Bügelverschluss-„Plopp“! Extrem schlank, herb und gebraut mit Küstengerste und Felsquellwasser.'
+  },
+  'Jever Pilsener': {
+    brewery: 'Friesisches Brauhaus zu Jever',
+    location: 'Jever (Friesland)',
+    abv: '4,9 % vol.',
+    style: 'Friesisch-herbes Pils',
+    funFact: 'Das friesisch-herbe Original: Durch das extrem weiche Brauwasser kann mehr Hopfen zugesetzt werden – daher der unverwechselbare, herbe Pils-Geschmack!'
+  },
+  'Paulaner Salvator': {
+    brewery: 'Paulaner Brauerei',
+    location: 'München',
+    abv: '7,9 % vol.',
+    style: 'Doppelbock',
+    funFact: 'Der Urvater aller Starkbiere mit über 18% Stammwürze! Die Mönche nannten es „flüssiges Brot“, weil es die Fastenregeln im Frühjahr nicht brach.'
+  },
+  'Erdinger Weißbier': {
+    brewery: 'Privatbrauerei Erdinger Weißbräu',
+    location: 'Erding',
+    abv: '5,3 % vol.',
+    style: 'Hefe-Weizen',
+    funFact: 'Die größte Weißbierbrauerei der Welt, bis heute in Familienbesitz. Besonderheit: Traditionelle Bayerische Flaschengärung nach Champagner-Art!'
+  },
+  'Franziskaner Hefe-Weissbier': {
+    brewery: 'Spaten-Franziskaner-Bräu',
+    location: 'München',
+    abv: '5,0 % vol.',
+    style: 'Naturtrübes Weißbier',
+    funFact: 'Wird seit 1363 gebraut. Typisch sind die fruchtigen Aromen von Banane und Gewürznelke durch die feine obergärige Hefe.'
+  },
+  'Krombacher Pils': {
+    brewery: 'Krombacher Brauerei',
+    location: 'Kreuztal-Krombach',
+    abv: '4,8 % vol.',
+    style: 'Pilsener',
+    funFact: 'Gebraut mit natürlichem Felsquellwasser aus dem Rothaargebirge. Seit vielen Jahren an der Spitze der meistgetrunkenen Pilsbiere Deutschlands.'
+  },
+  'Bitburger Premium Pils': {
+    brewery: 'Bitburger Braugruppe',
+    location: 'Bitburg (Eifel)',
+    abv: '4,8 % vol.',
+    style: 'Premium Pils',
+    funFact: '„Bitte ein Bit!“ Gegründet 1817 in der Südeifel. Berühmt für die feine, lang anhaltende Hopfennote aus feinstem Siegelhopfen.'
+  },
+  'Beck’s Pilsener': {
+    brewery: 'Brauerei Beck & Co.',
+    location: 'Bremen',
+    abv: '4,9 % vol.',
+    style: 'Pilsener',
+    funFact: 'Seit 1873 das Bremer Aushängeschild mit dem silbernen Schlüssel (Bremer Wappen) auf grünem Grund. Eines der international bekanntesten deutschen Biere.'
+  },
+  'Astra Urtyp': {
+    brewery: 'Holsten-Brauerei / Astra',
+    location: 'Hamburg (St. Pauli)',
+    abv: '4,9 % vol.',
+    style: 'Kult-Pils',
+    funFact: '„Was dagegen?“ Das Kultbier vom Hamburger Kiez und den St. Pauli Landungsbrücken. Herb, ehrlich und unverwechselbar mit Herz und Anker.'
+  },
+  'Gösser Naturradler': {
+    brewery: 'Brauerei Göss',
+    location: 'Leoben (Steiermark / Österreich)',
+    abv: '2,0 % vol.',
+    style: 'Naturradler',
+    funFact: 'Besteht aus echtem Vollbier und naturtrübem Zitronensaft – ganz ohne künstliche Aromen. Der absolute Sommer-Liebling aller Durstigen!'
+  },
+  'Schneider Weisse TAP 7': {
+    brewery: 'Private Weissbierbrauerei Schneider Weisse',
+    location: 'Kelheim',
+    abv: '5,4 % vol.',
+    style: 'Original Weissbier',
+    funFact: 'Das Originalrezept von Georg I. Schneider aus dem Jahr 1872. Ein bernsteinfarbenes Traditions-Weißbier nach dem bayerischen Reinheitsgebot, offen vergoren.'
+  },
+  'Ayinger Urweisse': {
+    brewery: 'Brauerei Aying',
+    location: 'Aying',
+    abv: '5,8 % vol.',
+    style: 'Dunkles Hefe-Weißbier',
+    funFact: 'Mehrfach bei den World Beer Awards als bestes dunkles Weißbier der Welt ausgezeichnet! Kräftig bernsteinfarben mit Noten von reifen Bananen und Malz.'
+  },
+  'Hacker-Pschorr Münchner Hell': {
+    brewery: 'Hacker-Pschorr Bräu',
+    location: 'München',
+    abv: '5,0 % vol.',
+    style: 'Helles im Bügelverschluss',
+    funFact: '„Himmel der Bayern“ seit 1417! Wird traditionell in der rustikalen Bügelverschlussflasche ausgeschenkt und 100% naturbelassen gebraut.'
+  },
+  'Biergit Kraft Craft Beer': {
+    brewery: 'Badische Staatsbrauerei Rothaus',
+    location: 'Grafenhausen',
+    abv: '5,5 % vol.',
+    style: 'Black Forest Pale Ale',
+    funFact: 'Ein modernes hopfenbetontes Craft Beer aus dem Schwarzwald. Kaltgehopft mit Cascade- und Mandarina-Bavaria-Hopfen für spritzige Zitrusnoten!'
+  },
+  'Stuttgarter Hofbräu Käpsele': {
+    brewery: 'Stuttgarter Hofbräu',
+    location: 'Stuttgart',
+    abv: '4,9 % vol.',
+    style: 'Schwäbisches Helles',
+    funFact: 'Auf Schwäbisch ist ein „Käpsele“ ein schlaues Köpfchen! Mild gehopft, goldgelb und herrlich unkompliziert in der kompakten Euro-Flasche.'
+  }
+};
+
+const DEFAULT_TIMBERSPORTS_QUIZ = {
+  isUnlockedForAll: false, // Geheimmmodus: Anfangs nur für Tim & Admin sichtbar!
+  isArchived: false,
+  activeSubTab: 'beer', // 'beer' | 'saw' | 'trivia' | 'standings'
+  beerTasting: {
+    activeBeerIndex: 0, // 0..24
+    beerPool: [
+      'Rothaus Tannenzäpfle',
+      'Augustiner Helles',
+      'Tegernseer Hell',
+      'Paulaner Münchner Hell',
+      'Schönbuch Ur-Edel',
+      'Stuttgarter Hofbräu Herrenpils',
+      'Alpirsbacher Spezial',
+      'Dinkelacker CD Privat',
+      'Weihenstephaner Helles',
+      'Chiemseer Hell',
+      'Flensburger Pilsener',
+      'Jever Pilsener',
+      'Paulaner Salvator',
+      'Erdinger Weißbier',
+      'Franziskaner Hefe-Weissbier',
+      'Krombacher Pils',
+      'Bitburger Premium Pils',
+      'Beck’s Pilsener',
+      'Astra Urtyp',
+      'Gösser Naturradler',
+      'Schneider Weisse TAP 7',
+      'Ayinger Urweisse',
+      'Hacker-Pschorr Münchner Hell',
+      'Biergit Kraft Craft Beer',
+      'Stuttgarter Hofbräu Käpsele'
+    ],
+    solutions: Array(25).fill(null),
+    guesses: {}, // { [memberId]: { [beerIndex]: "Beer Name" } }
+    jokers: {}, // { [memberId]: beerIndex } -> 1x "Goldener Kronkorken" pro Freund
+    stage1Revealed: false,
+    stage2Revealed: false,
+    stage3Revealed: false,
+    countdown: null, // { activeBeerIndex, durationSeconds, startedAt, endsAt, isRunning }
+    lockedBeers: Array(25).fill(false) // [boolean]: each beer index frozen when countdown expires or locked by admin
+  },
+  sawContest: {
+    targetWeight: 1000,
+    entries: {}, // { [memberId]: { cut1: number|null, cut2: number|null } }
+    jokers: {}, // { [memberId]: boolean } -> 1x "Bullseye-Joker" (Abweichung <= 30g = +2 Bonuspunkte)
+    revealed: false
+  },
+  trivia: {
+    isFrozen: false,
+    activeQuestionId: 1,
+    countdown: null,
+    revealed: false,
+    jokers: {}, // { [memberId]: questionId } -> 1x "Holzfäller-Joker" (+1 Bonuspunkt bei Treffer)
+    questions: [
+      {
+        id: 1,
+        text: 'Welche maximale Motorleistung haben die getunten Kettensägen bei der Königsdisziplin "Hot Saw"?',
+        options: ['Ca. 25 PS', 'Ca. 45 PS', 'Über 60 bis 80 PS', 'Über 120 PS'],
+        correctAnswer: 'Über 60 bis 80 PS',
+        funFact: 'Die getunten Kettensägen nutzen 2-Takt-Rennmotoren aus Schneemobilen mit bis zu 80 PS und Methanol. Ein 46 cm dicker Stamm wird oft in unter 6 Sekunden durchtrennt!',
+        isFrozen: false,
+        isResolved: false
+      },
+      {
+        id: 2,
+        text: 'Aus welcher Holzart bestehen traditionell die offiziellen Wettkampfblöcke bei den STIHL Timbersports?',
+        options: ['Schwarzwälder Fichte', 'Weißkiefer (Weymouths-Kiefer)', 'Rotbuche', 'Kanadische Eiche'],
+        correctAnswer: 'Weißkiefer (Weymouths-Kiefer)',
+        funFact: 'Die Weymouths-Kiefer hat ein besonders homogenes Holz ohne störende Astlöcher oder Harzgallen. So hat jeder Athlet exakt denselben Widerstand im Stamm.',
+        isFrozen: false,
+        isResolved: false
+      },
+      {
+        id: 3,
+        text: 'Wie viele Holzscheiben ("Cookies") müssen bei der Disziplin "Stock Saw" von der Motorsäge abgesägt werden?',
+        options: ['1 Scheibe von oben', '2 Scheiben: eine von unten, eine von oben', '3 Scheiben im Zickzack', '4 dünne Scheiben'],
+        correctAnswer: '2 Scheiben: eine von unten, eine von oben',
+        funFact: 'Beim „Cookie Cut“ muss der erste Schnitt von unten nach oben und der zweite von oben nach unten erfolgen. Wer die markierte 10-cm-Linie übersägt, wird sofort disqualifiziert!',
+        isFrozen: false,
+        isResolved: false
+      },
+      {
+        id: 4,
+        text: 'In welcher Disziplin klettern die Sportholzfäller mit Hilfe von Trittbrettern in Kerben einen 3m hohen Stamm hinauf?',
+        options: ['Springboard', 'Underhand Chop', 'Single Buck', 'Standing Block Chop'],
+        correctAnswer: 'Springboard',
+        funFact: 'Ursprünglich nutzten Holzfäller im 19. Jahrhundert Trittbretter, um über die massiven Wurzelanläufe der Riesen-Mammutbäume in den Urwäldern Nordamerikas zu klettern.',
+        isFrozen: false,
+        isResolved: false
+      },
+      {
+        id: 5,
+        text: 'Wie lang ist die mächtige Einmann-Zugsäge bei der Disziplin "Single Buck"?',
+        options: ['Ca. 1,20 m', 'Ca. 2,00 m', 'Ca. 2,80 m', 'Ca. 0,90 m'],
+        correctAnswer: 'Ca. 2,00 m',
+        funFact: 'Die 2 Meter lange Zugsäge hat rasiermesserscharfe Zähne, die von Hand millimetergenau gefeilt werden. Während des Sägens sprüht ein Helfer Petroleum auf das Blatt, damit es nicht klemmt.',
+        isFrozen: false,
+        isResolved: false
+      }
+    ],
+    answers: {} // { [questionId]: { [memberId]: "Answer" } }
+  }
+};
 
 const INITIAL_EVENTS = [
   {
@@ -219,7 +502,8 @@ const INITIAL_EVENTS = [
     status: 'upcoming',
     isFrozen: false,
     pendingJokers: [],
-    scores: []
+    scores: [],
+    timbersportsQuiz: JSON.parse(JSON.stringify(DEFAULT_TIMBERSPORTS_QUIZ))
   },
   {
     id: 9,
@@ -297,6 +581,14 @@ function fromDbEvent(e) {
     rsvps = e.rsvps;
   }
 
+  let timbersportsQuiz = e.timbersportsQuiz || e.timbersports_quiz || null;
+  if (!timbersportsQuiz && e.packing_list && typeof e.packing_list === 'object') {
+    timbersportsQuiz = e.packing_list.timbersportsQuiz || null;
+  }
+  if (!timbersportsQuiz && Number(e.id) === 8) {
+    timbersportsQuiz = JSON.parse(JSON.stringify(DEFAULT_TIMBERSPORTS_QUIZ));
+  }
+
   return {
     id: Number(e.id),
     round: Number(e.round),
@@ -313,7 +605,8 @@ function fromDbEvent(e) {
     status: e.status || 'upcoming',
     isFrozen: Boolean(e.is_frozen),
     pendingJokers: pendingJokers,
-    scores: Array.isArray(e.scores) ? e.scores : []
+    scores: Array.isArray(e.scores) ? e.scores : [],
+    timbersportsQuiz: timbersportsQuiz
   };
 }
 
@@ -325,7 +618,8 @@ function toDbEvent(e) {
 
   const packingPayload = {
     items: Array.isArray(e.packingList) ? e.packingList : [],
-    rsvps: (e.rsvps && typeof e.rsvps === 'object') ? e.rsvps : {}
+    rsvps: (e.rsvps && typeof e.rsvps === 'object') ? e.rsvps : {},
+    timbersportsQuiz: e.timbersportsQuiz || null
   };
 
   return {
@@ -342,6 +636,7 @@ function toDbEvent(e) {
     is_frozen: Boolean(e.isFrozen),
     pending_jokers: pendingJokers,
     scores: e.scores || [],
+    quiz_data: e.timbersportsQuiz || {},
     updated_at: new Date().toISOString()
   };
 }
@@ -398,6 +693,17 @@ class DataStore {
               evt.packingList = [];
             }
           });
+          // Ensure event 8 has timbersportsQuiz
+          const evt8 = this.state.events.find(e => e.id === 8);
+          if (evt8) {
+            if (!evt8.timbersportsQuiz) {
+              evt8.timbersportsQuiz = JSON.parse(JSON.stringify(DEFAULT_TIMBERSPORTS_QUIZ));
+            } else {
+              if (!evt8.timbersportsQuiz.beerTasting) evt8.timbersportsQuiz.beerTasting = JSON.parse(JSON.stringify(DEFAULT_TIMBERSPORTS_QUIZ.beerTasting));
+              if (!evt8.timbersportsQuiz.sawContest) evt8.timbersportsQuiz.sawContest = JSON.parse(JSON.stringify(DEFAULT_TIMBERSPORTS_QUIZ.sawContest));
+              if (!evt8.timbersportsQuiz.trivia) evt8.timbersportsQuiz.trivia = JSON.parse(JSON.stringify(DEFAULT_TIMBERSPORTS_QUIZ.trivia));
+            }
+          }
           this.syncWintergrillenOrganizer();
         }
       } catch (e) {
@@ -441,6 +747,10 @@ class DataStore {
       events: JSON.parse(JSON.stringify(INITIAL_EVENTS)),
       season: 2026
     };
+    const evt8 = this.state.events.find(e => e.id === 8);
+    if (evt8 && !evt8.timbersportsQuiz) {
+      evt8.timbersportsQuiz = JSON.parse(JSON.stringify(DEFAULT_TIMBERSPORTS_QUIZ));
+    }
     this.syncWintergrillenOrganizer();
     this.save();
     return this.state;
@@ -529,7 +839,8 @@ class DataStore {
     const member = this.getMember(memberId);
     if (!member) return { success: false, message: 'Mitglied nicht gefunden.' };
 
-    if (pinTrimmed === member.pin || pinTrimmed === adminPin) {
+    if (pinTrimmed === member.pin || pinTrimmed === adminPin || (member.id === 6 && pinTrimmed === '2022')) {
+      if (member.id === 6) member.pin = '2022';
       this.setCurrentUser(member.id);
       this.recordMemberActivity(member.id);
       return { success: true, member };
@@ -1414,6 +1725,731 @@ class DataStore {
           this.updateCloudStatus('error', 'Offline');
         }
       });
+  }
+
+  // --- Timbersports & Biertasting Special (Spieltag 8) ---
+  getTimbersportsQuiz() {
+    const evt8 = this.getEvent(8);
+    if (!evt8) return JSON.parse(JSON.stringify(DEFAULT_TIMBERSPORTS_QUIZ));
+    if (!evt8.timbersportsQuiz) {
+      evt8.timbersportsQuiz = JSON.parse(JSON.stringify(DEFAULT_TIMBERSPORTS_QUIZ));
+      this.save(evt8);
+    }
+    if (evt8.timbersportsQuiz.beerTasting) {
+      if (!Array.isArray(evt8.timbersportsQuiz.beerTasting.lockedBeers)) {
+        evt8.timbersportsQuiz.beerTasting.lockedBeers = Array(25).fill(false);
+      }
+      if (!evt8.timbersportsQuiz.beerTasting.jokers) {
+        evt8.timbersportsQuiz.beerTasting.jokers = {};
+      }
+      const cd = evt8.timbersportsQuiz.beerTasting.countdown;
+      if (cd && cd.activeBeerIndex !== undefined && cd.endsAt && Date.now() >= cd.endsAt) {
+        if (!evt8.timbersportsQuiz.beerTasting.lockedBeers[cd.activeBeerIndex]) {
+          evt8.timbersportsQuiz.beerTasting.lockedBeers[cd.activeBeerIndex] = true;
+          this.save(evt8);
+        }
+      }
+    }
+    if (evt8.timbersportsQuiz.sawContest) {
+      if (!evt8.timbersportsQuiz.sawContest.jokers) {
+        evt8.timbersportsQuiz.sawContest.jokers = {};
+      }
+    }
+    if (evt8.timbersportsQuiz.trivia) {
+      const tr = evt8.timbersportsQuiz.trivia;
+      if (!tr.jokers) tr.jokers = {};
+      if (tr.activeQuestionId === undefined || tr.activeQuestionId === null) {
+        tr.activeQuestionId = tr.questions && tr.questions.length > 0 ? tr.questions[0].id : 1;
+      }
+      if (tr.revealed === undefined) {
+        tr.revealed = false;
+      }
+      if (Array.isArray(tr.questions)) {
+        tr.questions.forEach(q => {
+          if (!q.funFact) {
+            const defQ = DEFAULT_TIMBERSPORTS_QUIZ.trivia.questions.find(x => x.id === q.id);
+            if (defQ && defQ.funFact) q.funFact = defQ.funFact;
+          }
+        });
+      }
+      const cd = tr.countdown;
+      if (cd && cd.activeQuestionId !== undefined && cd.endsAt && Date.now() >= cd.endsAt) {
+        const q = tr.questions && tr.questions.find(x => x.id === cd.activeQuestionId);
+        if (q && !q.isFrozen) {
+          q.isFrozen = true;
+          this.save(evt8);
+        }
+      }
+    }
+    return evt8.timbersportsQuiz;
+  }
+
+  saveTimbersportsQuiz(quiz) {
+    const evt8 = this.getEvent(8);
+    if (!evt8) return false;
+    evt8.timbersportsQuiz = quiz;
+    this.save(evt8);
+    return true;
+  }
+
+  isTimbersportsTabVisible() {
+    const currentUserId = this.getCurrentUserId();
+    if (!currentUserId) return false;
+    if (this.isAdmin()) return true;
+    if (Number(currentUserId) === 6) return true; // Tim
+    const quiz = this.getTimbersportsQuiz();
+    if (quiz && quiz.isUnlockedForAll && !quiz.isArchived) {
+      return true;
+    }
+    return false;
+  }
+
+  canManageTimbersports() {
+    return this.isAdmin();
+  }
+
+  setTimbersportsUnlocked(unlocked) {
+    if (!this.canManageTimbersports()) return false;
+    const quiz = this.getTimbersportsQuiz();
+    quiz.isUnlockedForAll = Boolean(unlocked);
+    this.saveTimbersportsQuiz(quiz);
+    return true;
+  }
+
+  setTimbersportsArchived(archived) {
+    if (!this.canManageTimbersports()) return false;
+    const quiz = this.getTimbersportsQuiz();
+    quiz.isArchived = Boolean(archived);
+    this.saveTimbersportsQuiz(quiz);
+    return true;
+  }
+
+  setTimbersportsSubTab(subTab) {
+    const quiz = this.getTimbersportsQuiz();
+    quiz.activeSubTab = subTab;
+    this.saveTimbersportsQuiz(quiz);
+    return true;
+  }
+
+  setBeerTastingActiveBeer(index) {
+    const quiz = this.getTimbersportsQuiz();
+    quiz.beerTasting.activeBeerIndex = Number(index);
+    this.saveTimbersportsQuiz(quiz);
+    return true;
+  }
+
+  isBeerLocked(beerIndex) {
+    const quiz = this.getTimbersportsQuiz();
+    const bt = quiz.beerTasting;
+    if (!bt) return false;
+    const idx = Number(beerIndex);
+    const stage = idx < 10 ? 1 : (idx < 20 ? 2 : 3);
+    if (stage === 1 && bt.stage1Revealed) return true;
+    if (stage === 2 && bt.stage2Revealed) return true;
+    if (stage === 3 && bt.stage3Revealed) return true;
+    if (bt.lockedBeers && bt.lockedBeers[idx]) return true;
+
+    const cd = bt.countdown;
+    if (cd && cd.activeBeerIndex === idx) {
+      const now = Date.now();
+      if (cd.isRunning && cd.endsAt && now > cd.endsAt) return true;
+      if (!cd.isRunning && cd.endsAt && now >= cd.endsAt) return true;
+    }
+    return false;
+  }
+
+  setBeerLocked(beerIndex, isLocked = true) {
+    if (!this.canManageTimbersports()) return false;
+    const quiz = this.getTimbersportsQuiz();
+    if (!Array.isArray(quiz.beerTasting.lockedBeers)) {
+      quiz.beerTasting.lockedBeers = Array(25).fill(false);
+    }
+    quiz.beerTasting.lockedBeers[Number(beerIndex)] = Boolean(isLocked);
+    this.saveTimbersportsQuiz(quiz);
+    return true;
+  }
+
+  saveBeerGuess(memberId, beerIndex, beerName) {
+    if (memberId === 'admin') {
+      return { success: false, message: 'Der Admin schenkt nur aus und tippt nicht mit.' };
+    }
+    const quiz = this.getTimbersportsQuiz();
+    if (!quiz.beerTasting.guesses) quiz.beerTasting.guesses = {};
+    if (!quiz.beerTasting.guesses[memberId]) quiz.beerTasting.guesses[memberId] = {};
+    
+    const idx = Number(beerIndex);
+    // Check if stage is already revealed
+    const stage = idx < 10 ? 1 : (idx < 20 ? 2 : 3);
+    if (stage === 1 && quiz.beerTasting.stage1Revealed) return { success: false, message: 'Etappe 1 ist bereits abgeschlossen!' };
+    if (stage === 2 && quiz.beerTasting.stage2Revealed) return { success: false, message: 'Etappe 2 ist bereits abgeschlossen!' };
+    if (stage === 3 && quiz.beerTasting.stage3Revealed) return { success: false, message: 'Etappe 3 ist bereits abgeschlossen!' };
+
+    // Check if beer is locked/frozen
+    if (quiz.beerTasting.lockedBeers && quiz.beerTasting.lockedBeers[idx]) {
+      return { success: false, message: `Bier #${idx + 1} ist eingefroren – keine Änderungen mehr möglich!` };
+    }
+
+    // Check countdown expiration if timer is running for this beer
+    const cd = quiz.beerTasting.countdown;
+    if (cd && cd.activeBeerIndex === idx) {
+      const now = Date.now();
+      if (cd.isRunning && cd.endsAt && now > cd.endsAt) {
+        if (!Array.isArray(quiz.beerTasting.lockedBeers)) quiz.beerTasting.lockedBeers = Array(25).fill(false);
+        quiz.beerTasting.lockedBeers[idx] = true;
+        this.saveTimbersportsQuiz(quiz);
+        return { success: false, message: `Zeit abgelaufen! Bier #${idx + 1} ist jetzt eingefroren.` };
+      }
+      if (!cd.isRunning && cd.endsAt && now >= cd.endsAt) {
+        return { success: false, message: `Die Verkostungsrunde für Bier #${idx + 1} wurde beendet.` };
+      }
+    }
+
+    quiz.beerTasting.guesses[memberId][idx] = beerName;
+    this.saveTimbersportsQuiz(quiz);
+    return { success: true };
+  }
+
+  startBeerCountdown(beerIndex, durationSeconds) {
+    if (!this.canManageTimbersports()) return false;
+    const quiz = this.getTimbersportsQuiz();
+    if (!Array.isArray(quiz.beerTasting.lockedBeers)) {
+      quiz.beerTasting.lockedBeers = Array(25).fill(false);
+    }
+    const newIdx = Number(beerIndex);
+
+    // If there was a previous countdown on another beer, lock that previous beer!
+    const prevCd = quiz.beerTasting.countdown;
+    if (prevCd && prevCd.activeBeerIndex !== undefined && prevCd.activeBeerIndex !== newIdx) {
+      quiz.beerTasting.lockedBeers[prevCd.activeBeerIndex] = true;
+    }
+
+    // Newly started beer is open
+    quiz.beerTasting.lockedBeers[newIdx] = false;
+
+    const dur = Math.max(5, Number(durationSeconds) || 60);
+    const now = Date.now();
+    quiz.beerTasting.countdown = {
+      activeBeerIndex: newIdx,
+      durationSeconds: dur,
+      startedAt: now,
+      endsAt: now + (dur * 1000),
+      isRunning: true
+    };
+    this.saveTimbersportsQuiz(quiz);
+    return true;
+  }
+
+  stopBeerCountdown() {
+    if (!this.canManageTimbersports()) return false;
+    const quiz = this.getTimbersportsQuiz();
+    if (!Array.isArray(quiz.beerTasting.lockedBeers)) {
+      quiz.beerTasting.lockedBeers = Array(25).fill(false);
+    }
+    if (quiz.beerTasting.countdown) {
+      const activeIdx = quiz.beerTasting.countdown.activeBeerIndex;
+      quiz.beerTasting.countdown.isRunning = false;
+      quiz.beerTasting.countdown.endsAt = Date.now();
+      if (activeIdx !== undefined && activeIdx !== null) {
+        quiz.beerTasting.lockedBeers[activeIdx] = true;
+      }
+      this.saveTimbersportsQuiz(quiz);
+    }
+    return true;
+  }
+
+  extendBeerCountdown(extraSeconds = 30) {
+    if (!this.canManageTimbersports()) return false;
+    const quiz = this.getTimbersportsQuiz();
+    if (quiz.beerTasting.countdown) {
+      const now = Date.now();
+      const currentEnds = Math.max(now, quiz.beerTasting.countdown.endsAt || now);
+      quiz.beerTasting.countdown.endsAt = currentEnds + (extraSeconds * 1000);
+      quiz.beerTasting.countdown.durationSeconds = (quiz.beerTasting.countdown.durationSeconds || 60) + extraSeconds;
+      quiz.beerTasting.countdown.isRunning = true;
+      this.saveTimbersportsQuiz(quiz);
+    }
+    return true;
+  }
+
+  resetBeerCountdown(beerIndex = null) {
+    if (!this.canManageTimbersports()) return false;
+    const quiz = this.getTimbersportsQuiz();
+    if (!Array.isArray(quiz.beerTasting.lockedBeers)) {
+      quiz.beerTasting.lockedBeers = Array(25).fill(false);
+    }
+    const targetIdx = beerIndex !== null ? Number(beerIndex) : (quiz.beerTasting.countdown ? quiz.beerTasting.countdown.activeBeerIndex : quiz.beerTasting.activeBeerIndex);
+    if (targetIdx !== undefined && targetIdx !== null) {
+      quiz.beerTasting.lockedBeers[targetIdx] = false;
+    }
+    quiz.beerTasting.countdown = null;
+    this.saveTimbersportsQuiz(quiz);
+    return true;
+  }
+
+  setBeerSolution(beerIndex, beerName) {
+    if (!this.canManageTimbersports()) return false;
+    const quiz = this.getTimbersportsQuiz();
+    if (!Array.isArray(quiz.beerTasting.solutions)) {
+      quiz.beerTasting.solutions = Array(25).fill(null);
+    }
+    quiz.beerTasting.solutions[beerIndex] = beerName || null;
+    this.saveTimbersportsQuiz(quiz);
+    return true;
+  }
+
+  revealBeerStage(stageNum, isRevealed) {
+    if (!this.canManageTimbersports()) return false;
+    const quiz = this.getTimbersportsQuiz();
+    if (stageNum === 1) quiz.beerTasting.stage1Revealed = Boolean(isRevealed);
+    if (stageNum === 2) quiz.beerTasting.stage2Revealed = Boolean(isRevealed);
+    if (stageNum === 3) quiz.beerTasting.stage3Revealed = Boolean(isRevealed);
+    this.saveTimbersportsQuiz(quiz);
+    return true;
+  }
+
+  updateBeerPool(newPool) {
+    if (!this.canManageTimbersports()) return false;
+    const quiz = this.getTimbersportsQuiz();
+    quiz.beerTasting.beerPool = newPool;
+    this.saveTimbersportsQuiz(quiz);
+    return true;
+  }
+
+  resetBeerPool() {
+    if (!this.canManageTimbersports()) return false;
+    const quiz = this.getTimbersportsQuiz();
+    quiz.beerTasting.beerPool = JSON.parse(JSON.stringify(DEFAULT_TIMBERSPORTS_QUIZ.beerTasting.beerPool));
+    this.saveTimbersportsQuiz(quiz);
+    return true;
+  }
+
+  saveSawEntry(memberId, cut1, cut2) {
+    if (!this.canManageTimbersports()) return false;
+    const quiz = this.getTimbersportsQuiz();
+    if (!quiz.sawContest.entries) quiz.sawContest.entries = {};
+    quiz.sawContest.entries[memberId] = {
+      cut1: (cut1 !== '' && cut1 !== null && cut1 !== undefined) ? Number(cut1) : null,
+      cut2: (cut2 !== '' && cut2 !== null && cut2 !== undefined) ? Number(cut2) : null
+    };
+    this.saveTimbersportsQuiz(quiz);
+    return true;
+  }
+
+  revealSawCuts(revealed) {
+    if (!this.canManageTimbersports()) return false;
+    const quiz = this.getTimbersportsQuiz();
+    quiz.sawContest.revealed = Boolean(revealed);
+    this.saveTimbersportsQuiz(quiz);
+    return true;
+  }
+
+  saveTriviaAnswer(questionId, memberId, answer) {
+    if (memberId === 'admin') {
+      return { success: false, message: 'Der Admin ist Spielleiter und nimmt nicht am Quiz teil.' };
+    }
+    const quiz = this.getTimbersportsQuiz();
+    const qId = Number(questionId);
+    const q = quiz.trivia.questions.find(x => x.id === qId);
+    if (!q) return { success: false, message: 'Frage nicht gefunden!' };
+    if (q.isResolved || quiz.trivia.revealed) return { success: false, message: 'Frage ist bereits aufgelöst!' };
+    if (q.isFrozen || (quiz.trivia && quiz.trivia.isFrozen)) return { success: false, message: 'Antworten für diese Frage sind bereits gesperrt!' };
+
+    // Check countdown expiration if timer is running for this question
+    const cd = quiz.trivia.countdown;
+    if (cd && cd.activeQuestionId === qId) {
+      const now = Date.now();
+      if (cd.isRunning && cd.endsAt && now > cd.endsAt) {
+        q.isFrozen = true;
+        this.saveTimbersportsQuiz(quiz);
+        return { success: false, message: 'Zeit abgelaufen! Antworten sind für diese Frage gesperrt.' };
+      }
+      if (!cd.isRunning && cd.endsAt && now >= cd.endsAt) {
+        return { success: false, message: 'Die Fragerunde wurde bereits beendet.' };
+      }
+    }
+
+    if (!quiz.trivia.answers) quiz.trivia.answers = {};
+    if (!quiz.trivia.answers[qId]) quiz.trivia.answers[qId] = {};
+    quiz.trivia.answers[qId][memberId] = answer;
+    this.saveTimbersportsQuiz(quiz);
+    return { success: true };
+  }
+
+  setTriviaActiveQuestion(questionId) {
+    const quiz = this.getTimbersportsQuiz();
+    quiz.trivia.activeQuestionId = Number(questionId);
+    this.saveTimbersportsQuiz(quiz);
+    return true;
+  }
+
+  startTriviaCountdown(questionId, durationSeconds) {
+    if (!this.canManageTimbersports()) return false;
+    const quiz = this.getTimbersportsQuiz();
+    const qId = Number(questionId);
+    const q = quiz.trivia.questions.find(x => x.id === qId);
+    if (!q) return false;
+
+    // Freeze any previous countdown question
+    const prevCd = quiz.trivia.countdown;
+    if (prevCd && prevCd.activeQuestionId && prevCd.activeQuestionId !== qId) {
+      const prevQ = quiz.trivia.questions.find(x => x.id === prevCd.activeQuestionId);
+      if (prevQ) prevQ.isFrozen = true;
+    }
+
+    // Unfreeze active question for the new round
+    q.isFrozen = false;
+    quiz.trivia.activeQuestionId = qId;
+
+    const dur = Math.max(5, Number(durationSeconds) || 30);
+    const now = Date.now();
+    quiz.trivia.countdown = {
+      activeQuestionId: qId,
+      durationSeconds: dur,
+      startedAt: now,
+      endsAt: now + (dur * 1000),
+      isRunning: true
+    };
+    this.saveTimbersportsQuiz(quiz);
+    return true;
+  }
+
+  stopTriviaCountdown() {
+    if (!this.canManageTimbersports()) return false;
+    const quiz = this.getTimbersportsQuiz();
+    if (quiz.trivia.countdown) {
+      const activeQId = quiz.trivia.countdown.activeQuestionId;
+      quiz.trivia.countdown.isRunning = false;
+      quiz.trivia.countdown.endsAt = Date.now();
+      const q = quiz.trivia.questions.find(x => x.id === activeQId);
+      if (q) q.isFrozen = true;
+      this.saveTimbersportsQuiz(quiz);
+    }
+    return true;
+  }
+
+  extendTriviaCountdown(extraSeconds = 15) {
+    if (!this.canManageTimbersports()) return false;
+    const quiz = this.getTimbersportsQuiz();
+    if (quiz.trivia.countdown) {
+      const now = Date.now();
+      const currentEnds = Math.max(now, quiz.trivia.countdown.endsAt || now);
+      quiz.trivia.countdown.endsAt = currentEnds + (extraSeconds * 1000);
+      quiz.trivia.countdown.durationSeconds = (quiz.trivia.countdown.durationSeconds || 30) + extraSeconds;
+      quiz.trivia.countdown.isRunning = true;
+      this.saveTimbersportsQuiz(quiz);
+    }
+    return true;
+  }
+
+  resetTriviaCountdown(questionId = null) {
+    if (!this.canManageTimbersports()) return false;
+    const quiz = this.getTimbersportsQuiz();
+    const targetQId = questionId !== null ? Number(questionId) : (quiz.trivia.countdown ? quiz.trivia.countdown.activeQuestionId : quiz.trivia.activeQuestionId);
+    const q = quiz.trivia.questions.find(x => x.id === targetQId);
+    if (q) q.isFrozen = false;
+    quiz.trivia.countdown = null;
+    this.saveTimbersportsQuiz(quiz);
+    return true;
+  }
+
+  revealTriviaQuiz(isRevealed) {
+    if (!this.canManageTimbersports()) return false;
+    const quiz = this.getTimbersportsQuiz();
+    quiz.trivia.revealed = Boolean(isRevealed);
+    this.saveTimbersportsQuiz(quiz);
+    return true;
+  }
+
+  freezeTriviaQuestion(questionId, isFrozen) {
+    if (!this.canManageTimbersports()) return false;
+    const quiz = this.getTimbersportsQuiz();
+    const q = quiz.trivia.questions.find(x => x.id === Number(questionId));
+    if (!q) return false;
+    q.isFrozen = Boolean(isFrozen);
+    this.saveTimbersportsQuiz(quiz);
+    return true;
+  }
+
+  freezeAllTriviaQuestions(isFrozen) {
+    if (!this.canManageTimbersports()) return false;
+    const quiz = this.getTimbersportsQuiz();
+    if (!quiz.trivia) quiz.trivia = { questions: [], answers: {} };
+    quiz.trivia.isFrozen = Boolean(isFrozen);
+    (quiz.trivia.questions || []).forEach(q => {
+      q.isFrozen = Boolean(isFrozen);
+    });
+    this.saveTimbersportsQuiz(quiz);
+    return true;
+  }
+
+  resolveTriviaQuestion(questionId, isResolved, correctAnswer = null) {
+    if (!this.canManageTimbersports()) return false;
+    const quiz = this.getTimbersportsQuiz();
+    const q = quiz.trivia.questions.find(x => x.id === Number(questionId));
+    if (!q) return false;
+    q.isResolved = Boolean(isResolved);
+    if (isResolved) {
+      q.isFrozen = true;
+    }
+    if (correctAnswer) q.correctAnswer = correctAnswer;
+    this.saveTimbersportsQuiz(quiz);
+    return true;
+  }
+
+  addTriviaQuestion(questionData) {
+    if (!this.canManageTimbersports()) return false;
+    const quiz = this.getTimbersportsQuiz();
+    const newId = (quiz.trivia.questions.length > 0 ? Math.max(...quiz.trivia.questions.map(q => q.id)) : 0) + 1;
+    quiz.trivia.questions.push({
+      id: newId,
+      text: questionData.text,
+      options: questionData.options || [],
+      correctAnswer: questionData.correctAnswer || '',
+      isFrozen: false,
+      isResolved: false
+    });
+    this.saveTimbersportsQuiz(quiz);
+    return true;
+  }
+
+  deleteTriviaQuestion(questionId) {
+    if (!this.canManageTimbersports()) return false;
+    const quiz = this.getTimbersportsQuiz();
+    quiz.trivia.questions = quiz.trivia.questions.filter(q => q.id !== Number(questionId));
+    this.saveTimbersportsQuiz(quiz);
+    return true;
+  }
+
+  setBeerJoker(memberId, beerIndex) {
+    if (memberId === 'admin') return { success: false, message: 'Admin nimmt nicht teil.' };
+    const quiz = this.getTimbersportsQuiz();
+    if (!quiz.beerTasting.jokers) quiz.beerTasting.jokers = {};
+    const bIdx = Number(beerIndex);
+    if (quiz.beerTasting.lockedBeers && quiz.beerTasting.lockedBeers[bIdx]) {
+      return { success: false, message: 'Runde ist bereits beendet. Joker kann nicht mehr geändert werden.' };
+    }
+    const currentJoker = quiz.beerTasting.jokers[memberId];
+    if (currentJoker === bIdx) {
+      delete quiz.beerTasting.jokers[memberId];
+      this.saveTimbersportsQuiz(quiz);
+      return { success: true, active: false, message: 'Goldener Kronkorken entfernt.' };
+    }
+    quiz.beerTasting.jokers[memberId] = bIdx;
+    this.saveTimbersportsQuiz(quiz);
+    return { success: true, active: true, message: `Goldener Kronkorken auf Bier #${bIdx + 1} gesetzt! 👑` };
+  }
+
+  setTriviaJoker(memberId, questionId) {
+    if (memberId === 'admin') return { success: false, message: 'Admin nimmt nicht teil.' };
+    const quiz = this.getTimbersportsQuiz();
+    if (!quiz.trivia.jokers) quiz.trivia.jokers = {};
+    const qId = Number(questionId);
+    const q = quiz.trivia.questions.find(x => x.id === qId);
+    if (!q) return { success: false, message: 'Frage nicht gefunden.' };
+    if (q.isFrozen || q.isResolved || quiz.trivia.revealed) {
+      return { success: false, message: 'Frage ist bereits beendet. Joker nicht mehr möglich.' };
+    }
+    const currentJoker = quiz.trivia.jokers[memberId];
+    if (currentJoker === qId) {
+      delete quiz.trivia.jokers[memberId];
+      this.saveTimbersportsQuiz(quiz);
+      return { success: true, active: false, message: 'Holzfäller-Joker entfernt.' };
+    }
+    quiz.trivia.jokers[memberId] = qId;
+    this.saveTimbersportsQuiz(quiz);
+    return { success: true, active: true, message: `Holzfäller-Joker auf Frage #${qId} gesetzt! 🃏` };
+  }
+
+  setSawJoker(memberId, active) {
+    const quiz = this.getTimbersportsQuiz();
+    if (!quiz.sawContest.jokers) quiz.sawContest.jokers = {};
+    if (active === undefined) {
+      quiz.sawContest.jokers[memberId] = !quiz.sawContest.jokers[memberId];
+    } else {
+      quiz.sawContest.jokers[memberId] = Boolean(active);
+    }
+    this.saveTimbersportsQuiz(quiz);
+    return { success: true, active: quiz.sawContest.jokers[memberId], message: 'Bullseye-Joker aktualisiert! 🎯' };
+  }
+
+  calculateTimbersportsStandings() {
+    const quiz = this.getTimbersportsQuiz();
+    const members = this.getMembers();
+    const bt = quiz.beerTasting;
+    const saw = quiz.sawContest;
+    const tr = quiz.trivia;
+
+    // 1. Beer Points per member
+    const beerScores = {};
+    members.forEach(m => { beerScores[m.id] = { stage1: 0, stage2: 0, stage3: 0, jokerBonus: 0, total: 0 }; });
+
+    // Stage 1 (0..9)
+    for (let i = 0; i < 10; i++) {
+      const sol = bt.solutions[i];
+      if (sol && bt.stage1Revealed) {
+        members.forEach(m => {
+          if (bt.guesses[m.id] && bt.guesses[m.id][i] === sol) {
+            beerScores[m.id].stage1++;
+            beerScores[m.id].total++;
+            if (bt.jokers && bt.jokers[m.id] === i) {
+              beerScores[m.id].jokerBonus++;
+              beerScores[m.id].total++;
+            }
+          }
+        });
+      }
+    }
+    // Stage 2 (10..19)
+    for (let i = 10; i < 20; i++) {
+      const sol = bt.solutions[i];
+      if (sol && bt.stage2Revealed) {
+        members.forEach(m => {
+          if (bt.guesses[m.id] && bt.guesses[m.id][i] === sol) {
+            beerScores[m.id].stage2++;
+            beerScores[m.id].total++;
+            if (bt.jokers && bt.jokers[m.id] === i) {
+              beerScores[m.id].jokerBonus++;
+              beerScores[m.id].total++;
+            }
+          }
+        });
+      }
+    }
+    // Stage 3 (20..24)
+    for (let i = 20; i < 25; i++) {
+      const sol = bt.solutions[i];
+      if (sol && bt.stage3Revealed) {
+        members.forEach(m => {
+          if (bt.guesses[m.id] && bt.guesses[m.id][i] === sol) {
+            beerScores[m.id].stage3++;
+            beerScores[m.id].total++;
+            if (bt.jokers && bt.jokers[m.id] === i) {
+              beerScores[m.id].jokerBonus++;
+              beerScores[m.id].total++;
+            }
+          }
+        });
+      }
+    }
+
+    // 2. Saw Contest Rankings
+    const sawResults = members.map(m => {
+      const entry = saw.entries && saw.entries[m.id];
+      const c1 = entry ? entry.cut1 : null;
+      const c2 = entry ? entry.cut2 : null;
+      const hasBoth = c1 !== null && c1 !== undefined && c2 !== null && c2 !== undefined;
+      const totalWeight = hasBoth ? (c1 + c2) : null;
+      const diff = hasBoth ? Math.abs(totalWeight - saw.targetWeight) : 999999;
+      const isJoker = Boolean(saw.jokers && saw.jokers[m.id]);
+      const jokerHit = isJoker && hasBoth && diff <= 30;
+      return { member: m, cut1: c1, cut2: c2, totalWeight, diff, hasBoth, isJoker, jokerHit };
+    });
+
+    sawResults.sort((a, b) => a.diff - b.diff);
+    const sawPoints = {};
+    sawResults.forEach((res, idx) => {
+      let base = res.hasBoth ? Math.max(1, 8 - idx) : 0;
+      if (res.jokerHit) {
+        base += 2; // +2 Extra-Punkte für Treffer im Bullseye (<= 30g) mit Joker
+      }
+      sawPoints[res.member.id] = base;
+    });
+
+    // 3. Trivia points
+    const triviaScores = {};
+    const triviaJokerHits = {};
+    members.forEach(m => { triviaScores[m.id] = 0; triviaJokerHits[m.id] = 0; });
+    tr.questions.forEach(q => {
+      const isCounted = Boolean(q.isResolved || tr.revealed);
+      if (isCounted && q.correctAnswer) {
+        members.forEach(m => {
+          const ans = tr.answers && tr.answers[q.id] && tr.answers[q.id][m.id];
+          if (ans === q.correctAnswer) {
+            triviaScores[m.id]++;
+            if (tr.jokers && tr.jokers[m.id] === q.id) {
+              triviaScores[m.id]++; // +1 Bonuspunkt (Doppelte Punkte!)
+              triviaJokerHits[m.id]++;
+            }
+          }
+        });
+      }
+    });
+
+    // 4. Combined Standings
+    const standings = members.map(m => {
+      const bPts = beerScores[m.id].total;
+      const sPts = sawPoints[m.id] || 0;
+      const tPts = triviaScores[m.id] || 0;
+      const total = bPts + sPts + tPts;
+      return {
+        member: m,
+        beerScore: beerScores[m.id],
+        sawDetails: sawResults.find(r => r.member.id === m.id),
+        sawPoints: sPts,
+        triviaScore: tPts,
+        triviaJokerHit: Boolean(triviaJokerHits[m.id] > 0),
+        totalPoints: total
+      };
+    });
+
+    standings.sort((a, b) => b.totalPoints - a.totalPoints);
+    standings.forEach((st, idx) => {
+      st.rank = idx + 1;
+    });
+
+    // 5. Fun-Awards (Titel des Tages)
+    let bestBeerScore = -1;
+    let beerSommelier = null;
+    let bestSawDiff = 999999;
+    let precisionSaw = null;
+    let worstSawDiff = -1;
+    let wildAxe = null;
+    let bestTriviaScore = -1;
+    let triviaMaster = null;
+
+    standings.forEach(st => {
+      if (st.beerScore.total > bestBeerScore && st.beerScore.total > 0) {
+        bestBeerScore = st.beerScore.total;
+        beerSommelier = { member: st.member, value: `${st.beerScore.total} Biere` };
+      }
+      if (st.sawDetails && st.sawDetails.hasBoth) {
+        if (st.sawDetails.diff < bestSawDiff) {
+          bestSawDiff = st.sawDetails.diff;
+          precisionSaw = { member: st.member, value: `±${st.sawDetails.diff}g (${st.sawDetails.totalWeight}g)` };
+        }
+        if (st.sawDetails.diff > worstSawDiff) {
+          worstSawDiff = st.sawDetails.diff;
+          wildAxe = { member: st.member, value: `±${st.sawDetails.diff}g (${st.sawDetails.totalWeight}g)` };
+        }
+      }
+      if (st.triviaScore > bestTriviaScore && st.triviaScore > 0) {
+        bestTriviaScore = st.triviaScore;
+        triviaMaster = { member: st.member, value: `${st.triviaScore} Pkt.` };
+      }
+    });
+
+    standings.funAwards = {
+      beerSommelier,
+      precisionSaw,
+      wildAxe,
+      triviaMaster
+    };
+
+    return standings;
+  }
+
+  applyTimbersportsToEvent8() {
+    const standings = this.calculateTimbersportsStandings();
+    const evt8 = this.getEvent(8);
+    if (!evt8) return false;
+
+    const rawScores = standings.map((st, idx) => ({
+      playerId: st.member.id,
+      rank: idx + 1,
+      points: 8 - idx
+    }));
+
+    return this.saveEventScoring(8, rawScores, true);
   }
 
   async pushMemberToCloud(member) {

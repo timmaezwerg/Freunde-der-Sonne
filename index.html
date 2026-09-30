@@ -15,8 +15,8 @@
   <link rel="manifest" href="manifest.json">
   
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="css/style.css?v=20260923_v1">
-  <link rel="stylesheet" href="css/components.css?v=20260923_v1">
+  <link rel="stylesheet" href="css/style.css?v=20260930_ts7">
+  <link rel="stylesheet" href="css/components.css?v=20260930_ts7">
   
   <!-- Supabase JS CDN Library -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -340,9 +340,462 @@
         </div>
       </section>
 
+      <!-- ========================================================
+           TAB 4: TIMBERSPORTS & BIERTASTING SPECIAL (SPIELTAG 8)
+           ======================================================== -->
+      <section class="view-panel" id="view-timbersports">
+        <!-- Hero Header -->
+        <div class="ts-hero-card">
+          <div class="ts-hero-badge">🌲 STIHL Timbersports Stuttgart & 🍺 Biertasting</div>
+          <h2 class="ts-hero-title">Großes Finale & Special</h2>
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <p class="ts-hero-subtitle" style="margin: 0;">Spieltag 8 bei Tim (30.10.) • 25 Biere • 1.000g Sägen • Timbersports-Quiz</p>
+            <button type="button" class="btn btn-sm btn-secondary" id="btn-ts-sound-toggle" style="white-space: nowrap; font-size: 0.76rem; padding: 4px 10px; border-radius: var(--radius-pill);">
+              <span id="btn-ts-sound-icon">🔊</span> <span id="btn-ts-sound-text">Sound an</span>
+            </button>
+          </div>
+          
+          <!-- Admin/Tim Status Bar -->
+          <div class="ts-admin-status-bar" id="ts-admin-status-bar" style="display: none;">
+            <div class="ts-status-info">
+              <span class="ts-status-dot" id="ts-status-dot"></span>
+              <span id="ts-status-text">🔒 Geheim-Modus: Nur für Tim & Admin sichtbar</span>
+            </div>
+            <div class="ts-status-actions">
+              <button type="button" class="btn btn-sm btn-secondary" id="btn-ts-toggle-unlock">
+                <span>🔓</span> Für alle Freunde freischalten
+              </button>
+              <button type="button" class="btn btn-sm btn-secondary" id="btn-ts-toggle-archive">
+                <span>📦</span> Tab archivieren
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sub-Navigation Segmented Control -->
+        <div class="ts-subnav-bar">
+          <button type="button" class="ts-subnav-btn active" data-ts-sub="beer">
+            <span>🍺</span> Biertasting
+          </button>
+          <button type="button" class="ts-subnav-btn" data-ts-sub="saw">
+            <span>🪚</span> Sägewettbewerb
+          </button>
+          <button type="button" class="ts-subnav-btn" data-ts-sub="trivia">
+            <span>🎯</span> Wissensquiz
+          </button>
+          <button type="button" class="ts-subnav-btn" data-ts-sub="standings">
+            <span>🏆</span> Gesamtwertung
+          </button>
+          <button type="button" class="ts-subnav-btn ts-admin-only-tab" id="ts-tab-beerpool" data-ts-sub="beerpool" style="display: none;">
+            <span>⚙️</span> Bier-Pool
+          </button>
+        </div>
+
+        <!-- SUBTAB 1: BIERTASTING -->
+        <div class="ts-subpanel active" id="ts-subpanel-beer">
+          <!-- Etappen Pills -->
+          <div class="ts-stage-pills">
+            <button type="button" class="ts-stage-pill active" data-ts-stage="1">
+              Etappe 1 <span class="badge">Bier 1–10</span>
+            </button>
+            <button type="button" class="ts-stage-pill" data-ts-stage="2">
+              Etappe 2 <span class="badge">Bier 11–20</span>
+            </button>
+            <button type="button" class="ts-stage-pill" data-ts-stage="3">
+              Etappe 3 <span class="badge">Bier 21–25</span>
+            </button>
+          </div>
+
+          <!-- Active Served Beer Banner -->
+          <div class="ts-served-banner" id="ts-served-banner">
+            <div class="ts-served-left">
+              <span class="ts-beer-icon">🍺</span>
+              <div>
+                <div class="ts-served-label">Aktuell auf dem Tisch:</div>
+                <div class="ts-served-name" id="ts-served-name">Probierglas #1</div>
+              </div>
+            </div>
+            <div class="ts-served-tag" id="ts-served-tag">Runde läuft</div>
+          </div>
+
+          <!-- Tasting Countdown Timer Banner -->
+          <div class="card ts-countdown-banner" id="ts-countdown-banner" style="display: none;">
+            <div class="ts-countdown-content">
+              <div class="ts-countdown-icon-box" id="ts-countdown-icon">⏱️</div>
+              <div class="ts-countdown-info">
+                <div class="ts-countdown-title" id="ts-countdown-title">Verkostungs-Countdown für Bier #1</div>
+                <div class="ts-countdown-subtitle" id="ts-countdown-subtitle">Tippe jetzt bevor die Zeit abläuft!</div>
+              </div>
+              <div class="ts-countdown-digits-box">
+                <span class="ts-countdown-digits" id="ts-countdown-digits">60</span>
+                <span class="ts-countdown-unit">Sek</span>
+              </div>
+            </div>
+            <div class="ts-countdown-progress-track">
+              <div class="ts-countdown-progress-bar" id="ts-countdown-progress-bar" style="width: 100%;"></div>
+            </div>
+          </div>
+
+          <!-- Beer Selector Pills (1..10 or 11..20 or 21..25) -->
+          <div class="ts-beer-selector-scroll" id="ts-beer-selector-row">
+            <!-- Populated dynamically: #1, #2, #3 ... -->
+          </div>
+
+          <!-- Active Beer Guessing Card for Current User -->
+          <div class="card ts-guess-card" id="ts-guess-card">
+            <div class="ts-guess-header">
+              <div>
+                <h3 class="ts-guess-title" id="ts-current-beer-title">Tippe Bier #1</h3>
+                <p class="ts-guess-hint" id="ts-current-beer-hint">Wähle das Bier aus dem Pool, das du schmeckst:</p>
+              </div>
+              <div class="ts-current-pick-badge" id="ts-current-pick-badge">Noch kein Tipp</div>
+            </div>
+
+            <!-- Beer Options Grid (25 Beers) with Strikethrough for already used beers -->
+            <div class="ts-beer-grid" id="ts-beer-options-grid">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+
+          <!-- Stage Intermediate Results & Reveal Box -->
+          <div class="card ts-reveal-box" id="ts-stage-reveal-box">
+            <!-- Dynamically populated: either waiting message or full breakdown table -->
+          </div>
+
+          <!-- Admin Bar for Biertasting -->
+          <div class="card ts-admin-box" id="ts-beer-admin-box" style="display: none;">
+            <div class="ts-admin-header">
+              <div class="ts-admin-title">🛡️ Admin-Steuerung: Biertasting</div>
+              <button type="button" class="btn btn-sm btn-secondary" id="btn-open-beer-pool-modal">
+                <span>⚙️</span> Bier-Pool bearbeiten (25)
+              </button>
+            </div>
+
+            <!-- Admin Countdown Control Card -->
+            <div class="ts-admin-timer-card">
+              <div class="ts-admin-timer-header">
+                <div>
+                  <div style="font-weight: 800; font-size: 0.92rem; color: #fff; display: flex; align-items: center; gap: 6px;">
+                    <span>⏱️</span> Verkostungs-Countdown steuern
+                  </div>
+                  <div style="font-size: 0.74rem; color: var(--text-secondary); margin-top: 2px;">
+                    Startet den Countdown für das aktuell gewählte Bier. Nach Ablauf werden Eingaben gesperrt.
+                  </div>
+                </div>
+                <div class="ts-admin-timer-status" id="ts-admin-timer-status-badge">
+                  Bereit
+                </div>
+              </div>
+
+              <!-- Duration Presets -->
+              <div class="ts-admin-timer-presets">
+                <span class="ts-timer-preset-label">Dauer:</span>
+                <button type="button" class="ts-timer-chip" data-secs="30">30s</button>
+                <button type="button" class="ts-timer-chip" data-secs="45">45s</button>
+                <button type="button" class="ts-timer-chip active" data-secs="60">60s</button>
+                <button type="button" class="ts-timer-chip" data-secs="90">90s</button>
+                <button type="button" class="ts-timer-chip" data-secs="120">120s</button>
+                <div class="ts-timer-custom-wrap">
+                  <input type="number" id="ts-admin-custom-secs" class="form-input" min="5" max="600" value="60" style="width: 65px; padding: 3px 6px; text-align: center; font-size: 0.85rem;" />
+                  <span style="font-size: 0.75rem; color: var(--text-muted);">s</span>
+                </div>
+              </div>
+
+              <!-- Timer Action Buttons -->
+              <div class="ts-admin-timer-actions">
+                <button type="button" class="btn btn-primary" id="btn-start-beer-countdown" style="flex: 2;">
+                  <span>▶️</span> Start (<span id="btn-timer-dur-label">60</span>s)
+                </button>
+                <button type="button" class="btn btn-secondary" id="btn-extend-beer-countdown" style="flex: 1;" title="+30 Sekunden hinzufügen">
+                  <span>➕</span> +30s
+                </button>
+                <button type="button" class="btn btn-secondary" id="btn-stop-beer-countdown" style="flex: 1; border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;" title="Countdown stoppen & Runde schließen">
+                  <span>⏹️</span> Stopp
+                </button>
+                <button type="button" class="btn btn-secondary" id="btn-reset-beer-countdown" style="flex: 0 0 auto;" title="Timer komplett zurücksetzen">
+                  <span>🔄</span>
+                </button>
+              </div>
+
+              <!-- Manual Freeze / Unlock Toggle for currently active beer -->
+              <div style="margin-top: 8px; display: flex; align-items: center; justify-content: space-between; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08);">
+                <span style="font-size: 0.74rem; color: var(--text-secondary);" id="ts-beer-lock-state-desc">Runden-Status: Offen</span>
+                <button type="button" class="btn btn-sm btn-secondary" id="btn-toggle-beer-lock" style="font-size: 0.72rem; padding: 3px 8px;">
+                  <span id="btn-toggle-beer-lock-icon">🔒</span> <span id="btn-toggle-beer-lock-text">Bier einfrieren</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="ts-admin-controls-grid">
+              <div class="form-group">
+                <label class="form-label" for="admin-select-active-beer">Aktuell serviertes Bier festlegen:</label>
+                <select class="form-input" id="admin-select-active-beer"></select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="admin-select-beer-solution">Wahre Lösung für dieses Bier:</label>
+                <select class="form-input" id="admin-select-beer-solution"></select>
+              </div>
+            </div>
+            <div class="ts-admin-stage-actions" id="ts-admin-stage-actions">
+              <!-- Dynamic buttons to reveal/hide stage 1, 2, 3 -->
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBTAB 2: SÄGEWETTBEWERB -->
+        <div class="ts-subpanel" id="ts-subpanel-saw">
+          <div class="card ts-saw-intro">
+            <div class="ts-saw-icon">🪚</div>
+            <div>
+              <h3 class="card-title" style="margin-bottom: 4px;">Holzstamm-Challenge: Ziel 1.000 Gramm</h3>
+              <p style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.4;">
+                Jeder Freund sägt 2 Scheiben vom echten Stamm ab. Dein Schnitt 1 wird gewogen und du siehst dein Gewicht direkt hier in der App!
+                Mit Schnitt 2 versuchst du, zusammen genau auf 1.000g Gesamtgewicht zu kommen. Die Gesamtrangliste wird am Ende für alle aufgedeckt.
+              </p>
+            </div>
+          </div>
+
+          <!-- User's Personal Sawing Status Card -->
+          <div class="card ts-my-saw-card" id="ts-my-saw-card">
+            <!-- Populated dynamically -->
+          </div>
+
+          <!-- Sawing Leaderboard Table -->
+          <div class="card ts-saw-table-card" id="ts-saw-table-card">
+            <!-- Populated dynamically -->
+          </div>
+
+          <!-- Admin Weighing Input Table -->
+          <div class="card ts-admin-box" id="ts-saw-admin-box" style="display: none;">
+            <div class="ts-admin-header">
+              <div class="ts-admin-title">🛡️ Admin-Waage: Gewichte der Freunde eintragen</div>
+              <button type="button" class="btn btn-sm btn-secondary" id="btn-toggle-reveal-saw">
+                <span id="btn-toggle-reveal-saw-icon">🔓</span> <span id="btn-toggle-reveal-saw-text">Wiegungen für alle aufdecken</span>
+              </button>
+            </div>
+            <div class="ts-saw-admin-table" id="ts-saw-admin-table">
+              <!-- Inputs for cut1 and cut2 for all 8 members -->
+            </div>
+            <button type="button" class="btn btn-primary btn-block" id="btn-save-saw-entries" style="margin-top: 14px;">
+              <span>💾</span> Alle Wiegungen speichern
+            </button>
+          </div>
+        </div>
+
+        <!-- SUBTAB 3: TIMBERSPORTS WISSENSQUIZ -->
+        <div class="ts-subpanel" id="ts-subpanel-trivia">
+          <div class="card ts-trivia-intro">
+            <div class="ts-trivia-icon">🌲</div>
+            <div>
+              <h3 class="card-title" style="margin-bottom: 4px;">STIHL Timbersports Stuttgart Quiz</h3>
+              <p style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.4;">
+                5 Fragen zu den STIHL Timbersports. Der Admin schaltet jede Frage mit einem Countdown scharf. Tippe schnell, bevor die Zeit abläuft!
+              </p>
+            </div>
+          </div>
+
+          <!-- Trivia Question Navigation Pills (#1 to #5) -->
+          <div class="ts-trivia-selector-grid" id="ts-trivia-selector-row">
+            <!-- Populated dynamically -->
+          </div>
+
+          <!-- Live Countdown Banner for Trivia -->
+          <div class="card ts-countdown-banner" id="ts-trivia-countdown-banner" style="display: none; margin-bottom: 14px;">
+            <div class="ts-countdown-header">
+              <div class="ts-countdown-icon-box" id="ts-trivia-countdown-icon">⏱️</div>
+              <div class="ts-countdown-text">
+                <div class="ts-countdown-title" id="ts-trivia-countdown-title">Countdown für Frage #1</div>
+                <div class="ts-countdown-subtitle" id="ts-trivia-countdown-subtitle">Tippe jetzt, bevor die Zeit abläuft!</div>
+              </div>
+              <div class="ts-countdown-digits-box">
+                <div class="ts-countdown-digits" id="ts-trivia-countdown-digits">30</div>
+                <div class="ts-countdown-unit">SEK</div>
+              </div>
+            </div>
+            <div class="ts-countdown-progress-track">
+              <div class="ts-countdown-progress-bar" id="ts-trivia-countdown-progress-bar" style="width: 100%;"></div>
+            </div>
+          </div>
+
+          <!-- Active Question Card (Single-Question Focus) -->
+          <div id="ts-trivia-active-card-container">
+            <!-- Populated dynamically -->
+          </div>
+
+          <!-- Full Quiz Leaderboard / Reveal (Shown when revealed) -->
+          <div id="ts-trivia-results-container" style="display: none; margin-bottom: 16px;">
+            <!-- Populated dynamically -->
+          </div>
+
+          <!-- Admin Trivia Controls -->
+          <div class="card ts-admin-box" id="ts-trivia-admin-box" style="display: none;">
+            <div class="ts-admin-header">
+              <div class="ts-admin-title">🛡️ Admin-Timer: Frage scharf schalten & steuern</div>
+              <span class="ts-admin-timer-status" id="ts-trivia-admin-status-badge">Bereit</span>
+            </div>
+
+            <!-- Timer Configuration -->
+            <div class="ts-timer-config-row">
+              <div class="ts-timer-chips-group">
+                <button type="button" class="ts-timer-chip ts-trivia-timer-chip" data-secs="15">15s</button>
+                <button type="button" class="ts-timer-chip ts-trivia-timer-chip" data-secs="20">20s</button>
+                <button type="button" class="ts-timer-chip ts-trivia-timer-chip active" data-secs="30">30s</button>
+                <button type="button" class="ts-timer-chip ts-trivia-timer-chip" data-secs="45">45s</button>
+                <button type="button" class="ts-timer-chip ts-trivia-timer-chip" data-secs="60">60s</button>
+              </div>
+              <div class="ts-timer-custom-box">
+                <input type="number" class="form-input" id="input-trivia-timer-custom" min="5" max="300" value="30" style="width: 60px; padding: 4px 6px; text-align: center; font-size: 0.8rem;">
+                <span style="font-size: 0.72rem; color: var(--text-muted);">Sek</span>
+              </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="ts-timer-actions-grid" style="margin-top: 10px;">
+              <button type="button" class="btn btn-gold" id="btn-start-trivia-timer">
+                <span>⏱️</span> <span id="btn-start-trivia-timer-text">Frage scharf schalten & starten</span>
+              </button>
+              <button type="button" class="btn btn-secondary" id="btn-stop-trivia-timer">
+                <span>⏹️</span> Stopp & Sperren
+              </button>
+              <button type="button" class="btn btn-outline" id="btn-extend-trivia-timer">
+                <span>+15s</span>
+              </button>
+              <button type="button" class="btn btn-outline" id="btn-reset-trivia-timer">
+                <span>🔄</span> Reset
+              </button>
+            </div>
+
+            <!-- Next / Prev Question Navigator for Admin -->
+            <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 12px; align-items: center; padding-top: 10px; border-top: 1px solid var(--border-subtle);">
+              <button type="button" class="btn btn-sm btn-secondary" id="btn-prev-trivia-q">
+                <span>◀</span> Vorherige
+              </button>
+              <span style="font-size: 0.78rem; font-weight: 700; color: var(--sun-gold);" id="ts-trivia-admin-qindicator">Frage 1 von 5</span>
+              <button type="button" class="btn btn-sm btn-primary" id="btn-next-trivia-q">
+                Nächste <span>▶</span>
+              </button>
+            </div>
+
+            <!-- Live Submissions Monitor for Admin -->
+            <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-subtle);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 0.82rem; font-weight: 800; color: #fff;" id="ts-trivia-admin-monitor-title">📋 Live-Abgaben für Frage #1</span>
+                <span class="ts-current-pick-badge" id="ts-trivia-admin-monitor-badge">0 / 8 abgegeben</span>
+              </div>
+              <div class="ts-trivia-friend-grid" id="ts-trivia-admin-friend-grid">
+                <!-- 8 friend cards -->
+              </div>
+            </div>
+
+            <!-- Big Final Reveal Toggle -->
+            <div style="margin-top: 16px; padding: 12px; border-radius: var(--radius-sm); background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35);">
+              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <div>
+                  <div style="font-size: 0.82rem; font-weight: 800; color: var(--sun-gold);">🏆 Quiz-Auflösung & Gesamtrangliste</div>
+                  <div style="font-size: 0.74rem; color: var(--text-secondary);">Gibt die Platzierungen und alle Antworten für alle Freunde frei.</div>
+                </div>
+                <button type="button" class="btn btn-sm btn-primary" id="btn-toggle-reveal-trivia-quiz">
+                  <span id="btn-reveal-trivia-icon">🎉</span> <span id="btn-reveal-trivia-text">Quiz offiziell auflösen</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Add/Delete Questions Accordion -->
+            <div style="margin-top: 12px; display: flex; justify-content: flex-end;">
+              <button type="button" class="btn btn-sm btn-secondary" id="btn-open-add-trivia-modal" style="font-size: 0.74rem;">
+                <span>➕</span> Neue Quizfrage hinzufügen
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBTAB 4: GESAMTWERTUNG & FINALE -->
+        <div class="ts-subpanel" id="ts-subpanel-standings">
+          <div class="card ts-overall-hero">
+            <div class="ts-overall-badge">👑 FINALE SPIELTAG 8</div>
+            <h3 class="card-title" style="font-size: 1.2rem; margin: 4px 0;">Gesamtwertung Timbersports & Tasting</h3>
+            <p style="font-size: 0.8rem; color: var(--text-secondary);">
+              Kombinierte Punkte aus Biertasting, Sägewettbewerb & Timbersports-Quiz.
+            </p>
+          </div>
+
+          <!-- Overall Standings Table -->
+          <div class="card ts-standings-card" id="ts-standings-card">
+            <!-- Populated dynamically -->
+          </div>
+
+          <!-- Fun Awards (Titel des Tages) -->
+          <div id="ts-fun-awards-container">
+            <!-- Populated dynamically -->
+          </div>
+
+          <!-- Admin Commit to Event 8 Button -->
+          <div class="card ts-admin-box" id="ts-standings-admin-box" style="display: none;">
+            <div class="ts-admin-header">
+              <div class="ts-admin-title">🛡️ Meisterschafts-Abschluss: Spieltag 8 werten</div>
+            </div>
+            <p style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.4;">
+              Übertrage die Platzierungen 1 bis 8 direkt als offizielles Endergebnis in <strong>Spieltag 8 (Großes Saison-Finale 2026)</strong>.
+              Damit werden die Meisterschaftspunkte berechnet und der neue <strong>Sonnenkönig 2026 👑</strong> sowie der <strong>Wintergrill-Ausrichter 🥩</strong> ermittelt!
+            </p>
+            <button type="button" class="btn btn-gold btn-block" id="btn-apply-timbersports-scores" style="font-size: 0.95rem; font-weight: 800; padding: 14px;">
+              <span>🏆</span> Platzierungen in Spieltag 8 übernehmen & werten
+            </button>
+          </div>
+        </div>
+
+        <!-- SUBTAB 5: BIER-POOL VERWALTUNG (NUR ADMIN) -->
+        <div class="ts-subpanel" id="ts-subpanel-beerpool">
+          <div class="card ts-beerpool-hero">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <span class="badge" style="background: rgba(245, 158, 11, 0.2); color: var(--sun-gold); font-weight: 800;">🛡️ ADMIN-BEREICH</span>
+              <span class="badge" id="ts-pool-count-badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; font-weight: 800;">25 Biere im Pool</span>
+            </div>
+            <h3 class="card-title" style="margin-bottom: 4px;">🍺 Bier-Pool verwalten</h3>
+            <p style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.4; margin: 0 0 12px 0;">
+              Hier kannst du alle Biere für das Tasting anpassen, umbenennen oder neue Biere hinzufügen. Die Freunde wählen aus diesen Namen ihre Tipps aus.
+            </p>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button type="button" class="btn btn-sm btn-secondary" id="btn-reset-beer-pool-default">
+                <span>🔄</span> Auf Standard-Pool zurücksetzen
+              </button>
+            </div>
+          </div>
+
+          <!-- Add new beer card -->
+          <div class="card" style="margin-bottom: 12px; padding: 12px;">
+            <label class="form-label" style="margin-bottom: 6px;">Neues Bier zum Pool hinzufügen:</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="input-tab-new-beer-name" class="form-input" placeholder="z.B. Tegernseer Spezial" style="font-size: 0.82rem;">
+              <button type="button" class="btn btn-primary" id="btn-tab-add-beer" style="white-space: nowrap; font-size: 0.8rem;">
+                ➕ Hinzufügen
+              </button>
+            </div>
+          </div>
+
+          <!-- Pool List Container -->
+          <div class="card" style="padding: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <h4 style="font-size: 0.9rem; font-weight: 800; color: #fff; margin: 0;">Alle Biere im Pool:</h4>
+              <button type="button" class="btn btn-sm btn-primary" id="btn-tab-save-all-beers">
+                <span>💾</span> Änderungen speichern
+              </button>
+            </div>
+            <div id="ts-pool-list-items" style="display: flex; flex-direction: column; gap: 8px;">
+              <!-- Populated dynamically -->
+            </div>
+            <button type="button" class="btn btn-primary btn-block" id="btn-tab-save-all-beers-bottom" style="margin-top: 14px;">
+              <span>💾</span> Alle Änderungen am Bier-Pool speichern
+            </button>
+          </div>
+        </div>
+
+        <div style="height: 40px;"></div>
+      </section>
+
     </main>
 
-    <!-- iOS Glass Bottom Tab Navigation (3 Clean Tabs) -->
+    <!-- iOS Glass Bottom Tab Navigation (3 Clean Tabs + Timbersports Event Tab) -->
     <nav class="bottom-nav">
       <button class="nav-item active" data-target="view-leaderboard">
         <span class="nav-icon">🏆</span>
@@ -355,6 +808,10 @@
       <button class="nav-item" data-target="view-members">
         <span class="nav-icon">👥</span>
         <span class="nav-label">Kader</span>
+      </button>
+      <button class="nav-item timbersports-nav-item" id="nav-item-timbersports" data-target="view-timbersports" style="display: none;">
+        <span class="nav-icon">🪓</span>
+        <span class="nav-label">Timbersports</span>
       </button>
     </nav>
 
@@ -908,6 +1365,91 @@
     </div>
   </div>
 
+  <!-- Modal: Manage Beer Pool (25 Biere) -->
+  <div class="modal-backdrop" id="modal-manage-beer-pool">
+    <div class="modal-sheet" style="max-height: 85vh;">
+      <div class="sheet-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title">🍺 Bier-Pool verwalten (25 Biere)</h3>
+        <button class="icon-btn close-modal-btn">✕</button>
+      </div>
+      <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 12px;">
+        Diese Biere stehen den Freunden zur Auswahl. Du kannst Namen anpassen oder neue Biere hinzufügen:
+      </p>
+      <div id="beer-pool-items-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 48vh; overflow-y: auto; padding-right: 4px; margin-bottom: 14px;">
+        <!-- Dynamically rendered list of beer inputs with delete buttons -->
+      </div>
+      <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+        <input type="text" id="input-new-beer-name" class="form-input" placeholder="Neues Bier hinzufügen (z.B. Paulaner Hefe-Weißbier)">
+        <button type="button" class="btn btn-secondary" id="btn-add-beer-to-pool" style="white-space: nowrap;">➕ Hinzufügen</button>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button type="button" class="btn btn-secondary btn-block close-modal-btn">Schließen</button>
+        <button type="button" class="btn btn-primary btn-block" id="btn-save-beer-pool">Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Add Trivia Question -->
+  <div class="modal-backdrop" id="modal-add-trivia-question">
+    <div class="modal-sheet">
+      <div class="sheet-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title">🎯 Neue Timbersports-Frage</h3>
+        <button class="icon-btn close-modal-btn">✕</button>
+      </div>
+      <form id="form-add-trivia-question">
+        <div class="form-group">
+          <label class="form-label" for="trivia-input-question">Frage</label>
+          <textarea id="trivia-input-question" class="form-input" rows="2" placeholder="z.B. Welche Höchstgeschwindigkeit erreichen die Späne beim Sägen?" required></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">4 Antwortmöglichkeiten (Option 1 bis 4)</label>
+          <input type="text" id="trivia-opt-1" class="form-input" placeholder="Antwort A" style="margin-bottom: 6px;" required>
+          <input type="text" id="trivia-opt-2" class="form-input" placeholder="Antwort B" style="margin-bottom: 6px;" required>
+          <input type="text" id="trivia-opt-3" class="form-input" placeholder="Antwort C" style="margin-bottom: 6px;" required>
+          <input type="text" id="trivia-opt-4" class="form-input" placeholder="Antwort D" style="margin-bottom: 6px;" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="trivia-select-correct">Welche Option ist die richtige Antwort?</label>
+          <select id="trivia-select-correct" class="form-input" required>
+            <option value="1">Option A</option>
+            <option value="2">Option B</option>
+            <option value="3">Option C</option>
+            <option value="4">Option D</option>
+          </select>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn btn-secondary btn-block close-modal-btn">Abbrechen</button>
+          <button type="submit" class="btn btn-primary btn-block">Frage speichern</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Bier-Steckbrief (Nach Komplett-Abschluss des Biertastings) -->
+  <div class="modal-backdrop" id="modal-beer-steckbrief">
+    <div class="modal-sheet" style="max-height: 85vh;">
+      <div class="sheet-handle"></div>
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.8rem;" id="modal-steckbrief-icon">🍺</span>
+          <div>
+            <h3 class="modal-title" id="modal-steckbrief-title" style="margin: 0; font-size: 1.05rem;">Bier-Steckbrief</h3>
+            <span style="font-size: 0.78rem; color: var(--sun-gold); font-weight: 700;" id="modal-steckbrief-brewery">Brauerei</span>
+          </div>
+        </div>
+        <button class="icon-btn close-modal-btn">✕</button>
+      </div>
+      <div id="modal-steckbrief-body" style="padding-top: 10px; max-height: 55vh; overflow-y: auto;">
+        <!-- Dynamically injected Steckbrief content -->
+      </div>
+      <div style="margin-top: 14px;">
+        <button type="button" class="btn btn-secondary btn-block close-modal-btn">Schließen</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Confetti Canvas -->
   <canvas id="confetti-canvas"></canvas>
 
@@ -915,9 +1457,9 @@
   <div class="toast-container" id="toast-container"></div>
 
   <!-- JavaScript Scripts -->
-  <script src="js/vapid-config.js?v=20260923_v1"></script>
-  <script src="js/supabase-config.js?v=20260923_v1"></script>
-  <script src="js/data.js?v=20260923_v1"></script>
-  <script src="js/app.js?v=20260923_v1"></script>
+  <script src="js/vapid-config.js?v=20260930_ts7"></script>
+  <script src="js/supabase-config.js?v=20260930_ts7"></script>
+  <script src="js/data.js?v=20260930_ts7"></script>
+  <script src="js/app.js?v=20260930_ts7"></script>
 </body>
 </html>

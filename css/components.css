@@ -2380,6 +2380,1593 @@ body.auth-locked #modal-select-user .sheet-handle {
   z-index: 99999;
 }
 
+/* =========================================================
+   TIMBERSPORTS & BIERTASTING SPECIAL (SPIELTAG 8) STYLES
+   ========================================================= */
+
+.ts-hero-card {
+  background: linear-gradient(135deg, rgba(24, 38, 28, 0.85) 0%, rgba(46, 32, 18, 0.88) 50%, rgba(18, 25, 42, 0.85) 100%);
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  border-radius: var(--radius-lg);
+  padding: 16px 14px;
+  margin-bottom: 12px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.ts-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--sun-gold);
+  background: rgba(251, 191, 36, 0.14);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ts-hero-title {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: #fff;
+  margin: 0 0 4px 0;
+  letter-spacing: -0.3px;
+}
+
+.ts-hero-subtitle {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.35;
+}
+
+/* Admin/Tim Status Bar */
+.ts-admin-status-bar {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ts-status-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #fef08a;
+}
+
+.ts-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 8px #f59e0b;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.ts-status-dot.live {
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+}
+
+.ts-status-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Sub-Navigation (Segmented Grid - all tabs visible together without horizontal scrolling) */
+.ts-subnav-bar {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 6px;
+  margin-bottom: 14px;
+  gap: 6px;
+  box-sizing: border-box;
+}
+
+.ts-subnav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 8px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: center;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.ts-subnav-btn:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-primary);
+}
+
+.ts-subnav-btn.active {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.25) 0%, rgba(245, 158, 11, 0.35) 100%);
+  color: #fff;
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.2);
+}
+
+.ts-subnav-btn.ts-admin-only-tab {
+  grid-column: span 2;
+}
+
+/* Subpanels */
+.ts-subpanel {
+  display: none;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.ts-subpanel.active {
+  display: block;
+}
+
+/* Etappen Pills */
+.ts-stage-pills {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.ts-stage-pill {
+  flex: 1;
+  padding: 8px 6px;
+  border-radius: var(--radius-sm);
+  background: rgba(19, 26, 42, 0.65);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+  font-weight: 700;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ts-stage-pill .badge {
+  font-size: 0.64rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.ts-stage-pill.active {
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(245, 158, 11, 0.5);
+  color: var(--sun-gold);
+}
+
+.ts-stage-pill.active .badge {
+  color: #fde047;
+}
+
+/* Active Served Banner */
+.ts-served-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.22) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  margin-bottom: 12px;
+}
+
+.ts-served-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ts-beer-icon {
+  font-size: 1.4rem;
+}
+
+.ts-served-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.ts-served-name {
+  font-family: var(--font-display);
+  font-size: 1.02rem;
+  font-weight: 900;
+  color: var(--sun-gold);
+}
+
+.ts-served-tag {
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+/* Beer Selector Grid (5 columns per row, no horizontal scrolling needed!) */
+.ts-beer-selector-scroll {
+  display: grid !important;
+  grid-template-columns: repeat(5, 1fr) !important;
+  gap: 6px !important;
+  margin-bottom: 12px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.ts-beer-num-pill {
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  background: rgba(19, 26, 42, 0.7);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  box-sizing: border-box !important;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  padding: 2px;
+}
+
+.ts-beer-num-pill .num {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.ts-beer-num-pill .status-icon {
+  font-size: 0.6rem;
+  line-height: 1;
+}
+
+.ts-beer-num-pill.active {
+  background: var(--gold-gradient);
+  color: #000;
+  border-color: #fbbf24;
+  box-shadow: 0 4px 12px rgba(251, 133, 0, 0.35);
+}
+
+.ts-beer-num-pill.active .num {
+  color: #000;
+}
+
+.ts-beer-num-pill.guessed:not(.active) {
+  border-color: rgba(16, 185, 129, 0.45);
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+}
+
+.ts-beer-num-pill.stage-correct:not(.active) {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.25);
+  color: #34d399;
+}
+
+.ts-beer-num-pill.stage-correct.active {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  border-color: #34d399;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+.ts-beer-num-pill.stage-correct.active .num {
+  color: #fff;
+}
+
+.ts-beer-num-pill.stage-wrong:not(.active) {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
+.ts-beer-num-pill.stage-wrong.active {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+  border-color: #f87171;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+.ts-beer-num-pill.stage-wrong.active .num {
+  color: #fff;
+}
+
+.ts-beer-num-pill.locked:not(.active) {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.1);
+  color: #fca5a5;
+}
+
+.ts-beer-num-pill.locked.guessed:not(.active) {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--sun-gold);
+}
+
+.ts-beer-opt.admin-friend-tipped {
+  background: rgba(16, 185, 129, 0.14) !important;
+  border-color: rgba(16, 185, 129, 0.45) !important;
+}
+
+.admin-tip-badge {
+  font-size: 0.65rem;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.admin-tip-badge.tipped {
+  background: rgba(16, 185, 129, 0.25);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+.admin-tip-badge.pending {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--sun-gold);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.ts-beer-num-pill.served-now::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 6px #ef4444;
+}
+
+/* Guessing Card & Beer Grid */
+.ts-guess-card {
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.ts-guess-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  gap: 8px;
+}
+
+.ts-guess-title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin: 0 0 2px 0;
+  color: #fff;
+}
+
+.ts-guess-hint {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.ts-current-pick-badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: rgba(245, 158, 11, 0.18);
+  color: var(--sun-gold);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  white-space: nowrap;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ts-current-pick-badge.has-pick {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.45);
+}
+
+.ts-current-pick-badge.revealed-correct {
+  background: rgba(16, 185, 129, 0.25);
+  color: #34d399;
+  border-color: #10b981;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.25);
+}
+
+.ts-current-pick-badge.revealed-wrong {
+  background: rgba(239, 68, 68, 0.22);
+  color: #fca5a5;
+  border-color: #ef4444;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.25);
+}
+
+.ts-beer-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+@media (max-width: 360px) {
+  .ts-beer-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ts-beer-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border-radius: var(--radius-sm);
+  background: rgba(10, 15, 26, 0.75);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.ts-beer-opt:hover {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.ts-beer-opt.selected {
+  background: rgba(245, 158, 11, 0.22);
+  border-color: var(--sun-gold);
+  color: #fff;
+  font-weight: 800;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.25);
+}
+
+/* Revealed states: correct (green) & wrong (red) */
+.ts-beer-opt.revealed-correct {
+  background: rgba(16, 185, 129, 0.22) !important;
+  border: 1.5px solid #10b981 !important;
+  color: #34d399 !important;
+  font-weight: 800 !important;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.3) !important;
+  pointer-events: none;
+}
+
+.ts-beer-opt.revealed-wrong {
+  background: rgba(239, 68, 68, 0.22) !important;
+  border: 1.5px solid #ef4444 !important;
+  color: #fca5a5 !important;
+  font-weight: 700;
+  text-decoration: line-through;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.25);
+  pointer-events: none;
+}
+
+.ts-beer-opt .revealed-badge {
+  font-size: 0.62rem;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: var(--radius-pill);
+  margin-left: auto;
+  text-decoration: none !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.ts-beer-opt.revealed-correct .revealed-badge {
+  background: rgba(16, 185, 129, 0.3);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.5);
+}
+
+.ts-beer-opt.revealed-wrong .revealed-badge {
+  background: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+}
+
+/* Strikethrough & disabled state for used beers */
+.ts-beer-opt.used {
+  opacity: 0.38;
+  text-decoration: line-through;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.25);
+  border-color: rgba(255, 255, 255, 0.04);
+}
+
+.ts-beer-opt .used-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+  margin-left: auto;
+  text-decoration: none !important;
+  display: inline-block;
+}
+
+/* Tasting Countdown Banner */
+.ts-countdown-banner {
+  background: linear-gradient(135deg, rgba(20, 24, 38, 0.95), rgba(30, 20, 35, 0.95));
+  border: 1.5px solid var(--sun-gold);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4), 0 0 14px rgba(245, 158, 11, 0.15);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.ts-countdown-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ts-countdown-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+.ts-countdown-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.ts-countdown-title {
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.2;
+  margin-bottom: 2px;
+}
+
+.ts-countdown-subtitle {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  line-height: 1.3;
+}
+
+.ts-countdown-digits-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.ts-countdown-digits {
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  font-weight: 900;
+  color: var(--sun-gold);
+  line-height: 1;
+}
+
+.ts-countdown-unit {
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ts-countdown-progress-track {
+  width: 100%;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-pill);
+  margin-top: 10px;
+  overflow: hidden;
+}
+
+.ts-countdown-progress-bar {
+  height: 100%;
+  background: var(--gold-gradient);
+  border-radius: var(--radius-pill);
+  transition: width 0.4s linear;
+}
+
+/* Urgent state (<10 seconds) */
+.ts-countdown-banner.urgent {
+  border-color: #ef4444;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+  animation: pulse-urgent 1s infinite alternate;
+}
+.ts-countdown-banner.urgent .ts-countdown-icon-box {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+.ts-countdown-banner.urgent .ts-countdown-digits-box {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+}
+.ts-countdown-banner.urgent .ts-countdown-digits {
+  color: #f87171;
+}
+.ts-countdown-banner.urgent .ts-countdown-progress-bar {
+  background: linear-gradient(90deg, #f59e0b, #ef4444);
+}
+
+@keyframes pulse-urgent {
+  0% {
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+  }
+  100% {
+    box-shadow: 0 0 24px rgba(239, 68, 68, 0.6);
+  }
+}
+
+/* Expired state */
+.ts-countdown-banner.expired {
+  border-color: rgba(239, 68, 68, 0.5);
+  background: linear-gradient(135deg, rgba(30, 15, 20, 0.95), rgba(20, 12, 18, 0.95));
+}
+.ts-countdown-banner.expired .ts-countdown-digits {
+  color: #ef4444;
+}
+.ts-countdown-banner.expired .ts-countdown-progress-bar {
+  background: #ef4444;
+  width: 0% !important;
+}
+
+/* Admin Timer Control Card */
+.ts-admin-timer-card {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.ts-admin-timer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.ts-admin-timer-status {
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+
+.ts-admin-timer-status.running {
+  background: rgba(245, 158, 11, 0.2);
+  color: var(--sun-gold);
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.ts-admin-timer-status.expired {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.ts-admin-timer-presets {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.ts-timer-preset-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.ts-timer-chip {
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ts-timer-chip:hover {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fff;
+}
+
+.ts-timer-chip.active {
+  background: rgba(245, 158, 11, 0.25);
+  border-color: var(--sun-gold);
+  color: var(--sun-gold);
+}
+
+.ts-timer-custom-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.ts-admin-timer-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* Admin Boxes */
+.ts-admin-box {
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  background: rgba(24, 15, 20, 0.85);
+  padding: 14px;
+  margin-top: 14px;
+  margin-bottom: 14px;
+}
+
+.ts-admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  gap: 8px;
+}
+
+.ts-admin-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.88rem;
+  color: #fca5a5;
+}
+
+.ts-admin-controls-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+@media (max-width: 500px) {
+  .ts-admin-controls-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ts-admin-stage-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Saw Contest */
+.ts-saw-intro {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, rgba(38, 28, 16, 0.7) 0%, rgba(20, 26, 40, 0.7) 100%);
+  border-color: rgba(217, 119, 6, 0.35);
+}
+
+.ts-saw-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.ts-my-saw-card {
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.ts-saw-admin-table {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.ts-saw-admin-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: var(--radius-sm);
+}
+
+/* Trivia Questions */
+.ts-trivia-intro {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, rgba(16, 40, 28, 0.7) 0%, rgba(18, 25, 42, 0.7) 100%);
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.ts-trivia-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.ts-questions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.ts-question-card {
+  padding: 14px;
+}
+
+.ts-question-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ts-question-text {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: #fff;
+  line-height: 1.35;
+}
+
+.ts-question-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.ts-option-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(10, 15, 26, 0.65);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.ts-option-btn:hover {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.ts-option-btn.selected {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: var(--sun-gold);
+  color: #fff;
+  font-weight: 700;
+}
+
+.ts-option-btn.correct {
+  background: rgba(16, 185, 129, 0.22);
+  border-color: #10b981;
+  color: #34d399;
+}
+
+.ts-option-btn.wrong {
+  background: rgba(239, 68, 68, 0.22);
+  border-color: #ef4444;
+  color: #fca5a5;
+  text-decoration: line-through;
+}
+
+.ts-option-btn:disabled {
+  cursor: default;
+}
+
+.ts-option-btn:disabled:not(.selected):not(.correct):not(.wrong) {
+  opacity: 0.45;
+}
+
+/* Timbersports Wissensquiz: Pills, Countdown & Kahoot-Style Question Card */
+.ts-trivia-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.ts-trivia-pill {
+  width: 100%;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  background: rgba(19, 26, 42, 0.7);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: var(--font-display);
+  box-sizing: border-box;
+  padding: 2px;
+}
+
+.ts-trivia-pill .num {
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.ts-trivia-pill .status-icon {
+  font-size: 0.65rem;
+  margin-top: 1px;
+}
+
+.ts-trivia-pill.active {
+  background: var(--gold-gradient);
+  color: #000;
+  border-color: #fbbf24;
+  box-shadow: 0 4px 12px rgba(251, 133, 0, 0.35);
+}
+
+.ts-trivia-pill.active .num {
+  color: #000;
+}
+
+.ts-trivia-pill.answered:not(.active) {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--sun-gold);
+}
+
+.ts-trivia-pill.correct:not(.active) {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.ts-trivia-pill.wrong:not(.active) {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+
+.ts-trivia-pill.locked:not(.active) {
+  border-color: rgba(255, 255, 255, 0.08);
+  opacity: 0.55;
+}
+
+.ts-trivia-active-card {
+  padding: 18px;
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.ts-trivia-active-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.ts-trivia-qnum-badge {
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: var(--sun-gold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.ts-trivia-status-tag {
+  font-size: 0.72rem;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  font-weight: 800;
+}
+
+.ts-trivia-question-text {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.45;
+  margin-bottom: 16px;
+}
+
+.ts-trivia-result-callout {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: fadeIn 0.3s ease;
+}
+
+.ts-trivia-result-callout.correct {
+  background: rgba(16, 185, 129, 0.18);
+  border: 1px solid rgba(16, 185, 129, 0.5);
+  color: #34d399;
+}
+
+.ts-trivia-result-callout.wrong {
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: #fca5a5;
+}
+
+.ts-trivia-result-callout.expired {
+  background: rgba(245, 158, 11, 0.18);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  color: var(--sun-gold);
+}
+
+.ts-trivia-locked-placeholder {
+  text-align: center;
+  padding: 36px 16px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--border-subtle);
+}
+
+.ts-trivia-friend-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+@media (max-width: 480px) {
+  .ts-trivia-friend-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Trivia Options Grid & High-Contrast Interactive Buttons */
+.ts-trivia-options-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin: 16px 0 12px 0;
+}
+
+@media (min-width: 600px) {
+  .ts-trivia-options-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+}
+
+.ts-trivia-opt-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1.5px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--radius-sm, 12px);
+  padding: 13px 16px;
+  color: #ffffff !important;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  user-select: none;
+  -webkit-user-select: none;
+  box-sizing: border-box;
+}
+
+.ts-trivia-opt-btn .ts-trivia-opt-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.ts-trivia-opt-btn .ts-trivia-opt-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff !important;
+  font-weight: 800;
+  font-size: 0.82rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  transition: all 0.2s ease;
+}
+
+.ts-trivia-opt-btn .ts-trivia-opt-text {
+  flex: 1;
+  word-break: break-word;
+  line-height: 1.35;
+  color: #ffffff !important;
+}
+
+.ts-trivia-opt-btn .ts-trivia-opt-icon {
+  font-size: 1.1rem;
+  font-weight: 800;
+  min-width: 24px;
+  text-align: right;
+  color: var(--text-muted);
+}
+
+/* Hover state during active countdown */
+.ts-trivia-opt-btn:not([disabled]):hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(245, 158, 11, 0.6);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35), 0 0 12px rgba(245, 158, 11, 0.15);
+}
+
+.ts-trivia-opt-btn:not([disabled]):hover .ts-trivia-opt-letter {
+  background: var(--sun-gold, #f59e0b);
+  color: #111827 !important;
+  border-color: var(--sun-gold, #f59e0b);
+}
+
+/* Active / Selected during countdown */
+.ts-trivia-opt-btn.selected {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.25) 0%, rgba(217, 119, 6, 0.14) 100%) !important;
+  border: 2px solid var(--sun-gold, #f59e0b) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.3) !important;
+}
+
+.ts-trivia-opt-btn.selected .ts-trivia-opt-letter {
+  background: var(--sun-gold, #f59e0b) !important;
+  color: #111827 !important;
+  border-color: var(--sun-gold, #f59e0b) !important;
+}
+
+.ts-trivia-opt-btn.selected .ts-trivia-opt-icon {
+  color: var(--sun-gold, #f59e0b) !important;
+}
+
+/* Correct answer after countdown (Highlight Green) */
+.ts-trivia-opt-btn.correct {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.3) 0%, rgba(5, 150, 105, 0.2) 100%) !important;
+  border: 2px solid #10b981 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.4) !important;
+  opacity: 1 !important;
+}
+
+.ts-trivia-opt-btn.correct .ts-trivia-opt-letter {
+  background: #10b981 !important;
+  color: #ffffff !important;
+  border-color: #10b981 !important;
+}
+
+.ts-trivia-opt-btn.correct .ts-trivia-opt-icon {
+  color: #34d399 !important;
+  font-size: 1.2rem;
+}
+
+/* Wrong answer after countdown (Player picked this - Highlight Red) */
+.ts-trivia-opt-btn.wrong {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.3) 0%, rgba(220, 38, 38, 0.2) 100%) !important;
+  border: 2px solid #ef4444 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.35) !important;
+  opacity: 1 !important;
+}
+
+.ts-trivia-opt-btn.wrong .ts-trivia-opt-letter {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  border-color: #ef4444 !important;
+}
+
+.ts-trivia-opt-btn.wrong .ts-trivia-opt-icon {
+  color: #fca5a5 !important;
+  font-size: 1.2rem;
+}
+
+/* Neutral options after countdown (neither selected nor correct) */
+.ts-trivia-opt-btn.neutral,
+.ts-trivia-opt-btn:disabled:not(.correct):not(.wrong):not(.selected) {
+  opacity: 0.72;
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-color: rgba(255, 255, 255, 0.09) !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  cursor: default;
+}
+
+.ts-trivia-opt-btn:disabled:not(.correct):not(.wrong):not(.selected) .ts-trivia-opt-letter {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* --- Jokers (Goldener Kronkorken, Bullseye-Wette, Holzfäller-Joker) --- */
+.ts-joker-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1.5px solid rgba(245, 158, 11, 0.4);
+  color: #fbbf24 !important;
+  font-weight: 700;
+  border-radius: var(--radius-pill);
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  font-size: 0.85rem;
+}
+
+.ts-joker-btn:hover {
+  background: rgba(245, 158, 11, 0.22);
+  border-color: #f59e0b;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
+}
+
+.ts-joker-btn.active {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+  border-color: #fef08a !important;
+  color: #111827 !important;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.4) !important;
+  font-weight: 800;
+}
+
+.ts-joker-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  background: rgba(245, 158, 11, 0.2);
+  color: #fcd34d;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+/* --- Trivia Tipp-Verteilung (Balkendiagramm) --- */
+.ts-trivia-distribution-card {
+  margin-top: 14px;
+  padding: 14px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ts-distribution-title {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ts-dist-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ts-dist-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ts-dist-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+}
+
+.ts-dist-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #fff;
+  font-weight: 600;
+}
+
+.ts-dist-row.correct .ts-dist-label {
+  color: #34d399;
+  font-weight: 800;
+}
+
+.ts-dist-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.ts-dist-row.correct .ts-dist-letter {
+  background: #10b981;
+  color: #fff;
+}
+
+.ts-dist-pct {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.ts-dist-row.correct .ts-dist-pct {
+  color: #34d399;
+}
+
+.ts-dist-bar-track {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.ts-dist-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #6b7280 0%, #9ca3af 100%);
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ts-dist-row.correct .ts-dist-bar-fill {
+  background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+}
+
+/* --- Trivia Fun-Fact Box --- */
+.ts-trivia-funfact-box {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(217, 119, 6, 0.03) 100%);
+  border-left: 3px solid var(--sun-gold);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  animation: fadeIn 0.35s ease;
+}
+
+.ts-funfact-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.ts-funfact-text {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.45;
+}
+
+/* --- Sägewettbewerb Bullseye Visualizer --- */
+.ts-bullseye-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.ts-bullseye-badge.bullseye {
+  background: rgba(16, 185, 129, 0.25);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.5);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.25);
+}
+
+.ts-bullseye-badge.good {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fcd34d;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.ts-bullseye-badge.wild {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+/* --- Bier-Steckbrief Modal --- */
+.ts-steckbrief-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ts-steckbrief-stat {
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+}
+
+.ts-steckbrief-stat-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.ts-steckbrief-stat-value {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.ts-steckbrief-fact-card {
+  padding: 12px 14px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: var(--radius-sm);
+  margin-bottom: 12px;
+}
+
+.ts-steckbrief-friends-section {
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* --- Standings Fun-Awards (Titel des Tages) --- */
+.ts-fun-awards-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+@media (max-width: 480px) {
+  .ts-fun-awards-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ts-award-card {
+  padding: 14px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  position: relative;
+  overflow: hidden;
+}
+
+.ts-award-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--sun-gold);
+}
+
+.ts-award-icon {
+  font-size: 2rem;
+  min-width: 36px;
+  text-align: center;
+}
+
+.ts-award-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.ts-award-title {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--sun-gold);
+  margin-bottom: 2px;
+}
+
+.ts-award-winner {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ts-award-desc {
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+}
+
+
+
+
 
 
 

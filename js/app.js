@@ -25,12 +25,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const VIEW_HASH_MAP = {
     '#tabelle': 'view-leaderboard',
     '#spieltage': 'view-events',
-    '#kader': 'view-members'
+    '#kader': 'view-members',
+    '#timbersports': 'view-timbersports'
   };
   const HASH_VIEW_MAP = {
     'view-leaderboard': '#tabelle',
     'view-events': '#spieltage',
-    'view-members': '#kader'
+    'view-members': '#kader',
+    'view-timbersports': '#timbersports'
   };
 
   function switchView(viewId, updateHash = true) {
@@ -66,13 +68,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.addEventListener('hashchange', handleHashNavigation);
 
+  function updateTimbersportsTabVisibility() {
+    const isVisible = store.isTimbersportsTabVisible();
+    const navItem = document.getElementById('nav-item-timbersports');
+    if (navItem) {
+      navItem.style.display = isVisible ? 'flex' : 'none';
+    }
+    if (!isVisible && activeViewId === 'view-timbersports') {
+      switchView('view-leaderboard');
+    }
+  }
+
   function refreshActiveView() {
     const isAuthed = store.isAuthenticated();
     document.body.classList.toggle('auth-locked', !isAuthed);
     updateUserHeader();
+    updateTimbersportsTabVisibility();
     if (activeViewId === 'view-leaderboard') renderLeaderboard();
     if (activeViewId === 'view-events') renderEvents();
     if (activeViewId === 'view-members') renderMembers();
+    if (activeViewId === 'view-timbersports') renderTimbersports();
     if (!isAuthed) {
       openUserPickerModal();
     }
@@ -2049,6 +2064,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
+      if (Number(evt.id) === 8 && store.isTimbersportsTabVisible()) {
+        actionsHtml = `
+          <button type="button" class="btn btn-gold btn-sm btn-jump-timbersports" style="font-weight: 800; box-shadow: 0 4px 12px rgba(251, 133, 0, 0.4); margin-bottom: 6px;">
+            <span>🪓</span> Zum Timbersports & Tasting Special ➔
+          </button>
+          ${actionsHtml}
+        `;
+      }
+
       // Treffpunkt display with interactive map link
       let locationDisplayHtml = evt.location || 'Wird noch bekannt gegeben';
       const isKnownLocation = evt.location && !evt.location.toLowerCase().includes('wird von') && !evt.location.toLowerCase().includes('bekannt gegeben');
@@ -2115,6 +2139,12 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.btn-export-calendar').forEach(btn => {
       btn.addEventListener('click', () => {
         exportEventToCalendar(Number(btn.getAttribute('data-event-id')));
+      });
+    });
+
+    document.querySelectorAll('.btn-jump-timbersports').forEach(btn => {
+      btn.addEventListener('click', () => {
+        switchView('view-timbersports');
       });
     });
 
@@ -2806,6 +2836,16 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     document.querySelectorAll('.modal-backdrop').forEach(m => m.classList.remove('open'));
+  }
+
+  function openModal(modalId) {
+    const m = document.getElementById(modalId);
+    if (m) m.classList.add('open');
+  }
+
+  function closeModal(modalId) {
+    const m = document.getElementById(modalId);
+    if (m) m.classList.remove('open');
   }
 
   // Modal 1: Edit Event
@@ -3976,6 +4016,2572 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!input.contains(e.target) && !dropdown.contains(e.target)) {
         dropdown.style.display = 'none';
       }
+    });
+  }
+
+  // =========================================================
+  // TIMBERSPORTS AUDIO ENGINE & HELPERS (WEB AUDIO API)
+  // =========================================================
+
+  const fdsAudio = (() => {
+    let ctx = null;
+    let isMuted = localStorage.getItem('fds_sound_muted') === 'true';
+
+    function getCtx() {
+      if (isMuted) return null;
+      if (!ctx) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) ctx = new AudioCtx();
+      }
+      if (ctx && ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+      return ctx;
+    }
+
+    return {
+      isMuted() { return isMuted; },
+      toggleMute() {
+        isMuted = !isMuted;
+        localStorage.setItem('fds_sound_muted', isMuted ? 'true' : 'false');
+        return isMuted;
+      },
+      playTick(isUrgent = false) {
+        const c = getCtx();
+        if (!c) return;
+        try {
+          const osc = c.createOscillator();
+          const gain = c.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(isUrgent ? 880 : 520, c.currentTime);
+          gain.gain.setValueAtTime(isUrgent ? 0.22 : 0.12, c.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.08);
+          osc.connect(gain);
+          gain.connect(c.destination);
+          osc.start();
+          osc.stop(c.currentTime + 0.08);
+        } catch (e) {}
+      },
+      playBuzzer() {
+        const c = getCtx();
+        if (!c) return;
+        try {
+          const osc = c.createOscillator();
+          const gain = c.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(150, c.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(80, c.currentTime + 0.35);
+          gain.gain.setValueAtTime(0.28, c.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.35);
+          osc.connect(gain);
+          gain.connect(c.destination);
+          osc.start();
+          osc.stop(c.currentTime + 0.35);
+        } catch (e) {}
+      },
+      playPlopp() {
+        const c = getCtx();
+        if (!c) return;
+        try {
+          const osc = c.createOscillator();
+          const gain = c.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(320, c.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(780, c.currentTime + 0.12);
+          gain.gain.setValueAtTime(0.35, c.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.15);
+          osc.connect(gain);
+          gain.connect(c.destination);
+          osc.start();
+          osc.stop(c.currentTime + 0.15);
+        } catch (e) {}
+      },
+      playJoker() {
+        const c = getCtx();
+        if (!c) return;
+        try {
+          [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+            const osc = c.createOscillator();
+            const gain = c.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, c.currentTime + (i * 0.07));
+            gain.gain.setValueAtTime(0.001, c.currentTime + (i * 0.07));
+            gain.gain.linearRampToValueAtTime(0.25, c.currentTime + (i * 0.07) + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + (i * 0.07) + 0.28);
+            osc.connect(gain);
+            gain.connect(c.destination);
+            osc.start(c.currentTime + (i * 0.07));
+            osc.stop(c.currentTime + (i * 0.07) + 0.28);
+          });
+        } catch (e) {}
+      },
+      playFanfare() {
+        const c = getCtx();
+        if (!c) return;
+        try {
+          [523.25, 659.25, 783.99, 1046.50, 1318.51].forEach((freq, i) => {
+            const osc = c.createOscillator();
+            const gain = c.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, c.currentTime + (i * 0.09));
+            gain.gain.setValueAtTime(0.2, c.currentTime + (i * 0.09));
+            gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + (i * 0.09) + 0.35);
+            osc.connect(gain);
+            gain.connect(c.destination);
+            osc.start(c.currentTime + (i * 0.09));
+            osc.stop(c.currentTime + (i * 0.09) + 0.35);
+          });
+        } catch (e) {}
+      }
+    };
+  })();
+
+  function openBeerSteckbrief(beerName) {
+    const profile = (typeof BEER_PROFILES !== 'undefined' && BEER_PROFILES[beerName]) ? BEER_PROFILES[beerName] : {
+      brewery: 'Brauspezialität',
+      location: 'Deutschland',
+      abv: '5,0 % vol.',
+      style: 'Vollbier',
+      funFact: 'Ein echtes Traditionsbier, gebraut nach dem deutschen Reinheitsgebot von 1516.'
+    };
+
+    const titleEl = document.getElementById('modal-steckbrief-title');
+    const breweryEl = document.getElementById('modal-steckbrief-brewery');
+    const bodyEl = document.getElementById('modal-steckbrief-body');
+
+    if (titleEl) titleEl.textContent = beerName;
+    if (breweryEl) breweryEl.textContent = profile.brewery;
+
+    const quiz = store.getTimbersportsQuiz();
+    const bt = quiz.beerTasting;
+    const members = store.getMembers();
+
+    const roundIndices = [];
+    (bt.solutions || []).forEach((sol, rIdx) => {
+      if (sol === beerName) roundIndices.push(rIdx);
+    });
+
+    let guessersHtml = '';
+    if (roundIndices.length > 0) {
+      const correctFriends = [];
+      members.forEach(m => {
+        const myGuesses = bt.guesses && bt.guesses[m.id];
+        if (myGuesses) {
+          const hit = roundIndices.some(rIdx => myGuesses[rIdx] === beerName);
+          if (hit) correctFriends.push(m);
+        }
+      });
+
+      if (correctFriends.length > 0) {
+        guessersHtml = `
+          <div style="font-size: 0.74rem; font-weight: 800; color: #34d399; margin-bottom: 6px;">
+            ✓ Richtig blind erkannt von (${correctFriends.length}):
+          </div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            ${correctFriends.map(f => `
+              <span class="ts-joker-badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border-color: rgba(16, 185, 129, 0.4);">
+                ${renderAvatar(f.avatar)} ${f.name}
+              </span>
+            `).join('')}
+          </div>
+        `;
+      } else {
+        guessersHtml = `<div style="font-size: 0.78rem; color: var(--text-muted);">Keiner der Freunde hat dieses Bier blind erraten! 🙈</div>`;
+      }
+    } else {
+      guessersHtml = `<div style="font-size: 0.78rem; color: var(--text-muted);">Dieses Bier war im offiziellen 25er-Pool enthalten.</div>`;
+    }
+
+    if (bodyEl) {
+      bodyEl.innerHTML = `
+        <div class="ts-steckbrief-grid">
+          <div class="ts-steckbrief-stat">
+            <div class="ts-steckbrief-stat-label">Alkoholgehalt</div>
+            <div class="ts-steckbrief-stat-value">${profile.abv}</div>
+          </div>
+          <div class="ts-steckbrief-stat">
+            <div class="ts-steckbrief-stat-label">Bierstil</div>
+            <div class="ts-steckbrief-stat-value">${profile.style}</div>
+          </div>
+          <div class="ts-steckbrief-stat" style="grid-column: span 2;">
+            <div class="ts-steckbrief-stat-label">Herkunft & Brauort</div>
+            <div class="ts-steckbrief-stat-value">📍 ${profile.location}</div>
+          </div>
+        </div>
+
+        <div class="ts-steckbrief-fact-card">
+          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+            <span>💡</span>
+            <span style="font-weight: 800; font-size: 0.8rem; color: var(--sun-gold);">Brauerei-Fact</span>
+          </div>
+          <p style="font-size: 0.82rem; color: rgba(255,255,255,0.9); margin: 0; line-height: 1.45;">
+            ${profile.funFact}
+          </p>
+        </div>
+
+        <div class="ts-steckbrief-friends-section">
+          ${guessersHtml}
+        </div>
+      `;
+    }
+
+    openModal('modal-beer-steckbrief');
+  }
+
+  // =========================================================
+  // TIMBERSPORTS & BIERTASTING SPECIAL (SPIELTAG 8) CONTROLLER
+  // =========================================================
+
+  function renderTimbersports() {
+    const quiz = store.getTimbersportsQuiz();
+    const canManage = store.canManageTimbersports();
+    const currentUserId = store.getCurrentUserId();
+    const members = store.getMembers();
+
+    // Sound Toggle Button
+    const btnSound = document.getElementById('btn-ts-sound-toggle');
+    const soundIcon = document.getElementById('btn-ts-sound-icon');
+    const soundText = document.getElementById('btn-ts-sound-text');
+    if (btnSound && soundIcon && soundText) {
+      const isMuted = fdsAudio.isMuted();
+      soundIcon.textContent = isMuted ? '🔇' : '🔊';
+      soundText.textContent = isMuted ? 'Sound aus' : 'Sound an';
+      btnSound.onclick = () => {
+        const nowMuted = fdsAudio.toggleMute();
+        soundIcon.textContent = nowMuted ? '🔇' : '🔊';
+        soundText.textContent = nowMuted ? 'Sound aus' : 'Sound an';
+        triggerHaptic('light');
+        if (!nowMuted) fdsAudio.playPlopp();
+      };
+    }
+
+    // 1. Status Bar for Admin / Tim
+    const adminStatusBar = document.getElementById('ts-admin-status-bar');
+    const statusDot = document.getElementById('ts-status-dot');
+    const statusText = document.getElementById('ts-status-text');
+    const btnUnlock = document.getElementById('btn-ts-toggle-unlock');
+    const btnArchive = document.getElementById('btn-ts-toggle-archive');
+
+    if (adminStatusBar) {
+      if (canManage) {
+        adminStatusBar.style.display = 'flex';
+        if (quiz.isUnlockedForAll) {
+          statusDot.className = 'ts-status-dot live';
+          statusText.textContent = '🌍 Live: Für alle 8 Freunde freigeschaltet';
+          btnUnlock.innerHTML = '<span>🔒</span> In Geheim-Modus versetzen';
+          btnUnlock.classList.remove('btn-secondary');
+          btnUnlock.classList.add('btn-primary');
+        } else {
+          statusDot.className = 'ts-status-dot';
+          statusText.textContent = '🔒 Geheim-Modus: Nur für Tim & Admin sichtbar';
+          btnUnlock.innerHTML = '<span>🔓</span> Für alle Freunde freischalten';
+          btnUnlock.classList.remove('btn-primary');
+          btnUnlock.classList.add('btn-secondary');
+        }
+
+        btnArchive.innerHTML = quiz.isArchived 
+          ? '<span>📦</span> Tab archiviert (wieder einblenden)' 
+          : '<span>📦</span> Tab archivieren';
+      } else {
+        adminStatusBar.style.display = 'none';
+      }
+    }
+
+    // 2. Sub-Navigation Tabs
+    const activeSub = quiz.activeSubTab || 'beer';
+
+    // Show/hide Admin-only beerpool tab in subnav
+    const beerpoolTabBtn = document.getElementById('ts-tab-beerpool');
+    const subnavBar = document.querySelector('.ts-subnav-bar');
+    if (beerpoolTabBtn) {
+      beerpoolTabBtn.style.display = canManage ? 'inline-flex' : 'none';
+      if (subnavBar) subnavBar.classList.toggle('has-admin-tab', canManage);
+    }
+
+    document.querySelectorAll('.ts-subnav-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-ts-sub') === activeSub);
+    });
+    document.querySelectorAll('.ts-subpanel').forEach(panel => {
+      panel.classList.toggle('active', panel.id === `ts-subpanel-${activeSub}`);
+    });
+
+    // 3. Render Active Subpanel
+    if (activeSub === 'beer') renderTimbersportsBeer(quiz, canManage, currentUserId, members);
+    if (activeSub === 'saw') renderTimbersportsSaw(quiz, canManage, currentUserId, members);
+    if (activeSub === 'trivia') renderTimbersportsTrivia(quiz, canManage, currentUserId, members);
+    if (activeSub === 'standings') renderTimbersportsStandings(quiz, canManage, currentUserId, members);
+    if (activeSub === 'beerpool') renderTimbersportsBeerPool(quiz, canManage, currentUserId, members);
+  }
+
+  // --- Sub-Controller: Biertasting ---
+  function renderTimbersportsBeer(quiz, canManage, currentUserId, members) {
+    const bt = quiz.beerTasting;
+    const activeIdx = bt.activeBeerIndex !== undefined ? bt.activeBeerIndex : 0;
+    const currentStage = activeIdx < 10 ? 1 : (activeIdx < 20 ? 2 : 3);
+    const stageStart = currentStage === 1 ? 0 : (currentStage === 2 ? 10 : 20);
+    const stageEnd = currentStage === 1 ? 10 : (currentStage === 2 ? 20 : 25);
+    const isStageRevealed = currentStage === 1 ? bt.stage1Revealed : (currentStage === 2 ? bt.stage2Revealed : bt.stage3Revealed);
+
+    // Beer frozen / lock state (persisted per beer!)
+    const isBeerFrozen = Boolean(bt.lockedBeers && bt.lockedBeers[activeIdx]);
+
+    // Countdown timing for this beer
+    const cd = bt.countdown;
+    const isCdForActive = Boolean(cd && cd.activeBeerIndex === activeIdx);
+    const now = Date.now();
+    let cdRemaining = 0;
+    let cdTotalSecs = 60;
+    let isCdRunning = false;
+    let isCdExpired = false;
+
+    if (isCdForActive) {
+      cdTotalSecs = cd.durationSeconds || 60;
+      isCdRunning = Boolean(cd.isRunning);
+      cdRemaining = Math.max(0, Math.ceil(((cd.endsAt || now) - now) / 1000));
+      isCdExpired = cdRemaining <= 0 || (!isCdRunning && cd.endsAt && now >= cd.endsAt);
+    }
+
+    const isRoundLocked = isStageRevealed || isBeerFrozen || isCdExpired;
+
+    // Update Stage Pills & Click Handlers to switch between Etappe 1, 2, and 3
+    document.querySelectorAll('.ts-stage-pill').forEach(pill => {
+      const pStage = Number(pill.getAttribute('data-ts-stage'));
+      pill.classList.toggle('active', pStage === currentStage);
+      pill.onclick = () => {
+        let newIdx = 0;
+        if (pStage === 1) newIdx = 0;
+        else if (pStage === 2) newIdx = 10;
+        else if (pStage === 3) newIdx = 20;
+
+        const curIdx = bt.activeBeerIndex !== undefined ? bt.activeBeerIndex : 0;
+        const sStart = pStage === 1 ? 0 : (pStage === 2 ? 10 : 20);
+        const sEnd = pStage === 1 ? 10 : (pStage === 2 ? 20 : 25);
+        if (curIdx >= sStart && curIdx < sEnd) {
+          newIdx = curIdx;
+        }
+
+        store.setBeerTastingActiveBeer(newIdx);
+        triggerHaptic('light');
+        renderTimbersports();
+      };
+    });
+
+    // Served Banner
+    const servedNameEl = document.getElementById('ts-served-name');
+    const servedTagEl = document.getElementById('ts-served-tag');
+    const sol = bt.solutions[activeIdx];
+    const myCurrentGuess = bt.guesses && bt.guesses[currentUserId] && bt.guesses[currentUserId][activeIdx];
+
+    if (servedNameEl && servedTagEl) {
+      if (canManage) {
+        servedNameEl.innerHTML = `Bier #${activeIdx + 1}${sol ? ': <strong>' + sol + '</strong>' : ''}`;
+        if (isStageRevealed && sol) {
+          servedTagEl.textContent = 'Aufgedeckt ✓';
+          servedTagEl.style.background = 'rgba(16, 185, 129, 0.25)';
+          servedTagEl.style.color = '#34d399';
+        } else if (isBeerFrozen || isCdExpired) {
+          servedTagEl.textContent = '🔒 Runde eingefroren';
+          servedTagEl.style.background = 'rgba(239, 68, 68, 0.2)';
+          servedTagEl.style.color = '#fca5a5';
+        } else if (isCdRunning) {
+          servedTagEl.textContent = `⏱️ ${cdRemaining}s übrig`;
+          servedTagEl.style.background = 'rgba(245, 158, 11, 0.25)';
+          servedTagEl.style.color = 'var(--sun-gold)';
+        } else {
+          servedTagEl.textContent = 'Bereit';
+          servedTagEl.style.background = 'rgba(245, 158, 11, 0.2)';
+          servedTagEl.style.color = 'var(--sun-gold)';
+        }
+      } else {
+        if (isStageRevealed && sol) {
+          servedNameEl.innerHTML = `Bier #${activeIdx + 1}: <strong>${sol}</strong>`;
+          if (myCurrentGuess === sol) {
+            servedTagEl.textContent = '✓ Richtig getippt!';
+            servedTagEl.style.background = 'rgba(16, 185, 129, 0.25)';
+            servedTagEl.style.color = '#34d399';
+          } else {
+            servedTagEl.textContent = '✗ Falsch getippt';
+            servedTagEl.style.background = 'rgba(239, 68, 68, 0.25)';
+            servedTagEl.style.color = '#fca5a5';
+          }
+        } else if (isBeerFrozen || isCdExpired) {
+          servedNameEl.textContent = `Probierglas #${activeIdx + 1}`;
+          servedTagEl.textContent = '🔒 Runde eingefroren';
+          servedTagEl.style.background = 'rgba(239, 68, 68, 0.2)';
+          servedTagEl.style.color = '#fca5a5';
+        } else if (isCdRunning) {
+          servedNameEl.textContent = `Probierglas #${activeIdx + 1}`;
+          servedTagEl.textContent = `⏱️ ${cdRemaining}s übrig`;
+          servedTagEl.style.background = 'rgba(245, 158, 11, 0.25)';
+          servedTagEl.style.color = 'var(--sun-gold)';
+        } else {
+          servedNameEl.textContent = `Probierglas #${activeIdx + 1}`;
+          servedTagEl.textContent = 'Runde läuft';
+          servedTagEl.style.background = 'rgba(245, 158, 11, 0.2)';
+          servedTagEl.style.color = 'var(--sun-gold)';
+        }
+      }
+    }
+
+    // Tasting Countdown Banner & Live Ticker
+    const cdBanner = document.getElementById('ts-countdown-banner');
+    const cdTitle = document.getElementById('ts-countdown-title');
+    const cdSubtitle = document.getElementById('ts-countdown-subtitle');
+    const cdDigits = document.getElementById('ts-countdown-digits');
+    const cdProgress = document.getElementById('ts-countdown-progress-bar');
+    const cdIcon = document.getElementById('ts-countdown-icon');
+
+    if (window._tsBeerTimerInterval) {
+      clearInterval(window._tsBeerTimerInterval);
+      window._tsBeerTimerInterval = null;
+    }
+
+    if (cdBanner) {
+      if (isStageRevealed) {
+        cdBanner.style.display = 'none';
+      } else if (isCdForActive) {
+        cdBanner.style.display = 'block';
+        if (isCdRunning && cdRemaining > 0) {
+          cdBanner.className = 'card ts-countdown-banner' + (cdRemaining <= 10 ? ' urgent' : '');
+          if (cdIcon) cdIcon.textContent = '⏱️';
+          if (cdTitle) cdTitle.textContent = `Verkostungs-Countdown für Bier #${activeIdx + 1}`;
+          if (cdSubtitle) cdSubtitle.textContent = `Tippe jetzt, bevor die Zeit abläuft!`;
+          if (cdDigits) cdDigits.textContent = cdRemaining;
+          if (cdProgress) cdProgress.style.width = `${Math.min(100, Math.max(0, (cdRemaining / cdTotalSecs) * 100))}%`;
+
+          window._tsBeerTimerInterval = setInterval(() => {
+            const curNow = Date.now();
+            const curRem = Math.max(0, Math.ceil(((cd.endsAt || curNow) - curNow) / 1000));
+            const digits = document.getElementById('ts-countdown-digits');
+            const prog = document.getElementById('ts-countdown-progress-bar');
+            const ban = document.getElementById('ts-countdown-banner');
+            const admBadge = document.getElementById('ts-admin-timer-status-badge');
+            const sTag = document.getElementById('ts-served-tag');
+
+            if (digits) digits.textContent = curRem;
+            if (prog) prog.style.width = `${Math.min(100, Math.max(0, (curRem / cdTotalSecs) * 100))}%`;
+            if (ban) {
+              if (curRem <= 10 && curRem > 0) ban.classList.add('urgent');
+              else ban.classList.remove('urgent');
+            }
+            if (sTag) {
+              sTag.textContent = `⏱️ ${curRem}s übrig`;
+              if (curRem <= 10 && curRem > 0) {
+                sTag.style.background = 'rgba(239, 68, 68, 0.25)';
+                sTag.style.color = '#fca5a5';
+              } else {
+                sTag.style.background = 'rgba(245, 158, 11, 0.25)';
+                sTag.style.color = 'var(--sun-gold)';
+              }
+            }
+            if (admBadge) {
+              admBadge.textContent = `Läuft: ${curRem}s`;
+              admBadge.className = 'ts-admin-timer-status running';
+            }
+
+            if (curRem <= 5 && curRem > 0) {
+              fdsAudio.playTick(curRem <= 3);
+            }
+
+            if (curRem <= 0) {
+              clearInterval(window._tsBeerTimerInterval);
+              window._tsBeerTimerInterval = null;
+              fdsAudio.playBuzzer();
+              store.setBeerLocked(activeIdx, true);
+              triggerHaptic('warning');
+              showToast(`Zeit abgelaufen für Bier #${activeIdx + 1} – Auswahl eingefroren!`, '⏳');
+              renderTimbersports();
+            }
+          }, 500);
+        } else {
+          cdBanner.className = 'card ts-countdown-banner expired';
+          if (cdIcon) cdIcon.textContent = '⏳';
+          if (cdTitle) cdTitle.textContent = `Zeit abgelaufen für Bier #${activeIdx + 1}!`;
+          if (cdSubtitle) cdSubtitle.textContent = `Die Verkostungsrunde ist beendet. Tipps sind für dieses Bier gesperrt.`;
+          if (cdDigits) cdDigits.textContent = '0';
+          if (cdProgress) cdProgress.style.width = '0%';
+        }
+      } else {
+        cdBanner.style.display = 'none';
+      }
+    }
+
+    // Horizontal Beer Selector Row
+    const selectorRow = document.getElementById('ts-beer-selector-row');
+    if (selectorRow) {
+      let pillsHtml = '';
+      for (let i = stageStart; i < stageEnd; i++) {
+        const isCurrent = i === activeIdx;
+        const myGuess = bt.guesses && bt.guesses[currentUserId] && bt.guesses[currentUserId][i];
+        const isGuessed = Boolean(myGuess);
+        const beerSol = bt.solutions[i];
+        const isLockedPill = Boolean(bt.lockedBeers && bt.lockedBeers[i]);
+
+        let extraClass = '';
+        let icon = isGuessed ? '✓' : '•';
+
+        if (isStageRevealed && beerSol) {
+          if (myGuess && myGuess === beerSol) {
+            extraClass = 'stage-correct';
+            icon = '✓';
+          } else {
+            extraClass = 'stage-wrong';
+            icon = '✗';
+          }
+        } else if (isLockedPill) {
+          extraClass = isGuessed ? 'guessed locked' : 'locked';
+          icon = isGuessed ? '✓' : '🔒';
+        } else if (isGuessed) {
+          extraClass = 'guessed';
+        }
+
+        pillsHtml += `
+          <button type="button" class="ts-beer-num-pill ${isCurrent ? 'active' : ''} ${extraClass}" data-idx="${i}" title="Bier #${i + 1}${isLockedPill ? ' (Eingefroren)' : ''}">
+            <span class="num">#${i + 1}</span>
+            <span class="status-icon">${icon}</span>
+          </button>
+        `;
+      }
+      selectorRow.innerHTML = pillsHtml;
+
+      selectorRow.querySelectorAll('.ts-beer-num-pill').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = Number(btn.getAttribute('data-idx'));
+          store.setBeerTastingActiveBeer(idx);
+          triggerHaptic('light');
+          renderTimbersports();
+        });
+      });
+    }
+
+    // Active Beer Card Header & Options / Live Status
+    const titleEl = document.getElementById('ts-current-beer-title');
+    const hintEl = document.getElementById('ts-current-beer-hint');
+    const pickBadge = document.getElementById('ts-current-pick-badge');
+    const gridEl = document.getElementById('ts-beer-options-grid');
+
+    if (canManage) {
+      // --- ADMIN VIEW: Does NOT select a beer; monitors friends' submissions live ---
+      const activeMembers = members.filter(m => m.id !== 'admin');
+      const submittedCount = activeMembers.filter(m => bt.guesses && bt.guesses[m.id] && bt.guesses[m.id][activeIdx]).length;
+
+      if (titleEl) titleEl.textContent = `📋 Live-Abgaben für Bier #${activeIdx + 1}`;
+      if (hintEl) {
+        hintEl.innerHTML = `<span style="color:var(--text-secondary);">Übersicht der Freunde – du schenkst als Spielleiter aus und nimmst nicht am Tippspiel teil.</span>`;
+      }
+      if (pickBadge) {
+        pickBadge.textContent = `${submittedCount} / ${activeMembers.length} abgegeben`;
+        pickBadge.className = 'ts-current-pick-badge ' + (submittedCount === activeMembers.length ? 'has-pick' : '');
+      }
+
+      if (gridEl) {
+        let gridHtml = '';
+        activeMembers.forEach(m => {
+          const mGuess = bt.guesses && bt.guesses[m.id] && bt.guesses[m.id][activeIdx];
+          const hasGuessed = Boolean(mGuess);
+
+          if (isStageRevealed && sol) {
+            const isMatch = mGuess === sol;
+            gridHtml += `
+              <div class="ts-beer-opt ${isMatch ? 'revealed-correct' : 'revealed-wrong'}" style="pointer-events:none;">
+                <span class="avatar-sm">${renderAvatar(m.avatar)}</span>
+                <span style="flex:1; font-weight:700;">${m.name}</span>
+                <span class="revealed-badge">${isMatch ? '✓ ' + mGuess : '✗ ' + (mGuess || 'Kein Tipp')}</span>
+              </div>
+            `;
+          } else {
+            gridHtml += `
+              <div class="ts-beer-opt ${hasGuessed ? 'admin-friend-tipped' : ''}" style="pointer-events:none;">
+                <span class="avatar-sm">${renderAvatar(m.avatar)}</span>
+                <span style="flex:1; font-weight:700;">${m.name}</span>
+                <span class="admin-tip-badge ${hasGuessed ? 'tipped' : 'pending'}">
+                  ${hasGuessed ? '✓ Eingeloggt' : '⏳ Wartet...'}
+                </span>
+              </div>
+            `;
+          }
+        });
+        gridEl.innerHTML = gridHtml;
+      }
+    } else {
+      // --- PLAYER VIEW: Normal guessing card ---
+      if (titleEl) titleEl.textContent = `Tipp für Bier #${activeIdx + 1}`;
+      if (hintEl) {
+        if (isStageRevealed) {
+          if (sol && myCurrentGuess && myCurrentGuess === sol) {
+            hintEl.innerHTML = `<span style="color:#34d399; font-weight:700;">✓ Volltreffer! Dein Tipp auf ${sol} war genau richtig (+1 Punkt).</span>`;
+          } else if (sol) {
+            hintEl.innerHTML = `<span style="color:#fca5a5; font-weight:700;">✗ Leider daneben! Du hast ${myCurrentGuess ? 'auf &bdquo;' + myCurrentGuess + '&ldquo;' : 'keinen Tipp'} getippt. Die richtige Lösung war <span style="color:#34d399;">${sol}</span>.</span>`;
+          } else {
+            hintEl.textContent = 'Etappe aufgedeckt – Tipps sind gesperrt:';
+          }
+        } else if (isRoundLocked) {
+          hintEl.innerHTML = `<span style="color:#ef4444; font-weight:700;">🔒 Die Verkostungsrunde für Bier #${activeIdx + 1} ist beendet. Dein Tipp ist eingefroren.</span>`;
+        } else {
+          hintEl.textContent = 'Wähle dein getipptes Bier (einmal gewählte Biere sind für andere Runden gesperrt):';
+        }
+      }
+
+      if (pickBadge) {
+        if (isStageRevealed) {
+          if (sol && myCurrentGuess && myCurrentGuess === sol) {
+            pickBadge.textContent = `✓ Richtig: ${myCurrentGuess}`;
+            pickBadge.className = 'ts-current-pick-badge revealed-correct';
+          } else if (sol && myCurrentGuess) {
+            pickBadge.textContent = `✗ Falsch: ${myCurrentGuess}`;
+            pickBadge.className = 'ts-current-pick-badge revealed-wrong';
+          } else if (sol) {
+            pickBadge.textContent = `Wahr: ${sol}`;
+            pickBadge.className = 'ts-current-pick-badge revealed-correct';
+          } else {
+            pickBadge.textContent = myCurrentGuess || 'Kein Tipp';
+            pickBadge.className = 'ts-current-pick-badge';
+          }
+        } else {
+          const myJokerBeer = bt.jokers && bt.jokers[currentUserId];
+          const hasJokerOnThis = myJokerBeer === activeIdx;
+          const jokerSuffix = hasJokerOnThis ? ' 👑 (Joker)' : '';
+
+          if (myCurrentGuess) {
+            pickBadge.textContent = `Tipp: ${myCurrentGuess}${jokerSuffix}`;
+            pickBadge.className = 'ts-current-pick-badge has-pick';
+          } else {
+            pickBadge.textContent = hasJokerOnThis ? '👑 Joker gesetzt' : 'Noch kein Tipp';
+            pickBadge.className = 'ts-current-pick-badge';
+          }
+        }
+      }
+
+      // Joker Button (Goldener Kronkorken) for Player View
+      const myJokerBeer = bt.jokers && bt.jokers[currentUserId];
+      const hasJokerOnThis = myJokerBeer === activeIdx;
+      let jokerBtnHtml = '';
+      if (!isRoundLocked && !canManage) {
+        if (hasJokerOnThis) {
+          jokerBtnHtml = `
+            <div style="margin-bottom: 12px;">
+              <button type="button" class="ts-joker-btn active" id="btn-toggle-beer-joker">
+                <span>👑</span> Goldener Kronkorken aktiv! (+1 Bonuspunkt bei Treffer)
+              </button>
+            </div>
+          `;
+        } else if (myJokerBeer !== undefined && myJokerBeer !== null) {
+          jokerBtnHtml = `
+            <div style="margin-bottom: 12px; font-size: 0.76rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
+              <span class="ts-joker-badge">👑 Gesetzter Kronkorken</span> bei Bier #${myJokerBeer + 1}
+            </div>
+          `;
+        } else {
+          jokerBtnHtml = `
+            <div style="margin-bottom: 12px;">
+              <button type="button" class="ts-joker-btn" id="btn-toggle-beer-joker">
+                <span>👑</span> Goldener Kronkorken für dieses Bier setzen (+1 Bonuspunkt)
+              </button>
+            </div>
+          `;
+        }
+      }
+
+      // Build map of used beers by current user in other rounds
+      const myAllGuesses = (bt.guesses && bt.guesses[currentUserId]) || {};
+      const usedBeersMap = {};
+      Object.entries(myAllGuesses).forEach(([idxStr, bName]) => {
+        const idx = Number(idxStr);
+        if (idx !== activeIdx && bName) {
+          usedBeersMap[bName] = idx + 1;
+        }
+      });
+
+      const isAll3StagesRevealed = Boolean(bt.stage1Revealed && bt.stage2Revealed && bt.stage3Revealed);
+
+      if (gridEl) {
+        let gridHtml = '';
+        if (jokerBtnHtml) gridHtml += jokerBtnHtml;
+
+        (bt.beerPool || []).forEach(beerName => {
+          const isSelected = myCurrentGuess === beerName;
+          const isUsed = Boolean(usedBeersMap[beerName]);
+          const usedNum = usedBeersMap[beerName];
+
+          if (isStageRevealed) {
+            const isCorrectGuess = Boolean(sol && isSelected && myCurrentGuess === sol);
+            const isWrongGuess = Boolean(sol && isSelected && myCurrentGuess !== sol);
+            const isTrueSolution = Boolean(sol && beerName === sol);
+            const steckbriefBtn = isAll3StagesRevealed
+              ? `<button type="button" class="btn btn-sm btn-secondary btn-beer-card-steckbrief" data-beer="${beerName}" style="padding: 2px 7px; font-size: 0.7rem; margin-left: auto;">ℹ️ Steckbrief</button>`
+              : '';
+
+            if (isCorrectGuess) {
+              gridHtml += `
+                <div class="ts-beer-opt revealed-correct">
+                  <span>🍺</span>
+                  <span style="flex:1;">${beerName}</span>
+                  <span class="revealed-badge">✓ Dein Treffer! (+1)</span>
+                  ${steckbriefBtn}
+                </div>
+              `;
+            } else if (isWrongGuess) {
+              gridHtml += `
+                <div class="ts-beer-opt revealed-wrong">
+                  <span>🍺</span>
+                  <span style="flex:1;">${beerName}</span>
+                  <span class="revealed-badge">✗ Dein Tipp (falsch)</span>
+                  ${steckbriefBtn}
+                </div>
+              `;
+            } else if (isTrueSolution) {
+              gridHtml += `
+                <div class="ts-beer-opt revealed-correct">
+                  <span>🍺</span>
+                  <span style="flex:1;">${beerName}</span>
+                  <span class="revealed-badge">✓ Wahre Lösung</span>
+                  ${steckbriefBtn}
+                </div>
+              `;
+            } else {
+              gridHtml += `
+                <div class="ts-beer-opt" style="opacity: 0.35; ${isAll3StagesRevealed ? 'cursor:pointer;' : 'pointer-events: none;'}">
+                  <span>🍺</span>
+                  <span style="flex:1;">${beerName}</span>
+                  ${steckbriefBtn}
+                </div>
+              `;
+            }
+          } else if (isSelected) {
+            gridHtml += `
+              <div class="ts-beer-opt selected" data-beer="${beerName}" style="${isRoundLocked ? 'cursor:default;' : ''}">
+                <span>🍺</span>
+                <span style="flex:1;">${beerName}</span>
+                <span style="color:var(--sun-gold); font-size: 0.85rem;">${isRoundLocked ? '🔒' : '✓'}</span>
+              </div>
+            `;
+          } else if (isUsed) {
+            gridHtml += `
+              <div class="ts-beer-opt used" title="Bereits bei Bier #${usedNum} getippt">
+                <span>🍺</span>
+                <span style="flex:1;">${beerName}</span>
+                <span class="used-badge">bei #${usedNum}</span>
+              </div>
+            `;
+          } else if (isRoundLocked) {
+            gridHtml += `
+              <div class="ts-beer-opt" style="opacity: 0.45; pointer-events: none;">
+                <span>🍺</span>
+                <span style="flex:1;">${beerName}</span>
+              </div>
+            `;
+          } else {
+            gridHtml += `
+              <div class="ts-beer-opt" data-beer="${beerName}">
+                <span>🍺</span>
+                <span style="flex:1;">${beerName}</span>
+              </div>
+            `;
+          }
+        });
+        gridEl.innerHTML = gridHtml;
+
+        // Wire Joker button
+        const btnJoker = gridEl.querySelector('#btn-toggle-beer-joker');
+        if (btnJoker) {
+          btnJoker.onclick = () => {
+            const res = store.setBeerJoker(currentUserId, activeIdx);
+            if (res.success) {
+              if (res.active) fdsAudio.playJoker();
+              showToast(res.message, res.active ? '👑' : 'ℹ️');
+              renderTimbersports();
+            } else {
+              showToast(res.message, '⚠️');
+            }
+          };
+        }
+
+        // Wire Steckbrief buttons
+        gridEl.querySelectorAll('.btn-beer-card-steckbrief').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const bName = btn.getAttribute('data-beer');
+            openBeerSteckbrief(bName);
+          });
+        });
+
+        if (!isRoundLocked) {
+          gridEl.querySelectorAll('.ts-beer-opt:not(.used):not([disabled])').forEach(opt => {
+            opt.addEventListener('click', () => {
+              const bName = opt.getAttribute('data-beer');
+              if (!bName) return;
+              const res = store.saveBeerGuess(currentUserId, activeIdx, bName);
+              if (res.success) {
+                triggerHaptic('success');
+                showToast(`Bier #${activeIdx + 1}: ${bName} eingeloggt! 🍺`, '✓');
+                renderTimbersports();
+              } else {
+                showToast(res.message, '⚠️');
+              }
+            });
+          });
+        }
+      }
+    }
+
+    // Stage Intermediate Results & Reveal Box
+    const revealBox = document.getElementById('ts-stage-reveal-box');
+    if (revealBox) {
+      if (!isStageRevealed) {
+        revealBox.innerHTML = `
+          <div style="text-align: center; padding: 12px 6px;">
+            <div style="font-size: 1.6rem; margin-bottom: 6px;">⏳</div>
+            <h4 style="font-size: 0.95rem; font-weight: 800; color: #fff; margin: 0 0 4px 0;">
+              Zwischenabrechnung Etappe ${currentStage} (Bier ${stageStart + 1}–${stageEnd})
+            </h4>
+            <p style="font-size: 0.78rem; color: var(--text-secondary); margin: 0;">
+              Wird vom Administrator aufgedeckt, sobald alle Freunde ihre Tipps abgegeben haben.
+            </p>
+          </div>
+        `;
+      } else {
+        // Detailed stage score summary
+        const stageScores = members.map(m => {
+          let correct = 0;
+          for (let i = stageStart; i < stageEnd; i++) {
+            const bSol = bt.solutions[i];
+            const guess = bt.guesses && bt.guesses[m.id] && bt.guesses[m.id][i];
+            if (bSol && guess && bSol === guess) correct++;
+          }
+          return { member: m, correct };
+        });
+        stageScores.sort((a, b) => b.correct - a.correct);
+
+        let tableRowsHtml = stageScores.map((sc, idx) => `
+          <tr style="border-bottom: 1px solid var(--border-subtle);">
+            <td style="padding: 8px 6px; font-weight: 800; color: ${idx === 0 ? 'var(--sun-gold)' : 'var(--text-muted)'};">#${idx + 1}</td>
+            <td style="padding: 8px 6px; display: flex; align-items: center; gap: 8px;">
+              <span class="avatar-sm">${renderAvatar(sc.member.avatar)}</span>
+              <strong>${sc.member.name}</strong>
+            </td>
+            <td style="padding: 8px 6px; text-align: right; font-weight: 800; color: #34d399;">
+              ${sc.correct} / ${stageEnd - stageStart}
+            </td>
+          </tr>
+        `).join('');
+
+        let beerDetailsHtml = '';
+        for (let i = stageStart; i < stageEnd; i++) {
+          const bSol = bt.solutions[i] || 'Nicht erfasst';
+          const friendGuesses = members.map(m => {
+            const g = bt.guesses && bt.guesses[m.id] && bt.guesses[m.id][i];
+            const isMatch = g && g === bSol;
+            return `
+              <span style="font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; background: ${isMatch ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.15)'}; color: ${isMatch ? '#34d399' : '#fca5a5'};">
+                ${m.name}: ${g || '–'} ${isMatch ? '✓' : '✗'}
+              </span>
+            `;
+          }).join(' ');
+
+          const steckbriefBtnInDetail = (isAll3StagesRevealed && bSol && bSol !== 'Nicht erfasst')
+            ? `<button type="button" class="btn btn-sm btn-secondary btn-beer-card-steckbrief" data-beer="${bSol}" style="padding: 1px 7px; font-size: 0.68rem; margin-left: 8px;">ℹ️ Steckbrief</button>`
+            : '';
+
+          beerDetailsHtml += `
+            <div style="background: rgba(0, 0, 0, 0.25); border-radius: var(--radius-sm); padding: 8px 10px; margin-top: 8px; border-left: 3px solid ${bSol ? 'var(--sun-gold)' : 'var(--border-subtle)'};">
+              <div style="display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: 0.8rem; margin-bottom: 4px;">
+                <span>Bier #${i + 1}</span>
+                <div style="display: flex; align-items: center;">
+                  <span style="color: var(--sun-gold);">${bSol}</span>
+                  ${steckbriefBtnInDetail}
+                </div>
+              </div>
+              <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                ${friendGuesses}
+              </div>
+            </div>
+          `;
+        }
+
+        revealBox.innerHTML = `
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <h4 style="font-size: 0.95rem; font-weight: 800; color: #fff; margin: 0;">
+                📊 Zwischenabrechnung Etappe ${currentStage} (Bier ${stageStart + 1}–${stageEnd})
+              </h4>
+              <span style="font-size: 0.7rem; background: rgba(16, 185, 129, 0.2); color: #34d399; padding: 2px 8px; border-radius: var(--radius-pill); font-weight: 800;">Aufgedeckt ✓</span>
+            </div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-bottom: 12px;">
+              <thead>
+                <tr style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; border-bottom: 1px solid var(--border-subtle);">
+                  <th style="padding: 6px; text-align: left;">Rang</th>
+                  <th style="padding: 6px; text-align: left;">Freund</th>
+                  <th style="padding: 6px; text-align: right;">Treffer</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${tableRowsHtml}
+              </tbody>
+            </table>
+            <details style="font-size: 0.76rem; color: var(--text-secondary); cursor: pointer;">
+              <summary style="font-weight: 700; color: var(--sun-gold); margin-bottom: 6px;">Detail-Auflösung aller Biere ansehen ▾</summary>
+              ${beerDetailsHtml}
+            </details>
+          </div>
+        `;
+
+        revealBox.querySelectorAll('.btn-beer-card-steckbrief').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const bName = btn.getAttribute('data-beer');
+            openBeerSteckbrief(bName);
+          });
+        });
+      }
+    }
+
+    // Admin Box for Biertasting
+    const adminBox = document.getElementById('ts-beer-admin-box');
+    if (adminBox) {
+      if (canManage) {
+        adminBox.style.display = 'block';
+
+        // 1. Timer Controls
+        const timerStatusBadge = document.getElementById('ts-admin-timer-status-badge');
+        const customSecsInput = document.getElementById('ts-admin-custom-secs');
+        const timerDurLabel = document.getElementById('btn-timer-dur-label');
+        const btnStartTimer = document.getElementById('btn-start-beer-countdown');
+        const btnExtendTimer = document.getElementById('btn-extend-beer-countdown');
+        const btnStopTimer = document.getElementById('btn-stop-beer-countdown');
+        const btnResetTimer = document.getElementById('btn-reset-beer-countdown');
+
+        if (timerStatusBadge) {
+          if (isCdForActive && isCdRunning && cdRemaining > 0) {
+            timerStatusBadge.textContent = `Läuft: ${cdRemaining}s`;
+            timerStatusBadge.className = 'ts-admin-timer-status running';
+          } else if (isBeerFrozen || isCdExpired) {
+            timerStatusBadge.textContent = 'Eingefroren';
+            timerStatusBadge.className = 'ts-admin-timer-status expired';
+          } else {
+            timerStatusBadge.textContent = 'Bereit';
+            timerStatusBadge.className = 'ts-admin-timer-status';
+          }
+        }
+
+        // Timer presets chips
+        document.querySelectorAll('.ts-timer-chip').forEach(chip => {
+          chip.onclick = () => {
+            document.querySelectorAll('.ts-timer-chip').forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            const secs = chip.getAttribute('data-secs');
+            if (customSecsInput) customSecsInput.value = secs;
+            if (timerDurLabel) timerDurLabel.textContent = secs;
+          };
+        });
+
+        if (customSecsInput) {
+          customSecsInput.oninput = () => {
+            const val = customSecsInput.value;
+            if (timerDurLabel) timerDurLabel.textContent = val || '60';
+            document.querySelectorAll('.ts-timer-chip').forEach(c => {
+              c.classList.toggle('active', c.getAttribute('data-secs') === val);
+            });
+          };
+        }
+
+        if (btnStartTimer) {
+          btnStartTimer.onclick = () => {
+            const secs = customSecsInput ? Number(customSecsInput.value) || 60 : 60;
+            store.startBeerCountdown(activeIdx, secs);
+            triggerHaptic('success');
+            showToast(`Verkostungs-Countdown gestartet (${secs}s)! ⏱️`, '🍺');
+            renderTimbersports();
+          };
+        }
+
+        if (btnExtendTimer) {
+          btnExtendTimer.onclick = () => {
+            store.extendBeerCountdown(30);
+            triggerHaptic('light');
+            showToast('Countdown um +30s verlängert! ⏱️', '✓');
+            renderTimbersports();
+          };
+        }
+
+        if (btnStopTimer) {
+          btnStopTimer.onclick = () => {
+            store.stopBeerCountdown();
+            triggerHaptic('warning');
+            showToast(`Bier #${activeIdx + 1} gestoppt & eingefroren! ⏹️`, '⚠️');
+            renderTimbersports();
+          };
+        }
+
+        if (btnResetTimer) {
+          btnResetTimer.onclick = () => {
+            store.resetBeerCountdown(activeIdx);
+            triggerHaptic('light');
+            showToast(`Timer & Sperre für Bier #${activeIdx + 1} zurückgesetzt! 🔄`, 'ℹ️');
+            renderTimbersports();
+          };
+        }
+
+        // Manual lock / unlock toggle
+        const lockDescEl = document.getElementById('ts-beer-lock-state-desc');
+        const lockToggleBtn = document.getElementById('btn-toggle-beer-lock');
+        const lockIconEl = document.getElementById('btn-toggle-beer-lock-icon');
+        const lockTextEl = document.getElementById('btn-toggle-beer-lock-text');
+
+        if (lockDescEl) {
+          if (isBeerFrozen) {
+            lockDescEl.innerHTML = `<span style="color:#ef4444; font-weight:700;">🔒 Status: Bier #${activeIdx + 1} ist eingefroren</span>`;
+          } else if (isCdRunning) {
+            lockDescEl.innerHTML = `<span style="color:var(--sun-gold); font-weight:700;">⏱️ Status: Countdown läuft (${cdRemaining}s)</span>`;
+          } else {
+            lockDescEl.innerHTML = `<span style="color:#34d399; font-weight:700;">🔓 Status: Bier #${activeIdx + 1} ist offen</span>`;
+          }
+        }
+
+        if (lockToggleBtn) {
+          if (isBeerFrozen) {
+            if (lockIconEl) lockIconEl.textContent = '🔓';
+            if (lockTextEl) lockTextEl.textContent = 'Bier freigeben';
+            lockToggleBtn.className = 'btn btn-sm btn-secondary';
+          } else {
+            if (lockIconEl) lockIconEl.textContent = '🔒';
+            if (lockTextEl) lockTextEl.textContent = 'Bier einfrieren';
+            lockToggleBtn.className = 'btn btn-sm btn-outline';
+          }
+
+          lockToggleBtn.onclick = () => {
+            const nextLocked = !isBeerFrozen;
+            store.setBeerLocked(activeIdx, nextLocked);
+            triggerHaptic('light');
+            showToast(nextLocked ? `Bier #${activeIdx + 1} eingefroren!` : `Bier #${activeIdx + 1} wieder freigegeben!`, nextLocked ? '🔒' : '🔓');
+            renderTimbersports();
+          };
+        }
+
+        // 2. Populate active beer dropdown
+        const selectActiveBeer = document.getElementById('admin-select-active-beer');
+        if (selectActiveBeer) {
+          let opts = '';
+          for (let i = 0; i < 25; i++) {
+            const isF = Boolean(bt.lockedBeers && bt.lockedBeers[i]);
+            opts += `<option value="${i}" ${i === activeIdx ? 'selected' : ''}>Bier #${i + 1}${isF ? ' [Eingefroren]' : ''}</option>`;
+          }
+          selectActiveBeer.innerHTML = opts;
+          selectActiveBeer.onchange = () => {
+            store.setBeerTastingActiveBeer(Number(selectActiveBeer.value));
+            renderTimbersports();
+          };
+        }
+
+        // 3. Populate solution dropdown (only beers not yet assigned elsewhere)
+        const selectSolution = document.getElementById('admin-select-beer-solution');
+        if (selectSolution) {
+          const assignedSolutions = bt.solutions || [];
+          const currentSol = assignedSolutions[activeIdx] || '';
+          
+          // Beers already assigned to other indices
+          const assignedElsewhere = new Set();
+          assignedSolutions.forEach((s, idx) => {
+            if (idx !== activeIdx && s) assignedElsewhere.add(s);
+          });
+
+          let opts = '<option value="">-- Noch keine Lösung eingetragen --</option>';
+          (bt.beerPool || []).forEach(bName => {
+            if (!assignedElsewhere.has(bName)) {
+              opts += `<option value="${bName}" ${bName === currentSol ? 'selected' : ''}>${bName}</option>`;
+            }
+          });
+          selectSolution.innerHTML = opts;
+          selectSolution.onchange = () => {
+            store.setBeerSolution(activeIdx, selectSolution.value);
+            showToast(`Wahre Lösung für Bier #${activeIdx + 1} gespeichert!`, '🍺');
+            renderTimbersports();
+          };
+        }
+
+        // 4. Stage Action Buttons
+        const stageActionsEl = document.getElementById('ts-admin-stage-actions');
+        if (stageActionsEl) {
+          stageActionsEl.innerHTML = `
+            <button type="button" class="btn btn-sm ${bt.stage1Revealed ? 'btn-secondary' : 'btn-primary'}" id="btn-toggle-stage-1">
+              <span>${bt.stage1Revealed ? '🔒' : '📊'}</span> Etappe 1 (1–10) ${bt.stage1Revealed ? 'verbergen' : 'aufdecken'}
+            </button>
+            <button type="button" class="btn btn-sm ${bt.stage2Revealed ? 'btn-secondary' : 'btn-primary'}" id="btn-toggle-stage-2">
+              <span>${bt.stage2Revealed ? '🔒' : '📊'}</span> Etappe 2 (11–20) ${bt.stage2Revealed ? 'verbergen' : 'aufdecken'}
+            </button>
+            <button type="button" class="btn btn-sm ${bt.stage3Revealed ? 'btn-secondary' : 'btn-primary'}" id="btn-toggle-stage-3">
+              <span>${bt.stage3Revealed ? '🔒' : '🏆'}</span> Etappe 3 (21–25) ${bt.stage3Revealed ? 'verbergen' : 'aufdecken'}
+            </button>
+          `;
+
+          const b1 = document.getElementById('btn-toggle-stage-1');
+          const b2 = document.getElementById('btn-toggle-stage-2');
+          const b3 = document.getElementById('btn-toggle-stage-3');
+
+          if (b1) b1.onclick = () => {
+            const next = !bt.stage1Revealed;
+            store.revealBeerStage(1, next);
+            if (next) fireSolarConfetti();
+            renderTimbersports();
+          };
+          if (b2) b2.onclick = () => {
+            const next = !bt.stage2Revealed;
+            store.revealBeerStage(2, next);
+            if (next) fireSolarConfetti();
+            renderTimbersports();
+          };
+          if (b3) b3.onclick = () => {
+            const next = !bt.stage3Revealed;
+            store.revealBeerStage(3, next);
+            if (next) fireSolarConfetti();
+            renderTimbersports();
+          };
+        }
+      } else {
+        adminBox.style.display = 'none';
+      }
+    }
+  }
+
+  // --- Sub-Controller: Sägewettbewerb ---
+  function renderTimbersportsSaw(quiz, canManage, currentUserId, members) {
+    const saw = quiz.sawContest;
+    const isRevealed = Boolean(saw.revealed);
+    const myEntry = (saw.entries && saw.entries[currentUserId]) || {};
+
+    // Personal Card
+    const mySawCard = document.getElementById('ts-my-saw-card');
+    if (mySawCard) {
+      if (canManage && currentUserId === 'admin') {
+        mySawCard.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <h4 style="font-size: 0.95rem; font-weight: 800; color: #fff; margin: 0;">🪵 Sägewettbewerb – Spielleiter</h4>
+            <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: var(--radius-pill); font-weight: 800; background: ${isRevealed ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)'}; color: ${isRevealed ? '#34d399' : 'var(--sun-gold)'};">
+              ${isRevealed ? 'Rangliste aufgedeckt ✓' : 'Rangliste geheim 🔒'}
+            </span>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 0; line-height: 1.4;">
+            Trage unten die Gewichte für Schnitt 1 und 2 ein. Die Freunde sehen ihr persönliches Ergebnis sofort nach dem Wiegen & Speichern. Die Gesamtrangliste bleibt geheim, bis du sie unten freigibst.
+          </p>
+        `;
+      } else {
+        const c1 = myEntry.cut1;
+        const c2 = myEntry.cut2;
+        const hasC1 = c1 !== null && c1 !== undefined;
+        const hasC2 = c2 !== null && c2 !== undefined;
+        const hasBoth = hasC1 && hasC2;
+        const isJoker = Boolean(saw.jokers && saw.jokers[currentUserId]);
+
+        let cut1Text = hasC1 ? `${c1} g` : 'Noch nicht gewogen';
+        let cut2Text = hasC2 ? `${c2} g` : 'Noch nicht gewogen';
+        let resultText = '';
+        let bullseyeBadgeHtml = '';
+
+        if (hasBoth) {
+          const total = c1 + c2;
+          const diff = Math.abs(total - saw.targetWeight);
+          const isBullseye = diff <= 30;
+
+          if (isBullseye) {
+            bullseyeBadgeHtml = `
+              <div class="ts-bullseye-badge bullseye" style="margin-top: 8px;">
+                🎯 Bullseye getroffen! (±${diff}g)${isJoker ? ' • +2 Joker-Extrapunkte gesichert!' : ''}
+              </div>
+            `;
+          } else if (diff <= 100) {
+            bullseyeBadgeHtml = `
+              <div class="ts-bullseye-badge good" style="margin-top: 8px;">
+                🌲 Starke Sägeleistung! (±${diff}g)
+              </div>
+            `;
+          } else if (diff > 250) {
+            bullseyeBadgeHtml = `
+              <div class="ts-bullseye-badge wild" style="margin-top: 8px;">
+                🪓 Die Axt im Walde! (±${diff}g)
+              </div>
+            `;
+          }
+
+          resultText = `
+            <div style="margin-top: 10px; padding: 10px; border-radius: var(--radius-sm); background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4);">
+              <div style="font-size: 0.74rem; font-weight: 800; color: #34d399; text-transform: uppercase;">
+                ${isRevealed ? 'Offizielles Endergebnis:' : 'Dein Gesamtergebnis (Rangliste noch geheim):'}
+              </div>
+              <div style="font-size: 1.15rem; font-weight: 900; color: #fff; margin-top: 2px;">
+                ${total} Gramm <span style="font-size: 0.85rem; color: var(--sun-gold);">(Abweichung: ${diff} g)</span>
+              </div>
+            </div>
+            ${bullseyeBadgeHtml}
+          `;
+        } else if (hasC1 && !hasC2) {
+          const diffToGoal = saw.targetWeight - c1;
+          resultText = `
+            <div style="margin-top: 10px; padding: 8px 10px; border-radius: var(--radius-sm); background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3);">
+              <div style="font-size: 0.72rem; font-weight: 800; color: var(--sun-gold); text-transform: uppercase;">Tipp für Schnitt 2:</div>
+              <div style="font-size: 0.82rem; color: var(--text-primary); margin-top: 2px;">
+                Schnitt 1 wiegt <strong>${c1} g</strong>. Für exakt 1.000g brauchst du bei Schnitt 2 idealerweise <strong>${diffToGoal > 0 ? diffToGoal + ' g' : '0 g'}</strong>! 🪵
+              </div>
+            </div>
+          `;
+        }
+
+        let jokerBtnHtml = '';
+        if (!hasBoth) {
+          jokerBtnHtml = `
+            <div style="margin-top: 10px;">
+              <button type="button" class="ts-joker-btn ${isJoker ? 'active' : ''}" id="btn-toggle-saw-joker">
+                <span class="joker-icon">🎯</span>
+                <div class="joker-text">
+                  <span class="joker-title">Bullseye-Wette (Joker) ${isJoker ? 'aktiviert! ✓' : ''}</span>
+                  <span class="joker-desc">${isJoker ? 'Aktiv: Gesamtabweichung ≤ 30g bringt dir +2 Extrapunkte!' : 'Tippe hier: Gesamtabweichung ≤ 30g bringt dir +2 Extrapunkte!'}</span>
+                </div>
+              </button>
+            </div>
+          `;
+        } else if (isJoker) {
+          jokerBtnHtml = `
+            <div style="margin-top: 8px;">
+              <span class="ts-joker-badge active">🎯 Bullseye-Wette gesetzt</span>
+            </div>
+          `;
+        }
+
+        let badgeText = 'Noch nicht gewogen';
+        let badgeBg = 'rgba(255, 255, 255, 0.1)';
+        let badgeColor = 'var(--text-muted)';
+
+        if (isRevealed) {
+          badgeText = 'Aufgedeckt ✓';
+          badgeBg = 'rgba(16, 185, 129, 0.25)';
+          badgeColor = '#34d399';
+        } else if (hasC1 && hasC2) {
+          badgeText = 'Beide gewogen ✓';
+          badgeBg = 'rgba(16, 185, 129, 0.2)';
+          badgeColor = '#34d399';
+        } else if (hasC1) {
+          badgeText = 'Schnitt 1 gewogen ⚖️';
+          badgeBg = 'rgba(245, 158, 11, 0.2)';
+          badgeColor = 'var(--sun-gold)';
+        }
+
+        mySawCard.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <h4 style="font-size: 0.95rem; font-weight: 800; color: #fff; margin: 0;">Deine Schnitte (Ziel: 1.000g)</h4>
+            <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: var(--radius-pill); font-weight: 800; background: ${badgeBg}; color: ${badgeColor};">
+              ${badgeText}
+            </span>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.82rem;">
+            <div style="background: rgba(0, 0, 0, 0.3); padding: 8px 10px; border-radius: var(--radius-sm); border: ${hasC1 ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid transparent'};">
+              <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700;">SCHNITT 1:</div>
+              <div style="font-weight: 800; color: ${hasC1 ? 'var(--sun-gold)' : '#fff'}; margin-top: 2px; font-size: ${hasC1 ? '1rem' : '0.82rem'};">${cut1Text}</div>
+            </div>
+            <div style="background: rgba(0, 0, 0, 0.3); padding: 8px 10px; border-radius: var(--radius-sm); border: ${hasC2 ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid transparent'};">
+              <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700;">SCHNITT 2:</div>
+              <div style="font-weight: 800; color: ${hasC2 ? 'var(--sun-gold)' : '#fff'}; margin-top: 2px; font-size: ${hasC2 ? '1rem' : '0.82rem'};">${cut2Text}</div>
+            </div>
+          </div>
+          ${resultText}
+          ${jokerBtnHtml}
+        `;
+
+        const btnSawJoker = document.getElementById('btn-toggle-saw-joker');
+        if (btnSawJoker) {
+          btnSawJoker.onclick = () => {
+            const next = !isJoker;
+            const res = store.setSawJoker(currentUserId, next);
+            if (res.success) {
+              if (res.active) fdsAudio.playJoker();
+              triggerHaptic('success');
+              showToast(res.active ? '🎯 Bullseye-Wette aktiviert! Ziel: ≤ 30g Abweichung!' : 'Bullseye-Wette deaktiviert.', '🎯');
+              renderTimbersports();
+            } else {
+              showToast(res.message, '⚠️');
+            }
+          };
+        }
+      }
+    }
+
+    // Leaderboard Table
+    const tableCard = document.getElementById('ts-saw-table-card');
+    if (tableCard) {
+      if (!isRevealed) {
+        let statusListHtml = members.map(m => {
+          const entry = (saw.entries && saw.entries[m.id]) || {};
+          const c1 = entry.cut1 !== null && entry.cut1 !== undefined;
+          const c2 = entry.cut2 !== null && entry.cut2 !== undefined;
+          let statusBadge = '';
+          if (c1 && c2) {
+            statusBadge = '<span style="color: #34d399; font-weight: 800;">Beide Schnitte gewogen 🪵</span>';
+          } else if (c1) {
+            statusBadge = '<span style="color: var(--sun-gold); font-weight: 700;">Schnitt 1 gewogen ⚖️</span>';
+          } else {
+            statusBadge = '<span style="color: var(--text-muted);">Noch nicht gesägt</span>';
+          }
+
+          return `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border-subtle); font-size: 0.8rem;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="avatar-sm">${renderAvatar(m.avatar)}</span>
+                <strong>${m.name}</strong>
+              </div>
+              <div>${statusBadge}</div>
+            </div>
+          `;
+        }).join('');
+
+        tableCard.innerHTML = `
+          <h4 style="font-size: 0.95rem; font-weight: 800; color: #fff; margin: 0 0 10px 0;">🪵 Status des Sägewettbewerbs</h4>
+          <p style="font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 10px;">
+            Deine eigenen Schnitte siehst du oben direkt nach dem Wiegen. Die Gesamtrangliste mit allen Gewichten wird am Ende für alle aufgedeckt.
+          </p>
+          <div>${statusListHtml}</div>
+        `;
+      } else {
+        // Compute and sort
+        const results = members.map(m => {
+          const entry = (saw.entries && saw.entries[m.id]) || {};
+          const c1 = entry.cut1;
+          const c2 = entry.cut2;
+          const hasBoth = c1 !== null && c1 !== undefined && c2 !== null && c2 !== undefined;
+          const total = hasBoth ? (c1 + c2) : null;
+          const diff = hasBoth ? Math.abs(total - saw.targetWeight) : 999999;
+          const isJ = Boolean(saw.jokers && saw.jokers[m.id]);
+          const jHit = isJ && hasBoth && diff <= 30;
+          return { member: m, cut1: c1, cut2: c2, total, diff, hasBoth, isJoker: isJ, jokerHit: jHit };
+        });
+
+        results.sort((a, b) => a.diff - b.diff);
+
+        let rowsHtml = results.map((r, idx) => {
+          let rankPoints = r.hasBoth ? Math.max(1, 8 - idx) : 0;
+          let jokerBonusBadge = '';
+          if (r.jokerHit) {
+            rankPoints += 2;
+            jokerBonusBadge = '<span class="ts-joker-badge active" style="margin-left: 4px;" title="Bullseye-Wette gewonnen (+2P)">🎯 +2P</span>';
+          } else if (r.isJoker) {
+            jokerBonusBadge = '<span class="ts-joker-badge" style="margin-left: 4px; opacity: 0.6;" title="Bullseye-Wette verfehlt">🎯</span>';
+          }
+
+          return `
+            <tr style="border-bottom: 1px solid var(--border-subtle);">
+              <td style="padding: 8px 6px; font-weight: 800; color: ${idx === 0 ? 'var(--sun-gold)' : 'var(--text-muted)'};">#${idx + 1}</td>
+              <td style="padding: 8px 6px; display: flex; align-items: center; gap: 8px;">
+                <span class="avatar-sm">${renderAvatar(r.member.avatar)}</span>
+                <strong>${r.member.name}</strong> ${jokerBonusBadge}
+              </td>
+              <td style="padding: 8px 6px; text-align: center;">${r.cut1 ?? '–'}g</td>
+              <td style="padding: 8px 6px; text-align: center;">${r.cut2 ?? '–'}g</td>
+              <td style="padding: 8px 6px; text-align: center; font-weight: 800;">${r.total ?? '–'}g</td>
+              <td style="padding: 8px 6px; text-align: right; color: ${r.diff < 50 ? '#34d399' : 'var(--sun-gold)'}; font-weight: 800;">
+                ${r.hasBoth ? `±${r.diff}g` : '–'}
+              </td>
+              <td style="padding: 8px 6px; text-align: right; font-weight: 900; color: var(--sun-gold);">
+                ${rankPoints} P
+              </td>
+            </tr>
+          `;
+        }).join('');
+
+        tableCard.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h4 style="font-size: 0.95rem; font-weight: 800; color: #fff; margin: 0;">🪵 Offizielle Rangliste (1.000g)</h4>
+            <span style="font-size: 0.7rem; background: rgba(16, 185, 129, 0.2); color: #34d399; padding: 2px 8px; border-radius: var(--radius-pill); font-weight: 800;">Aufgedeckt ✓</span>
+          </div>
+          <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.78rem;">
+              <thead>
+                <tr style="color: var(--text-muted); font-size: 0.68rem; text-transform: uppercase; border-bottom: 1px solid var(--border-subtle);">
+                  <th style="padding: 6px; text-align: left;">Rang</th>
+                  <th style="padding: 6px; text-align: left;">Freund</th>
+                  <th style="padding: 6px; text-align: center;">S1</th>
+                  <th style="padding: 6px; text-align: center;">S2</th>
+                  <th style="padding: 6px; text-align: center;">Summe</th>
+                  <th style="padding: 6px; text-align: right;">Diff</th>
+                  <th style="padding: 6px; text-align: right;">Punkte</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+    }
+
+    // Admin Weighing Inputs
+    const adminBox = document.getElementById('ts-saw-admin-box');
+    if (adminBox) {
+      if (canManage) {
+        adminBox.style.display = 'block';
+
+        const btnReveal = document.getElementById('btn-toggle-reveal-saw');
+        const btnRevealText = document.getElementById('btn-toggle-reveal-saw-text');
+        const btnRevealIcon = document.getElementById('btn-toggle-reveal-saw-icon');
+
+        if (btnRevealText) btnRevealText.textContent = isRevealed ? 'Wiegungen wieder verbergen' : 'Wiegungen für alle aufdecken';
+        if (btnRevealIcon) btnRevealIcon.textContent = isRevealed ? '🔒' : '🔓';
+
+        if (btnReveal) {
+          btnReveal.onclick = () => {
+            const next = !saw.revealed;
+            store.revealSawCuts(next);
+            if (next) {
+              fdsAudio.playFanfare();
+              fireSolarConfetti();
+            }
+            renderTimbersports();
+          };
+        }
+
+        const tableContainer = document.getElementById('ts-saw-admin-table');
+        if (tableContainer) {
+          tableContainer.innerHTML = members.map(m => {
+            const entry = (saw.entries && saw.entries[m.id]) || {};
+            const c1 = entry.cut1 !== null && entry.cut1 !== undefined ? entry.cut1 : '';
+            const c2 = entry.cut2 !== null && entry.cut2 !== undefined ? entry.cut2 : '';
+
+            return `
+              <div class="ts-saw-admin-row">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span class="avatar-sm">${renderAvatar(m.avatar)}</span>
+                  <span style="font-weight: 700; font-size: 0.8rem;">${m.name}</span>
+                </div>
+                <div>
+                  <input type="number" class="form-input saw-input-c1" data-member-id="${m.id}" value="${c1}" placeholder="S1 (g)" style="padding: 6px 8px; font-size: 0.78rem;">
+                </div>
+                <div>
+                  <input type="number" class="form-input saw-input-c2" data-member-id="${m.id}" value="${c2}" placeholder="S2 (g)" style="padding: 6px 8px; font-size: 0.78rem;">
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+
+        const btnSave = document.getElementById('btn-save-saw-entries');
+        if (btnSave) {
+          btnSave.onclick = () => {
+            document.querySelectorAll('.saw-input-c1').forEach(inp1 => {
+              const mId = Number(inp1.getAttribute('data-member-id'));
+              const inp2 = document.querySelector(`.saw-input-c2[data-member-id="${mId}"]`);
+              const v1 = inp1.value.trim();
+              const v2 = inp2 ? inp2.value.trim() : '';
+              store.saveSawEntry(mId, v1 !== '' ? Number(v1) : null, v2 !== '' ? Number(v2) : null);
+            });
+            triggerHaptic('success');
+            showToast('Wiegungen erfolgreich gespeichert! 🪵', '💾');
+            renderTimbersports();
+          };
+        }
+      } else {
+        adminBox.style.display = 'none';
+      }
+    }
+  }
+
+  // --- Sub-Controller: Timbersports Wissensquiz ---
+  function renderTimbersportsTrivia(quiz, canManage, currentUserId, members) {
+    const questions = quiz.trivia.questions || [];
+    const answers = quiz.trivia.answers || {};
+    const tr = quiz.trivia;
+    const isQuizRevealed = Boolean(tr.revealed);
+    const activeMembers = members.filter(m => m.id !== 'admin');
+
+    if (questions.length === 0) {
+      const container = document.getElementById('ts-trivia-active-card-container');
+      if (container) {
+        container.innerHTML = `
+          <div class="card" style="text-align: center; padding: 24px;">
+            <p style="color: var(--text-muted); font-size: 0.85rem;">Noch keine Quizfragen vorhanden.</p>
+          </div>
+        `;
+      }
+      return;
+    }
+
+    // Determine Active Question
+    let activeQId = tr.activeQuestionId || questions[0].id;
+    let activeIdx = questions.findIndex(x => x.id === activeQId);
+    if (activeIdx === -1) {
+      activeIdx = 0;
+      activeQId = questions[0].id;
+    }
+    const activeQ = questions[activeIdx];
+
+    // Countdown timing for Active Question
+    const cd = tr.countdown;
+    const isCdForActive = Boolean(cd && cd.activeQuestionId === activeQId);
+    const now = Date.now();
+    let cdRemaining = 0;
+    let cdTotalSecs = 30;
+    let isCdRunning = false;
+    let isCdExpired = false;
+
+    if (isCdForActive) {
+      cdTotalSecs = cd.durationSeconds || 30;
+      isCdRunning = Boolean(cd.isRunning);
+      cdRemaining = Math.max(0, Math.ceil(((cd.endsAt || now) - now) / 1000));
+      isCdExpired = cdRemaining <= 0 || (!isCdRunning && cd.endsAt && now >= cd.endsAt);
+    }
+
+    const isQFrozen = Boolean(activeQ.isFrozen || isCdExpired || isQuizRevealed);
+    const isQStarted = Boolean(isCdForActive || isQFrozen || isQuizRevealed || (answers[activeQId] && Object.keys(answers[activeQId]).length > 0));
+
+    // 1. Question Selector Grid Pills (#1 .. #5)
+    const selectorRow = document.getElementById('ts-trivia-selector-row');
+    if (selectorRow) {
+      let pillsHtml = '';
+      questions.forEach((q, idx) => {
+        const isCurrent = q.id === activeQId;
+        const myAns = answers[q.id] && answers[q.id][currentUserId];
+        const isAnswered = Boolean(myAns);
+        const qCdForThis = Boolean(cd && cd.activeQuestionId === q.id);
+        const qRunning = Boolean(qCdForThis && cd.isRunning && cd.endsAt && now < cd.endsAt);
+        const qFrozen = Boolean(q.isFrozen || (qCdForThis && cd.endsAt && now >= cd.endsAt) || isQuizRevealed);
+
+        let extraClass = '';
+        let icon = '•';
+
+        if (isCurrent) extraClass += ' active';
+
+        if (qFrozen) {
+          if (myAns) {
+            if (myAns === q.correctAnswer) {
+              extraClass += ' correct';
+              icon = '✓';
+            } else {
+              extraClass += ' wrong';
+              icon = '✗';
+            }
+          } else {
+            extraClass += ' locked';
+            icon = '🔒';
+          }
+        } else if (qRunning) {
+          icon = '⏱️';
+        } else if (isAnswered) {
+          extraClass += ' answered';
+          icon = '✓';
+        } else {
+          extraClass += ' locked';
+          icon = '🔒';
+        }
+
+        pillsHtml += `
+          <button type="button" class="ts-trivia-pill ${extraClass}" data-qid="${q.id}" title="Frage #${idx + 1}${qFrozen ? ' (Gesperrt)' : ''}">
+            <span class="num">#${idx + 1}</span>
+            <span class="status-icon">${icon}</span>
+          </button>
+        `;
+      });
+      selectorRow.innerHTML = pillsHtml;
+
+      selectorRow.querySelectorAll('.ts-trivia-pill').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const qId = Number(btn.getAttribute('data-qid'));
+          store.setTriviaActiveQuestion(qId);
+          triggerHaptic('light');
+          renderTimbersports();
+        });
+      });
+    }
+
+    // 2. Countdown Banner & Live Ticker
+    const cdBanner = document.getElementById('ts-trivia-countdown-banner');
+    const cdTitle = document.getElementById('ts-trivia-countdown-title');
+    const cdSubtitle = document.getElementById('ts-trivia-countdown-subtitle');
+    const cdDigits = document.getElementById('ts-trivia-countdown-digits');
+    const cdProgress = document.getElementById('ts-trivia-countdown-progress-bar');
+    const cdIcon = document.getElementById('ts-trivia-countdown-icon');
+
+    if (window._tsTriviaTimerInterval) {
+      clearInterval(window._tsTriviaTimerInterval);
+      window._tsTriviaTimerInterval = null;
+    }
+
+    if (cdBanner) {
+      if (isQuizRevealed) {
+        cdBanner.style.display = 'none';
+      } else if (isCdForActive) {
+        cdBanner.style.display = 'block';
+        if (isCdRunning && cdRemaining > 0) {
+          cdBanner.className = 'card ts-countdown-banner' + (cdRemaining <= 5 ? ' urgent' : '');
+          if (cdIcon) cdIcon.textContent = '⏱️';
+          if (cdTitle) cdTitle.textContent = `Wissensquiz: Countdown für Frage #${activeIdx + 1}`;
+          if (cdSubtitle) cdSubtitle.textContent = `Wähle deine Antwort, bevor die Zeit abläuft!`;
+          if (cdDigits) cdDigits.textContent = cdRemaining;
+          if (cdProgress) cdProgress.style.width = `${Math.min(100, Math.max(0, (cdRemaining / cdTotalSecs) * 100))}%`;
+
+          window._tsTriviaTimerInterval = setInterval(() => {
+            const curNow = Date.now();
+            const curRem = Math.max(0, Math.ceil(((cd.endsAt || curNow) - curNow) / 1000));
+            const digits = document.getElementById('ts-trivia-countdown-digits');
+            const prog = document.getElementById('ts-trivia-countdown-progress-bar');
+            const ban = document.getElementById('ts-trivia-countdown-banner');
+            const admBadge = document.getElementById('ts-trivia-admin-status-badge');
+
+            if (digits) digits.textContent = curRem;
+            if (prog) prog.style.width = `${Math.min(100, Math.max(0, (curRem / cdTotalSecs) * 100))}%`;
+            if (ban) {
+              if (curRem <= 5 && curRem > 0) {
+                ban.classList.add('urgent');
+                fdsAudio.playTick(curRem <= 3);
+              } else {
+                ban.classList.remove('urgent');
+              }
+            }
+            if (admBadge) {
+              admBadge.textContent = `Läuft: ${curRem}s`;
+              admBadge.className = 'ts-admin-timer-status running';
+            }
+
+            if (curRem <= 0) {
+              clearInterval(window._tsTriviaTimerInterval);
+              window._tsTriviaTimerInterval = null;
+              fdsAudio.playBuzzer();
+              store.stopTriviaCountdown();
+              triggerHaptic('warning');
+              showToast(`Zeit abgelaufen für Frage #${activeIdx + 1}!`, '⏳');
+              renderTimbersports();
+            }
+          }, 500);
+        } else {
+          cdBanner.className = 'card ts-countdown-banner expired';
+          if (cdIcon) cdIcon.textContent = '⏳';
+          if (cdTitle) cdTitle.textContent = `Zeit abgelaufen für Frage #${activeIdx + 1}!`;
+          if (cdSubtitle) cdSubtitle.textContent = `Antworten sind für diese Frage gesperrt.`;
+          if (cdDigits) cdDigits.textContent = '0';
+          if (cdProgress) cdProgress.style.width = '0%';
+        }
+      } else {
+        cdBanner.style.display = 'none';
+      }
+    }
+
+    // 3. Active Question Card (Single-Question Focus)
+    const cardContainer = document.getElementById('ts-trivia-active-card-container');
+    if (cardContainer) {
+      if (!isQStarted && !canManage) {
+        // Player sees locked placeholder for future / unstarted question
+        cardContainer.innerHTML = `
+          <div class="card ts-trivia-active-card">
+            <div class="ts-trivia-active-header">
+              <span class="ts-trivia-qnum-badge">FRAGE #${activeIdx + 1} VON ${questions.length}</span>
+              <span class="ts-trivia-status-tag" style="background: rgba(255, 255, 255, 0.08); color: var(--text-muted);">🔒 Noch nicht gestartet</span>
+            </div>
+            <div class="ts-trivia-locked-placeholder">
+              <div style="font-size: 2.2rem; margin-bottom: 8px;">⏳</div>
+              <div style="font-weight: 800; font-size: 1.05rem; color: #fff; margin-bottom: 6px;">Warten auf Spielleiter...</div>
+              <p style="font-size: 0.82rem; color: var(--text-secondary); max-width: 320px; margin: 0 auto; line-height: 1.45;">
+                Der Admin schaltet Frage #${activeIdx + 1} gleich mit dem Countdown scharf. Mach dich bereit! 🌲
+              </p>
+            </div>
+          </div>
+        `;
+      } else {
+        const myAns = answers[activeQ.id] && answers[activeQ.id][currentUserId];
+        const isCorrect = isQFrozen && myAns === activeQ.correctAnswer;
+        const isWrong = isQFrozen && Boolean(myAns) && myAns !== activeQ.correctAnswer;
+
+        let badgeText = 'Offen';
+        let badgeBg = 'rgba(255, 255, 255, 0.1)';
+        let badgeColor = 'var(--text-muted)';
+
+        if (isQFrozen) {
+          if (isCorrect) {
+            badgeText = '✓ Richtig (+1 Punkt)';
+            badgeBg = 'rgba(16, 185, 129, 0.25)';
+            badgeColor = '#34d399';
+          } else if (isWrong) {
+            badgeText = '✗ Falsch (0 P)';
+            badgeBg = 'rgba(239, 68, 68, 0.25)';
+            badgeColor = '#fca5a5';
+          } else {
+            badgeText = '⏳ Zeit abgelaufen';
+            badgeBg = 'rgba(239, 68, 68, 0.2)';
+            badgeColor = '#fca5a5';
+          }
+        } else if (isCdRunning) {
+          badgeText = `⏱️ ${cdRemaining}s übrig`;
+          badgeBg = 'rgba(245, 158, 11, 0.25)';
+          badgeColor = 'var(--sun-gold)';
+        } else if (canManage) {
+          badgeText = 'Bereit zum Starten';
+          badgeBg = 'rgba(245, 158, 11, 0.2)';
+          badgeColor = 'var(--sun-gold)';
+        }
+
+        // Render Options
+        const optLetters = ['A', 'B', 'C', 'D'];
+        let optionsHtml = (activeQ.options || []).map((opt, oIdx) => {
+          const isSelected = myAns === opt;
+          const isTrueSolution = opt === activeQ.correctAnswer;
+          const letter = optLetters[oIdx] || String.fromCharCode(65 + oIdx);
+
+          let optClass = 'ts-trivia-opt-btn';
+          let icon = '';
+
+          if (isQFrozen || canManage) {
+            // After countdown: reveal whether player was correct, and highlight true solution
+            if (isTrueSolution) {
+              optClass += ' correct';
+              icon = '✓';
+            } else if (isSelected && !isTrueSolution) {
+              optClass += ' wrong';
+              icon = '✗';
+            } else {
+              optClass += ' neutral';
+              icon = '';
+            }
+          } else {
+            // During countdown: simply show selection
+            if (isSelected) {
+              optClass += ' selected';
+              icon = '●';
+            } else {
+              icon = '○';
+            }
+          }
+
+          const isDisabled = isQFrozen || canManage || !isCdRunning;
+          const safeOpt = String(opt).replace(/"/g, '&quot;');
+
+          return `
+            <button type="button" class="${optClass}" data-qid="${activeQ.id}" data-opt="${safeOpt}" ${isDisabled ? 'disabled' : ''}>
+              <div class="ts-trivia-opt-content">
+                <span class="ts-trivia-opt-letter">${letter}</span>
+                <span class="ts-trivia-opt-text">${opt}</span>
+              </div>
+              <span class="ts-trivia-opt-icon">${icon}</span>
+            </button>
+          `;
+        }).join('');
+
+        // Individual Result Banner after Countdown (Danach)
+        let resultCalloutHtml = '';
+        if (isQFrozen && !canManage) {
+          if (isCorrect) {
+            resultCalloutHtml = `
+              <div class="ts-trivia-result-callout correct">
+                <span style="font-size: 1.3rem;">🎉</span>
+                <div>
+                  <div style="font-weight: 800; font-size: 0.88rem;">Volltreffer! (+1 Punkt)</div>
+                  <div style="font-size: 0.78rem; opacity: 0.9;">Deine Antwort &bdquo;${myAns}&ldquo; war genau richtig!</div>
+                </div>
+              </div>
+            `;
+          } else if (isWrong) {
+            resultCalloutHtml = `
+              <div class="ts-trivia-result-callout wrong">
+                <span style="font-size: 1.3rem;">✗</span>
+                <div>
+                  <div style="font-weight: 800; font-size: 0.88rem;">Leider daneben! (0 Punkte)</div>
+                  <div style="font-size: 0.78rem; opacity: 0.9;">Du hast &bdquo;${myAns}&ldquo; gewählt. Die richtige Antwort war: <strong>${activeQ.correctAnswer}</strong>.</div>
+                </div>
+              </div>
+            `;
+          } else {
+            resultCalloutHtml = `
+              <div class="ts-trivia-result-callout expired">
+                <span style="font-size: 1.3rem;">⏳</span>
+                <div>
+                  <div style="font-weight: 800; font-size: 0.88rem;">Zeit abgelaufen!</div>
+                  <div style="font-size: 0.78rem; opacity: 0.9;">Keine Antwort eingeloggt. Richtige Antwort: <strong>${activeQ.correctAnswer}</strong>.</div>
+                </div>
+              </div>
+            `;
+          }
+        }
+
+        // Holzfäller-Joker (Punkte-Verdoppler)
+        const myJokerQId = tr.jokers && tr.jokers[currentUserId];
+        const isThisQJoker = myJokerQId === activeQ.id;
+        const otherJokerQ = (myJokerQId && myJokerQId !== activeQ.id)
+          ? questions.find(q => q.id === myJokerQId)
+          : null;
+
+        let jokerTriviaBtnHtml = '';
+        if (!canManage) {
+          if (isThisQJoker) {
+            jokerTriviaBtnHtml = `
+              <div style="margin-top: 12px;">
+                <button type="button" class="ts-joker-btn active" id="btn-toggle-trivia-joker" ${isQFrozen ? 'disabled' : ''}>
+                  <span class="joker-icon">🃏</span>
+                  <div class="joker-text">
+                    <span class="joker-title">Holzfäller-Joker aktiv! (+1 Bonuspunkt bei Treffer) ✓</span>
+                    <span class="joker-desc">${isQFrozen ? 'Für diese Frage eingeloggt.' : 'Klicke hier, um den Joker wieder zu entfernen.'}</span>
+                  </div>
+                </button>
+              </div>
+            `;
+          } else if (!isQFrozen) {
+            const jokerDesc = otherJokerQ
+              ? `Aktuell gesetzt bei Frage #${questions.indexOf(otherJokerQ) + 1}. Klicke, um ihn hierhin zu verschieben.`
+              : 'Setze deinen 1x Joker auf deine sicherste Frage: doppelter Punkt bei Treffer!';
+            jokerTriviaBtnHtml = `
+              <div style="margin-top: 12px;">
+                <button type="button" class="ts-joker-btn" id="btn-toggle-trivia-joker">
+                  <span class="joker-icon">🃏</span>
+                  <div class="joker-text">
+                    <span class="joker-title">Holzfäller-Joker setzen (+1 Bonuspunkt)</span>
+                    <span class="joker-desc">${jokerDesc}</span>
+                  </div>
+                </button>
+              </div>
+            `;
+          } else if (otherJokerQ) {
+            jokerTriviaBtnHtml = `
+              <div style="margin-top: 8px; font-size: 0.74rem; color: var(--text-muted);">
+                <span class="ts-joker-badge">🃏 Joker</span> bei Frage #${questions.indexOf(otherJokerQ) + 1}
+              </div>
+            `;
+          }
+        }
+
+        // Anonymes Balkendiagramm (Tipp-Verteilung) nach Countdown
+        let distributionHtml = '';
+        if (isQFrozen) {
+          const qAnswers = (answers && answers[activeQ.id]) || {};
+          const totalAnswers = activeMembers.filter(m => qAnswers[m.id]).length;
+
+          if (totalAnswers > 0) {
+            const counts = {};
+            (activeQ.options || []).forEach(opt => { counts[opt] = 0; });
+            activeMembers.forEach(m => {
+              const a = qAnswers[m.id];
+              if (a && counts[a] !== undefined) counts[a]++;
+            });
+
+            const distRows = (activeQ.options || []).map((opt, oIdx) => {
+              const letter = optLetters[oIdx] || '•';
+              const count = counts[opt] || 0;
+              const pct = totalAnswers > 0 ? Math.round((count / totalAnswers) * 100) : 0;
+              const isCorrectOpt = opt === activeQ.correctAnswer;
+              return `
+                <div class="ts-dist-row">
+                  <div class="ts-dist-label">
+                    <strong>${letter}:</strong> ${opt} ${isCorrectOpt ? '✓' : ''}
+                  </div>
+                  <div class="ts-dist-bar-track">
+                    <div class="ts-dist-bar-fill ${isCorrectOpt ? 'correct' : ''}" style="width: ${pct}%;"></div>
+                  </div>
+                  <div class="ts-dist-stat">${count} (${pct}%)</div>
+                </div>
+              `;
+            }).join('');
+
+            distributionHtml = `
+              <div class="ts-trivia-distribution-card">
+                <div class="ts-dist-header">
+                  <span>📊 Tipp-Verteilung der Runde</span>
+                  <span style="font-weight: normal; color: var(--text-muted);">${totalAnswers} von ${activeMembers.length} Freunden</span>
+                </div>
+                ${distRows}
+              </div>
+            `;
+          }
+        }
+
+        // Fun-Fact ("Wusstest du schon?") Box
+        let funFactHtml = '';
+        if (isQFrozen && activeQ.funFact) {
+          funFactHtml = `
+            <div class="ts-trivia-funfact-box">
+              <div class="ts-trivia-funfact-title">💡 Wusstest du schon?</div>
+              <div class="ts-trivia-funfact-text">${activeQ.funFact}</div>
+            </div>
+          `;
+        }
+
+        cardContainer.innerHTML = `
+          <div class="card ts-trivia-active-card">
+            <div class="ts-trivia-active-header">
+              <span class="ts-trivia-qnum-badge">FRAGE #${activeIdx + 1} VON ${questions.length}</span>
+              <span class="ts-trivia-status-tag" style="background: ${badgeBg}; color: ${badgeColor};">
+                ${badgeText}
+              </span>
+            </div>
+            <div class="ts-trivia-question-text">${activeQ.text}</div>
+            <div class="ts-trivia-options-grid">${optionsHtml}</div>
+            ${jokerTriviaBtnHtml}
+            ${resultCalloutHtml}
+            ${distributionHtml}
+            ${funFactHtml}
+          </div>
+        `;
+
+        // Wire option clicks for players during active countdown
+        if (!isQFrozen && !canManage && isCdRunning) {
+          cardContainer.querySelectorAll('.ts-trivia-opt-btn:not([disabled])').forEach(btn => {
+            btn.addEventListener('click', () => {
+              const qId = Number(btn.getAttribute('data-qid'));
+              const opt = btn.getAttribute('data-opt');
+              const res = store.saveTriviaAnswer(qId, currentUserId, opt);
+              if (res.success) {
+                triggerHaptic('success');
+                showToast(`Antwort eingeloggt: ${opt}! 🎯`, '✓');
+                renderTimbersports();
+              } else {
+                showToast(res.message, '⚠️');
+              }
+            });
+          });
+        }
+
+        // Wire Trivia Joker button
+        const btnTriviaJoker = cardContainer.querySelector('#btn-toggle-trivia-joker');
+        if (btnTriviaJoker && !isQFrozen && !canManage) {
+          btnTriviaJoker.onclick = () => {
+            const nextTarget = isThisQJoker ? null : activeQ.id;
+            const res = store.setTriviaJoker(currentUserId, nextTarget);
+            if (res.success) {
+              if (res.active) fdsAudio.playJoker();
+              triggerHaptic('success');
+              showToast(res.active ? `🃏 Holzfäller-Joker auf Frage #${activeIdx + 1} gesetzt!` : 'Holzfäller-Joker entfernt.', '🃏');
+              renderTimbersports();
+            } else {
+              showToast(res.message, '⚠️');
+            }
+          };
+        }
+      }
+    }
+
+    // 4. Full Quiz Resolution & Leaderboard (when revealed)
+    const resultsContainer = document.getElementById('ts-trivia-results-container');
+    if (resultsContainer) {
+      if (isQuizRevealed) {
+        resultsContainer.style.display = 'block';
+
+        // Calculate scores
+        const scores = activeMembers.map(m => {
+          let score = 0;
+          let jokerHit = false;
+          questions.forEach(q => {
+            if (answers[q.id] && answers[q.id][m.id] === q.correctAnswer) {
+              score++;
+              if (tr.jokers && tr.jokers[m.id] === q.id) {
+                score++;
+                jokerHit = true;
+              }
+            }
+          });
+          return { member: m, score, jokerHit };
+        });
+        scores.sort((a, b) => b.score - a.score);
+
+        let rowsHtml = scores.map((sc, idx) => {
+          const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
+          const isMe = Number(currentUserId) === sc.member.id;
+          const jokerBadge = sc.jokerHit
+            ? '<span class="ts-joker-badge active" style="margin-left: 4px;" title="Holzfäller-Joker verdoppelt (+1P)">🃏 +1P</span>'
+            : '';
+
+          return `
+            <tr style="border-bottom: 1px solid var(--border-subtle); background: ${isMe ? 'rgba(251, 191, 36, 0.08)' : 'transparent'};">
+              <td style="padding: 8px 6px; font-weight: 800; color: ${idx === 0 ? 'var(--sun-gold)' : 'var(--text-muted)'};">${medal}</td>
+              <td style="padding: 8px 6px; display: flex; align-items: center; gap: 8px;">
+                <span class="avatar-sm">${renderAvatar(sc.member.avatar)}</span>
+                <strong>${sc.member.name}</strong> ${isMe ? '<span style="font-size: 0.68rem; color: var(--sun-gold);">(Du)</span>' : ''} ${jokerBadge}
+              </td>
+              <td style="padding: 8px 6px; text-align: right; font-weight: 900; font-size: 1rem; color: var(--sun-gold);">
+                ${sc.score} / ${questions.length + 1} Pkt
+              </td>
+            </tr>
+          `;
+        }).join('');
+
+        resultsContainer.innerHTML = `
+          <div class="card" style="border-color: #10b981; background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(19, 26, 42, 0.9) 100%); padding: 18px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <div>
+                <h4 style="font-size: 1rem; font-weight: 900; color: #fff; margin: 0;">🏆 Offizielle Quiz-Rangliste</h4>
+                <div style="font-size: 0.74rem; color: #34d399; margin-top: 2px;">Vollständig aufgelöst & gewertet</div>
+              </div>
+              <span class="badge" style="background: rgba(16, 185, 129, 0.25); color: #34d399; font-weight: 800;">Aufgedeckt ✓</span>
+            </div>
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
+              <thead>
+                <tr style="color: var(--text-muted); font-size: 0.68rem; text-transform: uppercase; border-bottom: 1px solid var(--border-subtle);">
+                  <th style="padding: 6px; text-align: left;">Rang</th>
+                  <th style="padding: 6px; text-align: left;">Freund</th>
+                  <th style="padding: 6px; text-align: right;">Punkte</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml}
+              </tbody>
+            </table>
+          </div>
+        `;
+      } else {
+        resultsContainer.style.display = 'none';
+      }
+    }
+
+    // 5. Admin Trivia Controls & Live Submission Monitor
+    const adminBox = document.getElementById('ts-trivia-admin-box');
+    if (adminBox) {
+      if (canManage) {
+        adminBox.style.display = 'block';
+
+        // Timer Status Badge
+        const admBadge = document.getElementById('ts-trivia-admin-status-badge');
+        if (admBadge) {
+          if (isCdRunning) {
+            admBadge.textContent = `Läuft: ${cdRemaining}s`;
+            admBadge.className = 'ts-admin-timer-status running';
+          } else if (isQFrozen) {
+            admBadge.textContent = 'Gesperrt 🔒';
+            admBadge.className = 'ts-admin-timer-status expired';
+          } else {
+            admBadge.textContent = 'Bereit';
+            admBadge.className = 'ts-admin-timer-status';
+          }
+        }
+
+        // Indicator
+        const indEl = document.getElementById('ts-trivia-admin-qindicator');
+        if (indEl) indEl.textContent = `Frage ${activeIdx + 1} von ${questions.length}`;
+
+        // Monitor Title & Count
+        const monTitle = document.getElementById('ts-trivia-admin-monitor-title');
+        const monBadge = document.getElementById('ts-trivia-admin-monitor-badge');
+        const qAnswers = (answers && answers[activeQ.id]) || {};
+        const answeredCount = activeMembers.filter(m => qAnswers[m.id]).length;
+
+        if (monTitle) monTitle.textContent = `📋 Live-Abgaben für Frage #${activeIdx + 1}`;
+        if (monBadge) {
+          monBadge.textContent = `${answeredCount} / ${activeMembers.length} abgegeben`;
+          monBadge.className = 'ts-current-pick-badge ' + (answeredCount === activeMembers.length ? 'has-pick' : '');
+        }
+
+        // Friend Grid
+        const friendGrid = document.getElementById('ts-trivia-admin-friend-grid');
+        if (friendGrid) {
+          friendGrid.innerHTML = activeMembers.map(m => {
+            const mAns = qAnswers[m.id];
+            const hasAns = Boolean(mAns);
+
+            if (isQFrozen) {
+              const isMatch = mAns === activeQ.correctAnswer;
+              return `
+                <div class="ts-beer-opt ${isMatch ? 'revealed-correct' : 'revealed-wrong'}" style="pointer-events:none; padding: 8px 10px;">
+                  <span class="avatar-sm">${renderAvatar(m.avatar)}</span>
+                  <span style="flex:1; font-weight:700; font-size:0.78rem;">${m.name}</span>
+                  <span class="revealed-badge" style="font-size:0.7rem;">${isMatch ? '✓ ' + mAns : '✗ ' + (mAns || 'Keine')}</span>
+                </div>
+              `;
+            } else {
+              return `
+                <div class="ts-beer-opt ${hasAns ? 'admin-friend-tipped' : ''}" style="pointer-events:none; padding: 8px 10px;">
+                  <span class="avatar-sm">${renderAvatar(m.avatar)}</span>
+                  <span style="flex:1; font-weight:700; font-size:0.78rem;">${m.name}</span>
+                  <span class="admin-tip-badge ${hasAns ? 'tipped' : 'pending'}" style="font-size:0.7rem;">
+                    ${hasAns ? '✓ Eingeloggt' : '⏳ Überlegt...'}
+                  </span>
+                </div>
+              `;
+            }
+          }).join('');
+        }
+
+        // Wire Chips
+        const customInput = document.getElementById('input-trivia-timer-custom');
+        document.querySelectorAll('.ts-trivia-timer-chip').forEach(chip => {
+          chip.onclick = () => {
+            document.querySelectorAll('.ts-trivia-timer-chip').forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            if (customInput) customInput.value = chip.getAttribute('data-secs');
+          };
+        });
+
+        // Wire Start
+        const btnStart = document.getElementById('btn-start-trivia-timer');
+        if (btnStart) {
+          btnStart.onclick = () => {
+            const dur = customInput ? Number(customInput.value) || 30 : 30;
+            store.startTriviaCountdown(activeQId, dur);
+            fdsAudio.playPlopp();
+            triggerHaptic('success');
+            showToast(`Countdown für Frage #${activeIdx + 1} gestartet (${dur}s)! ⏱️`, '✓');
+            renderTimbersports();
+          };
+        }
+
+        // Wire Stop
+        const btnStop = document.getElementById('btn-stop-trivia-timer');
+        if (btnStop) {
+          btnStop.onclick = () => {
+            store.stopTriviaCountdown();
+            triggerHaptic('warning');
+            showToast(`Frage #${activeIdx + 1} gestoppt & gesperrt! ⏹️`, '⚠️');
+            renderTimbersports();
+          };
+        }
+
+        // Wire Extend
+        const btnExtend = document.getElementById('btn-extend-trivia-timer');
+        if (btnExtend) {
+          btnExtend.onclick = () => {
+            store.extendTriviaCountdown(15);
+            triggerHaptic('light');
+            showToast('Timer um +15s verlängert! ⏱️', '✓');
+            renderTimbersports();
+          };
+        }
+
+        // Wire Reset
+        const btnReset = document.getElementById('btn-reset-trivia-timer');
+        if (btnReset) {
+          btnReset.onclick = () => {
+            store.resetTriviaCountdown(activeQId);
+            triggerHaptic('light');
+            showToast(`Timer für Frage #${activeIdx + 1} zurückgesetzt! 🔄`, 'ℹ️');
+            renderTimbersports();
+          };
+        }
+
+        // Wire Prev / Next Question
+        const btnPrev = document.getElementById('btn-prev-trivia-q');
+        if (btnPrev) {
+          btnPrev.onclick = () => {
+            const prevIdx = Math.max(0, activeIdx - 1);
+            store.setTriviaActiveQuestion(questions[prevIdx].id);
+            triggerHaptic('light');
+            renderTimbersports();
+          };
+        }
+
+        const btnNext = document.getElementById('btn-next-trivia-q');
+        if (btnNext) {
+          btnNext.onclick = () => {
+            const nextIdx = Math.min(questions.length - 1, activeIdx + 1);
+            store.setTriviaActiveQuestion(questions[nextIdx].id);
+            triggerHaptic('light');
+            renderTimbersports();
+          };
+        }
+
+        // Wire Final Reveal Toggle
+        const btnRevealQuiz = document.getElementById('btn-toggle-reveal-trivia-quiz');
+        const btnRevealText = document.getElementById('btn-reveal-trivia-text');
+        const btnRevealIcon = document.getElementById('btn-reveal-trivia-icon');
+
+        if (btnRevealText) btnRevealText.textContent = isQuizRevealed ? 'Auflösung wieder verbergen' : 'Quiz offiziell auflösen';
+        if (btnRevealIcon) btnRevealIcon.textContent = isQuizRevealed ? '🔒' : '🎉';
+
+        if (btnRevealQuiz) {
+          btnRevealQuiz.onclick = () => {
+            const nextState = !isQuizRevealed;
+            store.revealTriviaQuiz(nextState);
+            if (nextState) {
+              fdsAudio.playFanfare();
+              fireSolarConfetti();
+            }
+            triggerHaptic('medium');
+            showToast(nextState ? 'Wissensquiz offiziell aufgelöst! 🎉' : 'Auflösung verborgen.', '🏆');
+            renderTimbersports();
+          };
+        }
+
+        // Wire Add Question Modal
+        const btnAddQ = document.getElementById('btn-open-add-trivia-modal');
+        if (btnAddQ) {
+          btnAddQ.onclick = () => {
+            openModal('modal-add-trivia-question');
+          };
+        }
+      } else {
+        adminBox.style.display = 'none';
+      }
+    }
+  }
+
+  // --- Sub-Controller: Gesamtwertung & Spieltag-8-Übernahme ---
+  function renderTimbersportsStandings(quiz, canManage, currentUserId, members) {
+    const standings = store.calculateTimbersportsStandings();
+    const standingsCard = document.getElementById('ts-standings-card');
+
+    if (standingsCard) {
+      let rowsHtml = standings.map((st, idx) => {
+        const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
+        const isMe = Number(currentUserId) === st.member.id;
+
+        const beerJokerBadge = st.beerScore && st.beerScore.jokerBonus
+          ? ` <span class="ts-joker-badge active" style="margin-left: 2px;" title="Goldener Kronkorken getroffen (+1P)">👑 +${st.beerScore.jokerBonus}</span>`
+          : '';
+        const sawJokerBadge = st.sawDetails && st.sawDetails.jokerHit
+          ? ` <span class="ts-joker-badge active" style="margin-left: 2px;" title="Bullseye-Wette gewonnen (+2P)">🎯 +2</span>`
+          : '';
+        const triviaJokerBadge = st.triviaJokerHit
+          ? ` <span class="ts-joker-badge active" style="margin-left: 2px;" title="Holzfäller-Joker verdoppelt (+1P)">🃏 +1</span>`
+          : '';
+
+        return `
+          <tr style="border-bottom: 1px solid var(--border-subtle); background: ${isMe ? 'rgba(251, 191, 36, 0.08)' : 'transparent'};">
+            <td style="padding: 10px 6px; font-weight: 900; font-size: ${idx < 3 ? '1.1rem' : '0.85rem'}; color: ${idx === 0 ? 'var(--sun-gold)' : 'var(--text-muted)'};">
+              ${medal}
+            </td>
+            <td style="padding: 10px 6px; display: flex; align-items: center; gap: 8px;">
+              <span class="avatar-sm">${renderAvatar(st.member.avatar)}</span>
+              <div>
+                <strong>${st.member.name}</strong> ${isMe ? '<span style="font-size: 0.68rem; color: var(--sun-gold);">(Du)</span>' : ''}
+              </div>
+            </td>
+            <td style="padding: 10px 6px; text-align: center; color: var(--sun-gold); font-weight: 700;">
+              ${st.beerScore.total} P${beerJokerBadge}
+            </td>
+            <td style="padding: 10px 6px; text-align: center; color: #34d399; font-weight: 700;">
+              ${st.sawPoints} P${sawJokerBadge}
+            </td>
+            <td style="padding: 10px 6px; text-align: center; color: #38bdf8; font-weight: 700;">
+              ${st.triviaScore} P${triviaJokerBadge}
+            </td>
+            <td style="padding: 10px 6px; text-align: right; font-weight: 900; font-size: 1.05rem; color: #fff;">
+              ${st.totalPoints}
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      standingsCard.innerHTML = `
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+            <thead>
+              <tr style="color: var(--text-muted); font-size: 0.68rem; text-transform: uppercase; border-bottom: 1px solid var(--border-subtle);">
+                <th style="padding: 6px; text-align: left;">Platz</th>
+                <th style="padding: 6px; text-align: left;">Freund</th>
+                <th style="padding: 6px; text-align: center;">🍺 Bier</th>
+                <th style="padding: 6px; text-align: center;">🪚 Sägen</th>
+                <th style="padding: 6px; text-align: center;">🎯 Quiz</th>
+                <th style="padding: 6px; text-align: right;">Gesamt</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    // Render Fun-Awards (Titel des Tages)
+    const funAwards = standings.funAwards || {};
+    const awardsContainer = document.getElementById('ts-fun-awards-container');
+    if (awardsContainer) {
+      const hasAnyAward = Boolean(funAwards.beerSommelier || funAwards.precisionSaw || funAwards.wildAxe || funAwards.triviaMaster);
+      if (hasAnyAward) {
+        awardsContainer.innerHTML = `
+          <div style="margin-top: 18px; margin-bottom: 8px;">
+            <h4 style="font-size: 0.95rem; font-weight: 800; color: #fff; margin: 0 0 4px 0;">
+              🎖️ Titel des Tages (Fun-Awards)
+            </h4>
+            <p style="font-size: 0.78rem; color: var(--text-secondary); margin: 0;">
+              Ehrentitel für die besten Leistungen und größten Heldentaten des Finales.
+            </p>
+          </div>
+          <div class="ts-fun-awards-grid">
+            <div class="ts-award-card">
+              <div class="ts-award-icon">🍺</div>
+              <div class="ts-award-info">
+                <div class="ts-award-title">Der Biersommelier</div>
+                <div class="ts-award-winner">${funAwards.beerSommelier ? funAwards.beerSommelier.member.name : 'Noch offen'}</div>
+                <div class="ts-award-value">${funAwards.beerSommelier ? funAwards.beerSommelier.value : '–'}</div>
+              </div>
+            </div>
+            <div class="ts-award-card">
+              <div class="ts-award-icon">🪚</div>
+              <div class="ts-award-info">
+                <div class="ts-award-title">Die Präzisionssäge</div>
+                <div class="ts-award-winner">${funAwards.precisionSaw ? funAwards.precisionSaw.member.name : 'Noch offen'}</div>
+                <div class="ts-award-value">${funAwards.precisionSaw ? funAwards.precisionSaw.value : '–'}</div>
+              </div>
+            </div>
+            <div class="ts-award-card">
+              <div class="ts-award-icon">🪵</div>
+              <div class="ts-award-info">
+                <div class="ts-award-title">Die Axt im Walde</div>
+                <div class="ts-award-winner">${funAwards.wildAxe ? funAwards.wildAxe.member.name : 'Noch offen'}</div>
+                <div class="ts-award-value">${funAwards.wildAxe ? funAwards.wildAxe.value : '–'}</div>
+              </div>
+            </div>
+            <div class="ts-award-card">
+              <div class="ts-award-icon">🧠</div>
+              <div class="ts-award-info">
+                <div class="ts-award-title">Der Waldmeister</div>
+                <div class="ts-award-winner">${funAwards.triviaMaster ? funAwards.triviaMaster.member.name : 'Noch offen'}</div>
+                <div class="ts-award-value">${funAwards.triviaMaster ? funAwards.triviaMaster.value : '–'}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      } else {
+        awardsContainer.innerHTML = '';
+      }
+    }
+
+    const adminBox = document.getElementById('ts-standings-admin-box');
+    if (adminBox) {
+      adminBox.style.display = canManage ? 'block' : 'none';
+      const btnApply = document.getElementById('btn-apply-timbersports-scores');
+      if (btnApply) {
+        btnApply.onclick = () => {
+          if (confirm('Möchtest du die Platzierungen 1 bis 8 offiziell in Spieltag 8 übernehmen? Damit wird das Saison-Finale 2026 abgeschlossen und gewertet!')) {
+            const ok = store.applyTimbersportsToEvent8();
+            if (ok) {
+              fireSolarConfetti();
+              showToast('🏆 Saison-Finale 2026 erfolgreich abgeschlossen!', '☀️');
+              setTimeout(() => {
+                switchView('view-leaderboard');
+              }, 1200);
+            } else {
+              showToast('Fehler beim Übernehmen der Wertung.', '❌');
+            }
+          }
+        };
+      }
+    }
+  }
+
+  // --- Sub-Controller: Bier-Pool Verwaltung (Admin-Tab) ---
+  function renderTimbersportsBeerPool(quiz, canManage, currentUserId, members) {
+    if (!canManage) return;
+    const bt = quiz.beerTasting;
+    const pool = bt.beerPool || [];
+    const solutions = bt.solutions || [];
+
+    // Map which beer name is assigned to which round
+    const assignedMap = {};
+    solutions.forEach((sol, idx) => {
+      if (sol) assignedMap[sol] = idx + 1;
+    });
+
+    // Update count badge
+    const countBadge = document.getElementById('ts-pool-count-badge');
+    if (countBadge) {
+      countBadge.textContent = `${pool.length} Biere im Pool`;
+    }
+
+    const listEl = document.getElementById('ts-pool-list-items');
+    if (listEl) {
+      listEl.innerHTML = pool.map((beerName, idx) => {
+        const assignedRound = assignedMap[beerName];
+        const isAssigned = Boolean(assignedRound);
+
+        return `
+          <div class="ts-pool-item-row" style="display: flex; align-items: center; gap: 8px; background: rgba(0, 0, 0, 0.28); padding: 8px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+            <span style="font-weight: 800; font-size: 0.78rem; color: var(--text-muted); width: 26px;">#${idx + 1}</span>
+            <input type="text" class="form-input ts-pool-input" data-index="${idx}" value="${beerName}" style="flex: 1; padding: 6px 8px; font-size: 0.8rem;">
+            ${isAssigned 
+              ? `<span style="font-size: 0.7rem; padding: 3px 7px; border-radius: 4px; background: rgba(16, 185, 129, 0.2); color: #34d399; font-weight: 700; white-space: nowrap;">Bier #${assignedRound}</span>`
+              : `<span style="font-size: 0.7rem; padding: 3px 7px; border-radius: 4px; background: rgba(255, 255, 255, 0.05); color: var(--text-muted); white-space: nowrap;">Frei</span>`
+            }
+            <button type="button" class="icon-btn btn-delete-pool-item" data-index="${idx}" title="Bier löschen" style="color: #fca5a5; font-size: 0.85rem; padding: 4px 6px;">
+              🗑️
+            </button>
+          </div>
+        `;
+      }).join('');
+
+      // Wire delete buttons
+      listEl.querySelectorAll('.btn-delete-pool-item').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = Number(btn.getAttribute('data-index'));
+          const currentPool = [...(bt.beerPool || [])];
+          const bName = currentPool[idx];
+          if (confirm(`"${bName}" wirklich aus dem Bier-Pool entfernen?`)) {
+            currentPool.splice(idx, 1);
+            store.updateBeerPool(currentPool);
+            showToast(`"${bName}" entfernt!`, '🗑️');
+            renderTimbersports();
+          }
+        });
+      });
+    }
+
+    // Wire save buttons (top & bottom)
+    const handleSave = () => {
+      const inputs = document.querySelectorAll('.ts-pool-input');
+      const newPool = [];
+      inputs.forEach(inp => {
+        const val = inp.value.trim();
+        if (val) newPool.push(val);
+      });
+      store.updateBeerPool(newPool);
+      triggerHaptic('success');
+      showToast('Bier-Pool erfolgreich gespeichert! 🍺', '💾');
+      renderTimbersports();
+    };
+
+    const btnSaveTop = document.getElementById('btn-tab-save-all-beers');
+    if (btnSaveTop) btnSaveTop.onclick = handleSave;
+
+    const btnSaveBottom = document.getElementById('btn-tab-save-all-beers-bottom');
+    if (btnSaveBottom) btnSaveBottom.onclick = handleSave;
+
+    // Wire Add beer
+    const btnAdd = document.getElementById('btn-tab-add-beer');
+    const inputAdd = document.getElementById('input-tab-new-beer-name');
+    if (btnAdd && inputAdd) {
+      btnAdd.onclick = () => {
+        const val = inputAdd.value.trim();
+        if (!val) {
+          showToast('Bitte einen Biernamen eingeben!', '⚠️');
+          return;
+        }
+        const currentPool = [...(bt.beerPool || [])];
+        if (currentPool.includes(val)) {
+          showToast('Dieses Bier ist bereits im Pool vorhanden!', '⚠️');
+          return;
+        }
+        currentPool.push(val);
+        store.updateBeerPool(currentPool);
+        inputAdd.value = '';
+        triggerHaptic('success');
+        showToast(`"${val}" hinzugefügt! 🍺`, '➕');
+        renderTimbersports();
+      };
+    }
+
+    // Wire reset to default
+    const btnReset = document.getElementById('btn-reset-beer-pool-default');
+    if (btnReset) {
+      btnReset.onclick = () => {
+        if (confirm('Möchtest du den Bier-Pool wirklich auf die Standard-25-Biere zurücksetzen?')) {
+          store.resetBeerPool();
+          triggerHaptic('success');
+          showToast('Bier-Pool auf Standard (25 Biere) zurückgesetzt!', '🔄');
+          renderTimbersports();
+        }
+      };
+    }
+  }
+
+  // --- Modal Helpers: Beer Pool Management ---
+  const btnOpenBeerPoolModal = document.getElementById('btn-open-beer-pool-modal');
+  if (btnOpenBeerPoolModal) {
+    btnOpenBeerPoolModal.addEventListener('click', () => {
+      store.setTimbersportsSubTab('beerpool');
+      renderTimbersports();
+    });
+  }
+
+  function renderBeerPoolModal() {
+    const quiz = store.getTimbersportsQuiz();
+    const pool = quiz.beerTasting.beerPool || [];
+    const listEl = document.getElementById('beer-pool-items-list');
+    if (!listEl) return;
+
+    listEl.innerHTML = pool.map((beer, idx) => `
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <span style="font-size: 0.72rem; font-weight: 800; color: var(--text-muted); width: 22px;">#${idx + 1}</span>
+        <input type="text" class="form-input beer-pool-item-input" data-idx="${idx}" value="${beer}" style="padding: 6px 10px; font-size: 0.8rem; flex: 1;">
+        <button type="button" class="icon-btn btn-delete-beer-pool-item" data-idx="${idx}" style="color: #fca5a5; font-size: 0.85rem;" title="Bier löschen">✕</button>
+      </div>
+    `).join('');
+
+    listEl.querySelectorAll('.btn-delete-beer-pool-item').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.getAttribute('data-idx'));
+        pool.splice(idx, 1);
+        store.updateBeerPool(pool);
+        renderBeerPoolModal();
+      });
+    });
+  }
+
+  const btnAddBeerToPool = document.getElementById('btn-add-beer-to-pool');
+  if (btnAddBeerToPool) {
+    btnAddBeerToPool.addEventListener('click', () => {
+      const input = document.getElementById('input-new-beer-name');
+      const val = input ? input.value.trim() : '';
+      if (!val) return;
+      const quiz = store.getTimbersportsQuiz();
+      const pool = quiz.beerTasting.beerPool || [];
+      pool.push(val);
+      store.updateBeerPool(pool);
+      input.value = '';
+      renderBeerPoolModal();
+    });
+  }
+
+  const btnSaveBeerPool = document.getElementById('btn-save-beer-pool');
+  if (btnSaveBeerPool) {
+    btnSaveBeerPool.addEventListener('click', () => {
+      const inputs = document.querySelectorAll('.beer-pool-item-input');
+      const newPool = [];
+      inputs.forEach(inp => {
+        const val = inp.value.trim();
+        if (val) newPool.push(val);
+      });
+      store.updateBeerPool(newPool);
+      closeAllModals();
+      showToast('Bier-Pool erfolgreich aktualisiert! 🍺', '✓');
+      renderTimbersports();
+    });
+  }
+
+  // --- Modal Helpers: Add Trivia Question ---
+  const formAddTrivia = document.getElementById('form-add-trivia-question');
+  if (formAddTrivia) {
+    formAddTrivia.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const qText = document.getElementById('trivia-input-question').value.trim();
+      const o1 = document.getElementById('trivia-opt-1').value.trim();
+      const o2 = document.getElementById('trivia-opt-2').value.trim();
+      const o3 = document.getElementById('trivia-opt-3').value.trim();
+      const o4 = document.getElementById('trivia-opt-4').value.trim();
+      const selCorrect = document.getElementById('trivia-select-correct').value;
+
+      const opts = [o1, o2, o3, o4];
+      const correctAns = opts[Number(selCorrect) - 1] || o1;
+
+      store.addTriviaQuestion({
+        text: qText,
+        options: opts,
+        correctAnswer: correctAns
+      });
+
+      formAddTrivia.reset();
+      closeAllModals();
+      showToast('Quizfrage erfolgreich hinzugefügt! 🎯', '✓');
+      renderTimbersports();
+    });
+  }
+
+  // --- General Timbersports Tab Navigation Handlers ---
+  document.querySelectorAll('.ts-subnav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sub = btn.getAttribute('data-ts-sub');
+      store.setTimbersportsSubTab(sub);
+      triggerHaptic('light');
+      renderTimbersports();
+    });
+  });
+
+  const btnTsToggleUnlock = document.getElementById('btn-ts-toggle-unlock');
+  if (btnTsToggleUnlock) {
+    btnTsToggleUnlock.addEventListener('click', () => {
+      const cur = store.getTimbersportsQuiz();
+      const next = !cur.isUnlockedForAll;
+      store.setTimbersportsUnlocked(next);
+      triggerHaptic('medium');
+      showToast(next ? 'Timbersports-Special ist jetzt für alle Freunde freigeschaltet! 🌍🪓' : 'Geheim-Modus aktiv: Nur für Tim & Admin sichtbar! 🔒', '🪓');
+      refreshActiveView();
+    });
+  }
+
+  const btnTsToggleArchive = document.getElementById('btn-ts-toggle-archive');
+  if (btnTsToggleArchive) {
+    btnTsToggleArchive.addEventListener('click', () => {
+      const cur = store.getTimbersportsQuiz();
+      const next = !cur.isArchived;
+      store.setTimbersportsArchived(next);
+      triggerHaptic('medium');
+      showToast(next ? 'Timbersports-Tab archiviert.' : 'Timbersports-Tab wiederhergestellt.', '📦');
+      refreshActiveView();
     });
   }
 
