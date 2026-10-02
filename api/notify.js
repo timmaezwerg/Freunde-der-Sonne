@@ -47,12 +47,19 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Optional Secret Protection (if configured in Vercel environment)
+  // Secret Protection or Origin Protection
   const expectedSecret = process.env.NOTIFY_SECRET;
   if (expectedSecret) {
     const providedSecret = req.headers['x-fds-secret'] || (req.headers['authorization'] || '').replace(/^Bearer\s+/i, '');
     if (providedSecret !== expectedSecret) {
       return res.status(401).json({ error: 'Unauthorized: Invalid notification secret' });
+    }
+  } else {
+    // If no secret is configured, ensure request originates from the app itself (or localhost/vercel preview)
+    const origin = req.headers['origin'] || req.headers['referer'] || '';
+    const isTrusted = !origin || origin.includes('freunde-der-sonne') || origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('vercel.app');
+    if (!isTrusted) {
+      return res.status(403).json({ error: 'Forbidden: Untrusted origin' });
     }
   }
 

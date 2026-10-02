@@ -2,7 +2,7 @@
    Freunde der Sonne - Service Worker with Offline Cache & Push
    ========================================================= */
 
-const CACHE_NAME = 'fds-cache-v20260930-ts13';
+const CACHE_NAME = 'fds-cache-v20261002-ts14';
 const PRECACHE_ASSETS = [
   './',
   './index.html',
@@ -67,15 +67,15 @@ self.addEventListener('fetch', (event) => {
         }
         return networkRes;
       }).catch(() => {
-        return caches.match('./index.html') || caches.match('/');
+        return caches.match('./index.html', { ignoreSearch: true }) || caches.match('/', { ignoreSearch: true });
       })
     );
     return;
   }
 
-  // Static Assets (CSS, JS, Images, Fonts): Stale-While-Revalidate
+  // Static Assets (CSS, JS, Images, Fonts): Stale-While-Revalidate with search param tolerance (?v=...)
   event.respondWith(
-    caches.match(req).then((cachedRes) => {
+    caches.match(req, { ignoreSearch: true }).then((cachedRes) => {
       const fetchPromise = fetch(req).then((networkRes) => {
         if (networkRes && networkRes.status === 200) {
           const resClone = networkRes.clone();
@@ -83,7 +83,8 @@ self.addEventListener('fetch', (event) => {
         }
         return networkRes;
       }).catch(() => {
-        // Network failure, silently ignored if cache hit
+        // Network failure: return cached response if available or fallback
+        return cachedRes;
       });
 
       return cachedRes || fetchPromise;
@@ -112,7 +113,6 @@ self.addEventListener('push', (event) => {
   const options = {
     body: data.body || 'Neues Spieltag-Update verfügbar.',
     icon: './assets/app_icon.jpg',
-    badge: './assets/app_icon.jpg',
     vibrate: [150, 80, 150],
     tag: data.tag || 'fds-event-update',
     renotify: true,
@@ -135,7 +135,7 @@ self.addEventListener('notificationclick', (event) => {
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
         if ('focus' in client) {
-          client.navigate(targetUrl);
+          // Focus existing window to keep state; navigate only if not already on the app
           return client.focus();
         }
       }

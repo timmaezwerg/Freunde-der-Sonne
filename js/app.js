@@ -249,6 +249,16 @@ document.addEventListener('DOMContentLoaded', () => {
       const minutesLeft = Math.floor((totalSec % 3600) / 60);
       const secondsLeft = Math.floor(totalSec % 60);
 
+      // DOM optimization: update existing elements without innerHTML thrashing every 1000ms
+      const valEls = container.querySelectorAll('.countdown-val');
+      if (valEls.length === 4 && container.querySelector('.countdown-grid')) {
+        valEls[0].textContent = days;
+        valEls[1].textContent = String(hoursLeft).padStart(2, '0');
+        valEls[2].textContent = String(minutesLeft).padStart(2, '0');
+        valEls[3].textContent = String(secondsLeft).padStart(2, '0');
+        return;
+      }
+
       container.innerHTML = `
         <div class="countdown-card">
           <div class="countdown-header">
@@ -532,9 +542,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const summaryBox = document.getElementById('sim-summary-box');
     const members = store.getMembers();
 
+    const evt7 = store.getEvent(7);
+    const isR7Done = Boolean(evt7 && evt7.status === 'completed');
+    const tabR7 = document.getElementById('btn-sim-tab-r7');
+    if (tabR7) {
+      tabR7.textContent = isR7Done ? 'ST 7 (✅ Gewertet)' : 'ST 7 (Gabi)';
+    }
+
     function renderControlRows(roundKey, container) {
       if (!container) return;
       container.innerHTML = '';
+
+      if (roundKey === 'round7' && isR7Done) {
+        container.innerHTML = `
+          <div style="padding: 12px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 8px; margin-bottom: 12px; font-size: 0.8rem; color: #38bdf8; line-height: 1.4;">
+            ✅ <strong>Spieltag 7 ist bereits abgeschlossen!</strong><br>
+            Die realen Ergebnisse von Spieltag 7 sind fest in der Wertung. Der Simulator berechnet nun die Entscheidung mit Spieltag 8.
+          </div>
+        `;
+        return;
+      }
 
       members.forEach(m => {
         const currentRank = simPredictions[roundKey].ranks[m.id] || 4;
@@ -1059,32 +1086,42 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
 
-    // Wintergrillen Verlierer Spotlight (Rank 8)
+    // Wintergrillen Verlierer Spotlight (Rank 8 / Gleichstand am Tabellenende)
     const grillContainer = document.getElementById('grill-loser-container');
-    const loser = leaderboard[leaderboard.length - 1];
-    const seventhPlace = leaderboard[leaderboard.length - 2];
-    const deficit = seventhPlace ? Math.max(0, seventhPlace.totalPoints - loser.totalPoints) : 0;
+    const minPoints = leaderboard.length > 0 ? leaderboard[leaderboard.length - 1].totalPoints : 0;
+    const tiedLosers = leaderboard.filter(m => m.totalPoints === minPoints);
+    const nonLosers = leaderboard.filter(m => m.totalPoints > minPoints);
+    const nextAbove = nonLosers.length > 0 ? nonLosers[nonLosers.length - 1] : null;
+    const deficit = nextAbove ? Math.max(0, nextAbove.totalPoints - minPoints) : 0;
 
-    if (loser) {
+    if (tiedLosers.length > 0) {
+      const isMulti = tiedLosers.length > 1;
+      const loserNames = tiedLosers.map(l => l.name).join(' & ');
+      const loserAvatars = tiedLosers.map(l => `<div class="avatar" style="width: 44px; height: 44px; font-size: 1.25rem;">${renderAvatar(l.avatar)}</div>`).join('');
+      const headlineText = isMulti ? `${loserNames} stehen am Grill! 🌭🥩` : `${tiedLosers[0].name} steht am Grill! 🌭🥩`;
+      const noticeText = isMulti
+        ? `Punktgleich am Tabellenende mit je ${minPoints} Punkten (${deficit > 0 ? deficit + ' Pkt. Rückstand zu P' + (leaderboard.length - tiedLosers.length) : 'Gleichauf'})`
+        : `Aktuell Letzter mit ${minPoints} Punkten (${deficit > 0 ? deficit + ' Pkt. Rückstand zu P7' : 'Punktgleich'})`;
+
       grillContainer.innerHTML = `
         <div class="grill-loser-card">
           <div class="grill-warning-badge">
-            <span>🔥</span> Drohendes Wintergrillen beim Verlierer
+            <span>🔥</span> ${isMulti ? 'Drohendes Wintergrillen bei den Verlierern' : 'Drohendes Wintergrillen beim Verlierer'}
           </div>
           <div class="grill-card-body">
             <div class="grill-user-info">
-              <div class="grill-avatar-wrapper">
-                <div class="avatar" style="width: 48px; height: 48px; font-size: 1.3rem;">${renderAvatar(loser.avatar)}</div>
+              <div class="grill-avatar-wrapper" style="display: flex; gap: 4px;">
+                ${loserAvatars}
               </div>
               <div>
                 <div style="font-weight: 800; font-size: 1.05rem; color: #ff9999;">
-                  ${loser.name} steht am Grill! 🌭🥩
+                  ${headlineText}
                 </div>
                 <div class="grill-notice">
-                  Aktuell Letzter mit ${loser.totalPoints} Punkten (${deficit > 0 ? deficit + ' Pkt. Rückstand zu P7' : 'Punktgleich'})
+                  ${noticeText}
                 </div>
                 <div class="grill-deficit">
-                  Am Saisonende lädt Platz 8 alle Freunde zum Grillen & Bier ein!
+                  Am Saisonende lädt der Tabellenletzte alle Freunde zum Grillen & Bier ein!
                 </div>
               </div>
             </div>
@@ -3478,14 +3515,24 @@ document.addEventListener('DOMContentLoaded', () => {
       text += `${emoji} *${p.rank}. ${p.name}* – ${p.totalPoints} Pkt.${jokerFlag}\n`;
     });
 
-    const loser = leaderboard[leaderboard.length - 1];
-    if (loser) {
-      text += `\n🥶 *Grill-Alarm:* ${loser.name} steht aktuell am Grill fürs Wintergrillen! 🌭🔥\n`;
+    const minPoints = leaderboard.length > 0 ? leaderboard[leaderboard.length - 1].totalPoints : 0;
+    const tiedLosers = leaderboard.filter(p => p.totalPoints === minPoints);
+    if (tiedLosers.length > 0) {
+      if (tiedLosers.length > 1) {
+        const names = tiedLosers.map(l => l.name).join(' & ');
+        text += `\n🥶 *Grill-Alarm:* ${names} stehen aktuell punktgleich am Grill fürs Wintergrillen! 🌭🔥\n`;
+      } else {
+        text += `\n🥶 *Grill-Alarm:* ${tiedLosers[0].name} steht aktuell am Grill fürs Wintergrillen! 🌭🔥\n`;
+      }
     }
 
     if (nextUpcoming) {
       const org = store.getMember(nextUpcoming.organizerId)?.name || 'TBD';
-      text += `\n📅 *Nächster Spieltag (${nextUpcoming.round}/8):*\n`;
+      if (nextUpcoming.isSpecial || nextUpcoming.id === 9) {
+        text += `\n🔥 *Jahres-Highlight: Traditionelles Wintergrillen 2026:*\n`;
+      } else {
+        text += `\n📅 *Nächster Spieltag (${nextUpcoming.round}/8):*\n`;
+      }
       text += `🏆 *${nextUpcoming.title}*\n`;
       text += `🗓 ${formatDate(nextUpcoming.date)} um ${nextUpcoming.time}\n`;
       text += `📍 Treffpunkt: ${nextUpcoming.location}\n`;
@@ -3936,9 +3983,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function dispatchPushNotification({ title, body, eventId, url }) {
     try {
+      const headers = { 'Content-Type': 'application/json' };
+      const customSecret = localStorage.getItem('fds_notify_secret');
+      if (customSecret) {
+        headers['x-fds-secret'] = customSecret;
+      }
       const res = await fetch('/api/notify', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: headers,
         body: JSON.stringify({ title, body, eventId, url })
       });
       if (res.ok) {
@@ -4110,6 +4162,15 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('fds_sound_muted', isMuted ? 'true' : 'false');
         return isMuted;
       },
+      unlock() {
+        if (!ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) ctx = new AudioCtx();
+        }
+        if (ctx && ctx.state === 'suspended') {
+          ctx.resume().catch(() => {});
+        }
+      },
       playTick(isUrgent = false) {
         const c = getCtx();
         if (!c) return;
@@ -4199,6 +4260,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     };
   })();
+
+  // Prime & unlock iOS Safari Web Audio on first user tap/pointerdown anywhere on screen
+  document.addEventListener('pointerdown', () => {
+    fdsAudio.unlock();
+  }, { once: true, passive: true });
 
   function openBeerSteckbrief(beerName) {
     const profile = (typeof BEER_PROFILES !== 'undefined' && BEER_PROFILES[beerName]) ? BEER_PROFILES[beerName] : {
@@ -5604,7 +5670,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let jokerBtnHtml = '';
-        if (!hasBoth) {
+        if (!hasC1 && !isRevealed) {
           jokerBtnHtml = `
             <div style="margin-top: 10px;">
               <button type="button" class="ts-joker-btn ${isJoker ? 'active' : ''}" id="btn-toggle-saw-joker">
@@ -5619,7 +5685,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (isJoker) {
           jokerBtnHtml = `
             <div style="margin-top: 8px;">
-              <span class="ts-joker-badge active">🎯 Bullseye-Wette gesetzt</span>
+              <span class="ts-joker-badge active">🎯 Bullseye-Wette gesetzt (Eingefroren)</span>
             </div>
           `;
         }

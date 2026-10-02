@@ -900,7 +900,7 @@ body.auth-locked #modal-select-user .sheet-handle {
   color: var(--text-primary);
   padding: 10px 14px;
   font-family: var(--font-body);
-  font-size: 0.9rem;
+  font-size: 16px; /* 16px prevents iOS Safari auto-zoom on input focus */
   outline: none;
   transition: border-color 0.2s ease;
 }
@@ -937,7 +937,7 @@ body.auth-locked #modal-select-user .sheet-handle {
   max-width: 100% !important;
   height: 46px !important;
   min-height: 46px !important;
-  font-size: 0.92rem !important;
+  font-size: 16px !important; /* 16px prevents iOS Safari auto-zoom on input focus */
   font-family: inherit !important;
   padding: 10px 12px !important;
   border-radius: var(--radius-sm) !important;

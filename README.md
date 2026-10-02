@@ -35,6 +35,15 @@
 ### Option B: Direktes Deployment
 Du kannst das Projekt auch über die Vercel CLI oder direkt per Git-Import im Vercel Dashboard anlegen.
 
+### 🔔 3. Web Push Notifications konfigurieren (Vercel Environment Variables)
+Damit Push-Nachrichten für Spieltags-Erinnerungen, Joker-Einsätze und Timbersports-Countdowns gesendet werden können, trage im Vercel Dashboard unter **Settings ➔ Environment Variables** ein:
+- `VAPID_PUBLIC_KEY`: Dein öffentlicher VAPID-Key (aus `js/vapid-config.js`)
+- `VAPID_PRIVATE_KEY`: Dein privater VAPID-Key
+- `VAPID_SUBJECT`: `mailto:spielleitung@freunde-der-sonne.app`
+- `SUPABASE_URL`: Deine Supabase-Projekt-URL
+- `SUPABASE_SERVICE_ROLE_KEY`: Dein Supabase Service-Role-Schlüssel (für sicheren Zugriff auf `push_subscriptions`)
+- `NOTIFY_SECRET`: (Optional) Ein beliebiges Secret zur Absicherung der `/api/notify`-Route
+
 ---
 
 ## 📱 Als App auf dem iPhone installieren
@@ -42,3 +51,4 @@ Du kannst das Projekt auch über die Vercel CLI oder direkt per Git-Import im Ve
 2. Tippe unten in der Leiste auf den **Teilen-Button** (Viereck mit Pfeil nach oben).
 3. Scrolle etwas nach unten und tippe auf **„Zum Home-Bildschirm“**.
 4. Die App startet nun wie eine echte native iOS-App im Vollbildmodus ohne Safari-Bedienelemente!
+5. **Push-Mitteilungen erlauben**: Nach dem Hinzufügen zum Home-Bildschirm kannst du unter Kader / Einstellungen Push-Benachrichtigungen aktivieren (funktioniert ab iOS 16.4+ direkt auf dem iPhone!).

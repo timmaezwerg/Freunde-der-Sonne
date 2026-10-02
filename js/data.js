@@ -579,8 +579,9 @@ function fromDbEvent(e) {
     rsvps = (packingObj.rsvps && typeof packingObj.rsvps === 'object') ? packingObj.rsvps : {};
   }
 
+  // Merge rsvps: prefer packingObj.rsvps where toDbEvent saves, fallback to db column
   if (e.rsvps && typeof e.rsvps === 'object' && Object.keys(e.rsvps).length > 0) {
-    rsvps = e.rsvps;
+    rsvps = { ...e.rsvps, ...rsvps };
   }
 
   let timbersportsQuiz = e.timbersportsQuiz || e.timbersports_quiz || null;
@@ -1427,6 +1428,11 @@ class DataStore {
     const currentLeaderboard = this.getLeaderboard();
     const rankPointsMap = [0, 8, 7, 6, 5, 4, 3, 2, 1];
 
+    const evt7 = this.getEvent(7);
+    const evt8 = this.getEvent(8);
+    const isR7Completed = Boolean(evt7 && evt7.status === 'completed');
+    const isR8Completed = Boolean(evt8 && evt8.status === 'completed');
+
     const simResults = currentLeaderboard.map(m => {
       let addPoints = 0;
       let r7Points = 0;
@@ -1434,8 +1440,8 @@ class DataStore {
       let r7Rank = null;
       let r8Rank = null;
 
-      // Round 7
-      if (predictions && predictions.round7 && predictions.round7.ranks) {
+      // Round 7: only add simulated points if Round 7 has not yet been played
+      if (!isR7Completed && predictions && predictions.round7 && predictions.round7.ranks) {
         const r7 = predictions.round7.ranks[m.id];
         if (r7 && r7 >= 1 && r7 <= 8) {
           r7Rank = r7;
@@ -1446,8 +1452,8 @@ class DataStore {
         }
       }
 
-      // Round 8
-      if (predictions && predictions.round8 && predictions.round8.ranks) {
+      // Round 8: only add simulated points if Round 8 has not yet been played
+      if (!isR8Completed && predictions && predictions.round8 && predictions.round8.ranks) {
         const r8 = predictions.round8.ranks[m.id];
         if (r8 && r8 >= 1 && r8 <= 8) {
           r8Rank = r8;
@@ -2055,6 +2061,30 @@ class DataStore {
           if (typeof window.fdsRefreshUI === 'function') window.fdsRefreshUI();
         }
       })
+      .on('broadcast', { event: 'event_sync' }, ({ payload }) => {
+        if (payload && payload.event && payload.event.id) {
+          const updated = fromDbEvent(payload.event);
+          const idx = this.state.events.findIndex(e => e.id === updated.id);
+          if (idx !== -1) {
+            if (updated.id === 8 && this.state.events[idx].timbersportsQuiz) {
+              if (updated.timbersportsQuiz) {
+                updated.timbersportsQuiz = this.mergeTimbersportsQuizzes(
+                  this.state.events[idx].timbersportsQuiz,
+                  updated.timbersportsQuiz
+                );
+              } else {
+                updated.timbersportsQuiz = this.state.events[idx].timbersportsQuiz;
+              }
+            }
+            this.state.events[idx] = updated;
+          } else {
+            this.state.events.push(updated);
+          }
+          this.syncWintergrillenOrganizer();
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
+          if (typeof window.fdsRefreshUI === 'function') window.fdsRefreshUI();
+        }
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, payload => {
         if (payload.new && payload.new.id) {
           const updated = fromDbMember(payload.new);
@@ -2076,6 +2106,17 @@ class DataStore {
           const updated = fromDbEvent(payload.new);
           const idx = this.state.events.findIndex(e => e.id === updated.id);
           if (idx !== -1) {
+            // Preserve in-progress Timbersports live state for Event 8 if updated DB row lacks recent progress
+            if (updated.id === 8 && this.state.events[idx].timbersportsQuiz) {
+              if (updated.timbersportsQuiz) {
+                updated.timbersportsQuiz = this.mergeTimbersportsQuizzes(
+                  this.state.events[idx].timbersportsQuiz,
+                  updated.timbersportsQuiz
+                );
+              } else {
+                updated.timbersportsQuiz = this.state.events[idx].timbersportsQuiz;
+              }
+            }
             this.state.events[idx] = updated;
           } else {
             this.state.events.push(updated);
@@ -2699,6 +2740,13 @@ class DataStore {
 
   setSawJoker(memberId, active) {
     const quiz = this.getTimbersportsQuiz();
+    if (quiz.sawContest && quiz.sawContest.revealed) {
+      return { success: false, message: 'Ergebnisse bereits aufgedeckt! Joker kann nicht mehr geändert werden.' };
+    }
+    const entry = quiz.sawContest && quiz.sawContest.entries && (quiz.sawContest.entries[memberId] || quiz.sawContest.entries[String(memberId)]);
+    if (entry && (entry.cut1 !== null && entry.cut1 !== undefined)) {
+      return { success: false, message: 'Du hast bereits gesägt/gewogen! Der Joker muss vor dem ersten Schnitt gesetzt werden.' };
+    }
     if (!quiz.sawContest.jokers) quiz.sawContest.jokers = {};
     if (active === undefined) {
       quiz.sawContest.jokers[memberId] = !quiz.sawContest.jokers[memberId];
@@ -2931,6 +2979,17 @@ class DataStore {
       const dbEvt = toDbEvent(event);
       const res = await client.from('events').upsert(dbEvt);
       if (res.error) console.warn('pushEventToCloud error:', res.error);
+
+      // Instant realtime broadcast across connected devices
+      if (this.realtimeChannel) {
+        try {
+          this.realtimeChannel.send({
+            type: 'broadcast',
+            event: 'event_sync',
+            payload: { event: dbEvt, senderId: this.getCurrentUserId() }
+          }).catch(() => {});
+        } catch (e) {}
+      }
     } catch (e) {
       console.warn('pushEventToCloud error:', e);
     }
