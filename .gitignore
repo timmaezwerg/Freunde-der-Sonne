@@ -8,3 +8,11 @@ node_modules/
 .env.local
 .env.*
 !.env.example
+
+# Promo / Video assets (local only - not uploaded to GitHub or production)
+*.mp4
+*.mov
+*.wav
+generate_trailer.py
+promo.html
+

@@ -52,8 +52,8 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(req.url);
 
-  // Do not cache Supabase API calls or external dynamic APIs
-  if (url.hostname.includes('supabase.co') || url.pathname.startsWith('/api/')) {
+  // Do not cache Supabase API calls, serverless routes, or large media streaming (.mp4)
+  if (url.hostname.includes('supabase.co') || url.pathname.startsWith('/api/') || url.pathname.endsWith('.mp4')) {
     return;
   }
 
