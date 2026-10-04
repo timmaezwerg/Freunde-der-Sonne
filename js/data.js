@@ -225,6 +225,8 @@ const BEER_PROFILES = {
 };
 
 const DEFAULT_TIMBERSPORTS_QUIZ = {
+  adminRev: 0,
+  memberRev: {},
   isUnlockedForAll: false, // Geheimmmodus: Anfangs nur für Tim & Admin sichtbar!
   isArchived: false,
   activeSubTab: 'beer', // 'beer' | 'saw' | 'trivia' | 'standings'
@@ -480,7 +482,7 @@ const INITIAL_EVENTS = [
     title: 'Spieltag 7 (Überraschungs-Event)',
     organizerId: 7, // Gabi
     date: '2026-10-09',
-    time: '18:00 Uhr',
+    time: '16:00 Uhr',
     location: 'Wird von Gabi bekannt gegeben',
     description: 'Der vorletzte Spieltag der Saison 2026! Tobi und Sven haben noch ihren Joker im Ärmel – wer greift nach der Krone oder wendet das Wintergrillen ab?',
     packingList: ['Gute Laune', 'Details folgen'],
@@ -631,7 +633,7 @@ function toDbEvent(e) {
   const packingPayload = {
     items: Array.isArray(e.packingList) ? e.packingList : [],
     rsvps: (e.rsvps && typeof e.rsvps === 'object') ? e.rsvps : {},
-    timbersportsQuiz: e.timbersportsQuiz || null
+    timbersportsQuiz: null
   };
 
   return {
@@ -1596,7 +1598,7 @@ class DataStore {
         if (timbersportsRes && timbersportsRes.data && timbersportsRes.data.scores) {
           const evt8 = this.getEvent(8);
           if (evt8) {
-            evt8.timbersportsQuiz = timbersportsRes.data.scores;
+            evt8.timbersportsQuiz = this.mergeTimbersportsQuizzes(evt8.timbersportsQuiz, timbersportsRes.data.scores);
             this._lastTimbersportsRemoteTime = timbersportsRes.data.updated_at;
           }
         }
@@ -1800,144 +1802,193 @@ class DataStore {
     }
   }
 
+  bumpAdminRev(quiz) {
+    if (!quiz) return;
+    quiz.adminRev = Math.max(Date.now(), (Number(quiz.adminRev) || 0) + 1);
+  }
+
+  bumpMemberRev(quiz, memberId) {
+    if (!quiz) return;
+    if (!quiz.memberRev) quiz.memberRev = {};
+    const key = String(memberId);
+    quiz.memberRev[key] = Math.max(Date.now(), (Number(quiz.memberRev[key]) || 0) + 1);
+  }
+
   mergeTimbersportsQuizzes(baseQuiz, incomingQuiz) {
     if (!baseQuiz) return incomingQuiz ? JSON.parse(JSON.stringify(incomingQuiz)) : null;
     if (!incomingQuiz) return JSON.parse(JSON.stringify(baseQuiz));
 
-    const result = JSON.parse(JSON.stringify(baseQuiz));
+    const baseRev = Number(baseQuiz.adminRev) || 0;
+    const incRev = Number(incomingQuiz.adminRev) || 0;
+    const incomingWinsAdmin = incRev > baseRev;
 
-    // 1. Top-level flags
-    if (incomingQuiz.activeSubTab !== undefined) result.activeSubTab = incomingQuiz.activeSubTab;
-    if (incomingQuiz.isUnlockedForAll !== undefined) result.isUnlockedForAll = Boolean(baseQuiz.isUnlockedForAll || incomingQuiz.isUnlockedForAll);
-    if (incomingQuiz.isArchived !== undefined) result.isArchived = Boolean(incomingQuiz.isArchived);
+    // Start with a clone of whichever has higher admin authority
+    const adminSource = incomingWinsAdmin ? incomingQuiz : baseQuiz;
+    const result = JSON.parse(JSON.stringify(adminSource));
 
-    // 2. Beer Tasting
-    if (incomingQuiz.beerTasting) {
-      if (!result.beerTasting) result.beerTasting = {};
-      const btBase = result.beerTasting;
-      const btInc = incomingQuiz.beerTasting;
+    // Consolidate revisions
+    result.adminRev = Math.max(baseRev, incRev);
+    result.memberRev = { ...(baseQuiz.memberRev || {}), ...(incomingQuiz.memberRev || {}) };
 
-      if (btInc.beerPool && Array.isArray(btInc.beerPool) && btInc.beerPool.length > 0) {
-        btBase.beerPool = btInc.beerPool;
-      }
-      if (btInc.activeBeerIndex !== undefined) {
-        btBase.activeBeerIndex = btInc.activeBeerIndex;
-      }
+    // 1. Beer Tasting - Deep Merge Player Guesses & Jokers
+    if (!result.beerTasting) result.beerTasting = {};
+    if (!result.beerTasting.guesses) result.beerTasting.guesses = {};
+    if (!result.beerTasting.jokers) result.beerTasting.jokers = {};
 
-      // Solutions (Admin) - merge element by element
-      if (Array.isArray(btInc.solutions)) {
-        if (!Array.isArray(btBase.solutions)) btBase.solutions = Array(25).fill(null);
-        btInc.solutions.forEach((sol, i) => {
-          if (sol !== null && sol !== undefined) btBase.solutions[i] = sol;
-        });
-      }
+    const baseBt = baseQuiz.beerTasting || {};
+    const incBt = incomingQuiz.beerTasting || {};
 
-      // Locked beers (Admin / Timer)
-      if (Array.isArray(btInc.lockedBeers)) {
-        if (!Array.isArray(btBase.lockedBeers)) btBase.lockedBeers = Array(25).fill(false);
-        btInc.lockedBeers.forEach((lck, i) => {
-          if (lck) btBase.lockedBeers[i] = true;
-        });
-      }
+    const allMemberIds = new Set([
+      ...Object.keys(baseBt.guesses || {}),
+      ...Object.keys(incBt.guesses || {}),
+      ...Object.keys(baseBt.jokers || {}),
+      ...Object.keys(incBt.jokers || {}),
+      ...Object.keys(baseQuiz.memberRev || {}),
+      ...Object.keys(incomingQuiz.memberRev || {})
+    ]);
 
-      // Stage reveals
-      if (btInc.stage1Revealed !== undefined) btBase.stage1Revealed = Boolean(btInc.stage1Revealed);
-      if (btInc.stage2Revealed !== undefined) btBase.stage2Revealed = Boolean(btInc.stage2Revealed);
-      if (btInc.stage3Revealed !== undefined) btBase.stage3Revealed = Boolean(btInc.stage3Revealed);
+    allMemberIds.forEach(mId => {
+      const bMRev = (baseQuiz.memberRev && Number(baseQuiz.memberRev[mId])) || 0;
+      const iMRev = (incomingQuiz.memberRev && Number(incomingQuiz.memberRev[mId])) || 0;
 
-      // Countdown - latest timestamp wins
-      if (btInc.countdown) {
-        const baseEnds = btBase.countdown ? (btBase.countdown.endsAt || 0) : 0;
-        const incEnds = btInc.countdown.endsAt || 0;
-        if (incEnds >= baseEnds) {
-          btBase.countdown = btInc.countdown;
+      if (iMRev > bMRev) {
+        // Incoming player data is newer
+        if (incBt.guesses && incBt.guesses[mId]) {
+          result.beerTasting.guesses[mId] = JSON.parse(JSON.stringify(incBt.guesses[mId]));
         }
-      } else if (btInc.countdown === null) {
-        // Countdown stopped or reset
-        btBase.countdown = null;
-      }
-
-      // Jokers - merge per member
-      if (btInc.jokers) {
-        if (!btBase.jokers) btBase.jokers = {};
-        Object.assign(btBase.jokers, btInc.jokers);
-      }
-
-      // GUESSES - CRUCIAL DEEP MERGE per member and per beerIndex!
-      if (btInc.guesses) {
-        if (!btBase.guesses) btBase.guesses = {};
-        Object.keys(btInc.guesses).forEach(memberId => {
-          if (!btBase.guesses[memberId]) btBase.guesses[memberId] = {};
-          Object.assign(btBase.guesses[memberId], btInc.guesses[memberId]);
-        });
-      }
-    }
-
-    // 3. Saw Contest
-    if (incomingQuiz.sawContest) {
-      if (!result.sawContest) result.sawContest = {};
-      const sawBase = result.sawContest;
-      const sawInc = incomingQuiz.sawContest;
-
-      if (sawInc.targetWeight) sawBase.targetWeight = sawInc.targetWeight;
-      if (sawInc.revealed !== undefined) sawBase.revealed = Boolean(sawInc.revealed);
-
-      // Jokers
-      if (sawInc.jokers) {
-        if (!sawBase.jokers) sawBase.jokers = {};
-        Object.assign(sawBase.jokers, sawInc.jokers);
-      }
-
-      // Entries (cuts) - merge per member
-      if (sawInc.entries) {
-        if (!sawBase.entries) sawBase.entries = {};
-        Object.keys(sawInc.entries).forEach(memberId => {
-          if (!sawBase.entries[memberId]) sawBase.entries[memberId] = {};
-          const incEntry = sawInc.entries[memberId];
-          if (incEntry.cut1 !== null && incEntry.cut1 !== undefined) sawBase.entries[memberId].cut1 = incEntry.cut1;
-          if (incEntry.cut2 !== null && incEntry.cut2 !== undefined) sawBase.entries[memberId].cut2 = incEntry.cut2;
-        });
-      }
-    }
-
-    // 4. Trivia
-    if (incomingQuiz.trivia) {
-      if (!result.trivia) result.trivia = {};
-      const trBase = result.trivia;
-      const trInc = incomingQuiz.trivia;
-
-      if (trInc.questions && Array.isArray(trInc.questions) && trInc.questions.length > 0) {
-        trBase.questions = trInc.questions;
-      }
-      if (trInc.activeQuestionId) trBase.activeQuestionId = trInc.activeQuestionId;
-      if (trInc.revealed !== undefined) trBase.revealed = Boolean(trInc.revealed);
-      if (trInc.isFrozen !== undefined) trBase.isFrozen = Boolean(trInc.isFrozen);
-
-      if (trInc.countdown) {
-        const baseEnds = trBase.countdown ? (trBase.countdown.endsAt || 0) : 0;
-        const incEnds = trInc.countdown.endsAt || 0;
-        if (incEnds >= baseEnds) {
-          trBase.countdown = trInc.countdown;
+        if (incBt.jokers && incBt.jokers[mId] !== undefined) {
+          result.beerTasting.jokers[mId] = incBt.jokers[mId];
+        } else {
+          delete result.beerTasting.jokers[mId];
         }
-      } else if (trInc.countdown === null) {
-        trBase.countdown = null;
+      } else if (bMRev > iMRev) {
+        // Base player data is newer
+        if (baseBt.guesses && baseBt.guesses[mId]) {
+          result.beerTasting.guesses[mId] = JSON.parse(JSON.stringify(baseBt.guesses[mId]));
+        }
+        if (baseBt.jokers && baseBt.jokers[mId] !== undefined) {
+          result.beerTasting.jokers[mId] = baseBt.jokers[mId];
+        } else {
+          delete result.beerTasting.jokers[mId];
+        }
+      } else {
+        // Equal / legacy: union merge
+        if (!result.beerTasting.guesses[mId]) result.beerTasting.guesses[mId] = {};
+        if (baseBt.guesses && baseBt.guesses[mId]) {
+          Object.assign(result.beerTasting.guesses[mId], baseBt.guesses[mId]);
+        }
+        if (incBt.guesses && incBt.guesses[mId]) {
+          Object.assign(result.beerTasting.guesses[mId], incBt.guesses[mId]);
+        }
+        if (incBt.jokers && incBt.jokers[mId] !== undefined) {
+          result.beerTasting.jokers[mId] = incBt.jokers[mId];
+        } else if (baseBt.jokers && baseBt.jokers[mId] !== undefined) {
+          result.beerTasting.jokers[mId] = baseBt.jokers[mId];
+        }
       }
+    });
 
-      // Jokers
-      if (trInc.jokers) {
-        if (!trBase.jokers) trBase.jokers = {};
-        Object.assign(trBase.jokers, trInc.jokers);
+    // 2. Saw Contest - Player Jokers Merge
+    if (!result.sawContest) result.sawContest = {};
+    if (!result.sawContest.jokers) result.sawContest.jokers = {};
+    const baseSaw = baseQuiz.sawContest || {};
+    const incSaw = incomingQuiz.sawContest || {};
+
+    const sawMemberIds = new Set([
+      ...Object.keys(baseSaw.jokers || {}),
+      ...Object.keys(incSaw.jokers || {}),
+      ...allMemberIds
+    ]);
+
+    sawMemberIds.forEach(mId => {
+      const bMRev = (baseQuiz.memberRev && Number(baseQuiz.memberRev[mId])) || 0;
+      const iMRev = (incomingQuiz.memberRev && Number(incomingQuiz.memberRev[mId])) || 0;
+
+      if (iMRev > bMRev) {
+        if (incSaw.jokers && incSaw.jokers[mId] !== undefined) {
+          result.sawContest.jokers[mId] = Boolean(incSaw.jokers[mId]);
+        } else {
+          delete result.sawContest.jokers[mId];
+        }
+      } else if (bMRev > iMRev) {
+        if (baseSaw.jokers && baseSaw.jokers[mId] !== undefined) {
+          result.sawContest.jokers[mId] = Boolean(baseSaw.jokers[mId]);
+        } else {
+          delete result.sawContest.jokers[mId];
+        }
+      } else {
+        if (incSaw.jokers && incSaw.jokers[mId] !== undefined) {
+          result.sawContest.jokers[mId] = Boolean(incSaw.jokers[mId]);
+        } else if (baseSaw.jokers && baseSaw.jokers[mId] !== undefined) {
+          result.sawContest.jokers[mId] = Boolean(baseSaw.jokers[mId]);
+        }
       }
+    });
 
-      // Answers - CRUCIAL DEEP MERGE per questionId and per memberId!
-      if (trInc.answers) {
-        if (!trBase.answers) trBase.answers = {};
-        Object.keys(trInc.answers).forEach(qId => {
-          if (!trBase.answers[qId]) trBase.answers[qId] = {};
-          Object.assign(trBase.answers[qId], trInc.answers[qId]);
+    // 3. Trivia - Player Answers & Jokers Merge
+    if (!result.trivia) result.trivia = {};
+    if (!result.trivia.answers) result.trivia.answers = {};
+    if (!result.trivia.jokers) result.trivia.jokers = {};
+    const baseTr = baseQuiz.trivia || {};
+    const incTr = incomingQuiz.trivia || {};
+
+    const triviaMemberIds = new Set([
+      ...Object.keys(baseTr.jokers || {}),
+      ...Object.keys(incTr.jokers || {}),
+      ...allMemberIds
+    ]);
+
+    triviaMemberIds.forEach(mId => {
+      const bMRev = (baseQuiz.memberRev && Number(baseQuiz.memberRev[mId])) || 0;
+      const iMRev = (incomingQuiz.memberRev && Number(incomingQuiz.memberRev[mId])) || 0;
+
+      if (iMRev > bMRev) {
+        if (incTr.jokers && incTr.jokers[mId] !== undefined) {
+          result.trivia.jokers[mId] = incTr.jokers[mId];
+        } else {
+          delete result.trivia.jokers[mId];
+        }
+        (result.trivia.questions || []).forEach(q => {
+          if (!result.trivia.answers[q.id]) result.trivia.answers[q.id] = {};
+          if (incTr.answers && incTr.answers[q.id] && incTr.answers[q.id][mId] !== undefined) {
+            result.trivia.answers[q.id][mId] = incTr.answers[q.id][mId];
+          } else if (baseTr.answers && baseTr.answers[q.id] && baseTr.answers[q.id][mId] !== undefined) {
+            result.trivia.answers[q.id][mId] = baseTr.answers[q.id][mId];
+          }
+        });
+      } else if (bMRev > iMRev) {
+        if (baseTr.jokers && baseTr.jokers[mId] !== undefined) {
+          result.trivia.jokers[mId] = baseTr.jokers[mId];
+        } else {
+          delete result.trivia.jokers[mId];
+        }
+        (result.trivia.questions || []).forEach(q => {
+          if (!result.trivia.answers[q.id]) result.trivia.answers[q.id] = {};
+          if (baseTr.answers && baseTr.answers[q.id] && baseTr.answers[q.id][mId] !== undefined) {
+            result.trivia.answers[q.id][mId] = baseTr.answers[q.id][mId];
+          }
+        });
+      } else {
+        if (incTr.jokers && incTr.jokers[mId] !== undefined) {
+          result.trivia.jokers[mId] = incTr.jokers[mId];
+        } else if (baseTr.jokers && baseTr.jokers[mId] !== undefined) {
+          result.trivia.jokers[mId] = baseTr.jokers[mId];
+        }
+        const allQIds = new Set([
+          ...Object.keys(baseTr.answers || {}),
+          ...Object.keys(incTr.answers || {})
+        ]);
+        allQIds.forEach(qId => {
+          if (!result.trivia.answers[qId]) result.trivia.answers[qId] = {};
+          if (baseTr.answers && baseTr.answers[qId] && baseTr.answers[qId][mId] !== undefined) {
+            result.trivia.answers[qId][mId] = baseTr.answers[qId][mId];
+          }
+          if (incTr.answers && incTr.answers[qId] && incTr.answers[qId][mId] !== undefined) {
+            result.trivia.answers[qId][mId] = incTr.answers[qId][mId];
+          }
         });
       }
-    }
+    });
 
     return result;
   }
@@ -1950,6 +2001,17 @@ class DataStore {
     // Deep merge incoming remote quiz with local state to preserve un-synced user guesses
     evt8.timbersportsQuiz = this.mergeTimbersportsQuizzes(evt8.timbersportsQuiz, remoteQuiz);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
+
+    // Anti-entropy self-heal: If local current player has a newer local revision than remote, re-push
+    const curUser = this.getCurrentUserId();
+    if (curUser && curUser !== 'admin') {
+      const curKey = String(curUser);
+      const localMRev = (evt8.timbersportsQuiz.memberRev && Number(evt8.timbersportsQuiz.memberRev[curKey])) || 0;
+      const remoteMRev = (remoteQuiz.memberRev && Number(remoteQuiz.memberRev[curKey])) || 0;
+      if (localMRev > remoteMRev) {
+        this.pushTimbersportsToCloud(evt8.timbersportsQuiz);
+      }
+    }
 
     if (typeof window.fdsRefreshUI === 'function') {
       window.fdsRefreshUI();
@@ -2163,13 +2225,6 @@ class DataStore {
       if (!evt8.timbersportsQuiz.beerTasting.jokers) {
         evt8.timbersportsQuiz.beerTasting.jokers = {};
       }
-      const cd = evt8.timbersportsQuiz.beerTasting.countdown;
-      if (cd && cd.activeBeerIndex !== undefined && cd.endsAt && Date.now() >= cd.endsAt) {
-        if (!evt8.timbersportsQuiz.beerTasting.lockedBeers[cd.activeBeerIndex]) {
-          evt8.timbersportsQuiz.beerTasting.lockedBeers[cd.activeBeerIndex] = true;
-          this.save(evt8);
-        }
-      }
     }
     if (evt8.timbersportsQuiz.sawContest) {
       if (!evt8.timbersportsQuiz.sawContest.jokers) {
@@ -2193,14 +2248,6 @@ class DataStore {
           }
         });
       }
-      const cd = tr.countdown;
-      if (cd && cd.activeQuestionId !== undefined && cd.endsAt && Date.now() >= cd.endsAt) {
-        const q = tr.questions && tr.questions.find(x => x.id === cd.activeQuestionId);
-        if (q && !q.isFrozen) {
-          q.isFrozen = true;
-          this.save(evt8);
-        }
-      }
     }
     return evt8.timbersportsQuiz;
   }
@@ -2223,13 +2270,19 @@ class DataStore {
   isTimbersportsTabVisible() {
     const currentUserId = this.getCurrentUserId();
     if (!currentUserId) return false;
-    if (this.isAdmin()) return true;
-    if (Number(currentUserId) === 6) return true; // Tim
+    if (this.isAdmin()) return true; // Admin retains access to manage / restore tab
+
     const quiz = this.getTimbersportsQuiz();
-    if (quiz && quiz.isUnlockedForAll && !quiz.isArchived) {
-      return true;
-    }
-    return false;
+    if (!quiz) return false;
+
+    // Archiviert: Niemand sieht es, auch Tim nicht!
+    if (quiz.isArchived) return false;
+
+    // Freigeschaltet: Alle 8 Freunde sehen es
+    if (quiz.isUnlockedForAll) return true;
+
+    // Geheimmodus aktiv: NUR Tim (id 6) sieht es!
+    return Number(currentUserId) === 6;
   }
 
   canManageTimbersports() {
@@ -2240,6 +2293,7 @@ class DataStore {
     if (!this.canManageTimbersports()) return false;
     const quiz = this.getTimbersportsQuiz();
     quiz.isUnlockedForAll = Boolean(unlocked);
+    this.bumpAdminRev(quiz);
     this.saveTimbersportsQuiz(quiz);
     return true;
   }
@@ -2248,20 +2302,25 @@ class DataStore {
     if (!this.canManageTimbersports()) return false;
     const quiz = this.getTimbersportsQuiz();
     quiz.isArchived = Boolean(archived);
+    this.bumpAdminRev(quiz);
     this.saveTimbersportsQuiz(quiz);
     return true;
   }
 
   setTimbersportsSubTab(subTab) {
+    if (!this.canManageTimbersports()) return false;
     const quiz = this.getTimbersportsQuiz();
     quiz.activeSubTab = subTab;
+    this.bumpAdminRev(quiz);
     this.saveTimbersportsQuiz(quiz);
     return true;
   }
 
   setBeerTastingActiveBeer(index) {
+    if (!this.canManageTimbersports()) return false;
     const quiz = this.getTimbersportsQuiz();
     quiz.beerTasting.activeBeerIndex = Number(index);
+    this.bumpAdminRev(quiz);
     this.saveTimbersportsQuiz(quiz);
     return true;
   }
@@ -2293,6 +2352,7 @@ class DataStore {
       quiz.beerTasting.lockedBeers = Array(25).fill(false);
     }
     quiz.beerTasting.lockedBeers[Number(beerIndex)] = Boolean(isLocked);
+    this.bumpAdminRev(quiz);
     this.saveTimbersportsQuiz(quiz);
     return true;
   }
@@ -2322,9 +2382,6 @@ class DataStore {
     if (cd && cd.activeBeerIndex === idx) {
       const now = Date.now();
       if (cd.isRunning && cd.endsAt && now > cd.endsAt) {
-        if (!Array.isArray(quiz.beerTasting.lockedBeers)) quiz.beerTasting.lockedBeers = Array(25).fill(false);
-        quiz.beerTasting.lockedBeers[idx] = true;
-        this.saveTimbersportsQuiz(quiz);
         return { success: false, message: `Zeit abgelaufen! Bier #${idx + 1} ist jetzt eingefroren.` };
       }
       if (!cd.isRunning && cd.endsAt && now >= cd.endsAt) {
@@ -2351,6 +2408,7 @@ class DataStore {
     if (mIdStr !== String(memberId) || !quiz.beerTasting.guesses[mIdStr]) {
       quiz.beerTasting.guesses[mIdStr] = quiz.beerTasting.guesses[memberId];
     }
+    this.bumpMemberRev(quiz, memberId);
     this.saveTimbersportsQuiz(quiz);
     return { success: true };
   }
@@ -2384,6 +2442,7 @@ class DataStore {
       endsAt: now + (dur * 1000),
       isRunning: true
     };
+    this.bumpAdminRev(quiz);
     this.saveTimbersportsQuiz(quiz);
     return true;
   }
@@ -2401,6 +2460,7 @@ class DataStore {
       if (activeIdx !== undefined && activeIdx !== null) {
         quiz.beerTasting.lockedBeers[activeIdx] = true;
       }
+      this.bumpAdminRev(quiz);
       this.saveTimbersportsQuiz(quiz);
     }
     return true;
@@ -2415,6 +2475,12 @@ class DataStore {
       quiz.beerTasting.countdown.endsAt = currentEnds + (extraSeconds * 1000);
       quiz.beerTasting.countdown.durationSeconds = (quiz.beerTasting.countdown.durationSeconds || 60) + extraSeconds;
       quiz.beerTasting.countdown.isRunning = true;
+      // Unfreeze active beer if it was auto-locked by expiry
+      const aIdx = quiz.beerTasting.countdown.activeBeerIndex;
+      if (aIdx !== undefined && Array.isArray(quiz.beerTasting.lockedBeers)) {
+        quiz.beerTasting.lockedBeers[aIdx] = false;
+      }
+      this.bumpAdminRev(quiz);
       this.saveTimbersportsQuiz(quiz);
     }
     return true;
@@ -2431,6 +2497,7 @@ class DataStore {
       quiz.beerTasting.lockedBeers[targetIdx] = false;
     }
     quiz.beerTasting.countdown = null;
+    this.bumpAdminRev(quiz);
     this.saveTimbersportsQuiz(quiz);
     return true;
   }
@@ -2442,6 +2509,7 @@ class DataStore {
       quiz.beerTasting.solutions = Array(25).fill(null);
     }
     quiz.beerTasting.solutions[beerIndex] = beerName || null;
+    this.bumpAdminRev(quiz);
     this.saveTimbersportsQuiz(quiz);
     return true;
   }
@@ -2464,6 +2532,7 @@ class DataStore {
       }
     }
 
+    this.bumpAdminRev(quiz);
     this.saveTimbersportsQuiz(quiz);
     return true;
   }
@@ -2472,6 +2541,7 @@ class DataStore {
     if (!this.canManageTimbersports()) return false;
     const quiz = this.getTimbersportsQuiz();
     quiz.beerTasting.beerPool = newPool;
+    this.bumpAdminRev(quiz);
     this.saveTimbersportsQuiz(quiz);
     return true;
   }
@@ -2480,6 +2550,7 @@ class DataStore {
     if (!this.canManageTimbersports()) return false;
     const quiz = this.getTimbersportsQuiz();
     quiz.beerTasting.beerPool = JSON.parse(JSON.stringify(DEFAULT_TIMBERSPORTS_QUIZ.beerTasting.beerPool));
+    this.bumpAdminRev(quiz);
     this.saveTimbersportsQuiz(quiz);
     return true;
   }
@@ -2492,6 +2563,7 @@ class DataStore {
       cut1: (cut1 !== '' && cut1 !== null && cut1 !== undefined) ? Number(cut1) : null,
       cut2: (cut2 !== '' && cut2 !== null && cut2 !== undefined) ? Number(cut2) : null
     };
+    this.bumpAdminRev(quiz);
     this.saveTimbersportsQuiz(quiz);
     return true;
   }
@@ -2506,6 +2578,7 @@ class DataStore {
         cut2: (cuts.cut2 !== '' && cuts.cut2 !== null && cuts.cut2 !== undefined) ? Number(cuts.cut2) : null
       };
     });
+    this.bumpAdminRev(quiz);
     this.saveTimbersportsQuiz(quiz);
     return true;
   }
@@ -2514,6 +2587,7 @@ class DataStore {
     if (!this.canManageTimbersports()) return false;
     const quiz = this.getTimbersportsQuiz();
     quiz.sawContest.revealed = Boolean(revealed);
+    this.bumpAdminRev(quiz);
     this.saveTimbersportsQuiz(quiz);
     return true;
   }
@@ -2534,8 +2608,6 @@ class DataStore {
     if (cd && cd.activeQuestionId === qId) {
       const now = Date.now();
       if (cd.isRunning && cd.endsAt && now > cd.endsAt) {
-        q.isFrozen = true;
-        this.saveTimbersportsQuiz(quiz);
         return { success: false, message: 'Zeit abgelaufen! Antworten sind für diese Frage gesperrt.' };
       }
       if (!cd.isRunning && cd.endsAt && now >= cd.endsAt) {
@@ -2546,13 +2618,16 @@ class DataStore {
     if (!quiz.trivia.answers) quiz.trivia.answers = {};
     if (!quiz.trivia.answers[qId]) quiz.trivia.answers[qId] = {};
     quiz.trivia.answers[qId][memberId] = answer;
+    this.bumpMemberRev(quiz, memberId);
     this.saveTimbersportsQuiz(quiz);
     return { success: true };
   }
 
   setTriviaActiveQuestion(questionId) {
+    if (!this.canManageTimbersports()) return false;
     const quiz = this.getTimbersportsQuiz();
     quiz.trivia.activeQuestionId = Number(questionId);
+    this.bumpAdminRev(quiz);
     this.saveTimbersportsQuiz(quiz);
     return true;
   }
@@ -2584,6 +2659,7 @@ class DataStore {
       endsAt: now + (dur * 1000),
       isRunning: true
     };
+    this.bumpAdminRev(quiz);
     this.saveTimbersportsQuiz(quiz);
     return true;
   }
@@ -2597,6 +2673,7 @@ class DataStore {
       quiz.trivia.countdown.endsAt = Date.now();
       const q = quiz.trivia.questions.find(x => x.id === activeQId);
       if (q) q.isFrozen = true;
+      this.bumpAdminRev(quiz);
       this.saveTimbersportsQuiz(quiz);
     }
     return true;
@@ -2611,6 +2688,11 @@ class DataStore {
       quiz.trivia.countdown.endsAt = currentEnds + (extraSeconds * 1000);
       quiz.trivia.countdown.durationSeconds = (quiz.trivia.countdown.durationSeconds || 30) + extraSeconds;
       quiz.trivia.countdown.isRunning = true;
+      // Unfreeze question if expired
+      const aQId = quiz.trivia.countdown.activeQuestionId;
+      const q = quiz.trivia.questions && quiz.trivia.questions.find(x => x.id === aQId);
+      if (q) q.isFrozen = false;
+      this.bumpAdminRev(quiz);
       this.saveTimbersportsQuiz(quiz);
     }
     return true;
@@ -2623,6 +2705,7 @@ class DataStore {
     const q = quiz.trivia.questions.find(x => x.id === targetQId);
     if (q) q.isFrozen = false;
     quiz.trivia.countdown = null;
+    this.bumpAdminRev(quiz);
     this.saveTimbersportsQuiz(quiz);
     return true;
   }
@@ -2631,6 +2714,7 @@ class DataStore {
     if (!this.canManageTimbersports()) return false;
     const quiz = this.getTimbersportsQuiz();
     quiz.trivia.revealed = Boolean(isRevealed);
+    this.bumpAdminRev(quiz);
     this.saveTimbersportsQuiz(quiz);
     return true;
   }
@@ -2641,6 +2725,7 @@ class DataStore {
     const q = quiz.trivia.questions.find(x => x.id === Number(questionId));
     if (!q) return false;
     q.isFrozen = Boolean(isFrozen);
+    this.bumpAdminRev(quiz);
     this.saveTimbersportsQuiz(quiz);
     return true;
   }
@@ -2653,6 +2738,7 @@ class DataStore {
     (quiz.trivia.questions || []).forEach(q => {
       q.isFrozen = Boolean(isFrozen);
     });
+    this.bumpAdminRev(quiz);
     this.saveTimbersportsQuiz(quiz);
     return true;
   }
@@ -2667,6 +2753,7 @@ class DataStore {
       q.isFrozen = true;
     }
     if (correctAnswer) q.correctAnswer = correctAnswer;
+    this.bumpAdminRev(quiz);
     this.saveTimbersportsQuiz(quiz);
     return true;
   }
@@ -2683,6 +2770,7 @@ class DataStore {
       isFrozen: false,
       isResolved: false
     });
+    this.bumpAdminRev(quiz);
     this.saveTimbersportsQuiz(quiz);
     return true;
   }
@@ -2691,6 +2779,7 @@ class DataStore {
     if (!this.canManageTimbersports()) return false;
     const quiz = this.getTimbersportsQuiz();
     quiz.trivia.questions = quiz.trivia.questions.filter(q => q.id !== Number(questionId));
+    this.bumpAdminRev(quiz);
     this.saveTimbersportsQuiz(quiz);
     return true;
   }
@@ -2708,11 +2797,13 @@ class DataStore {
     if (currentJoker === bIdx) {
       delete quiz.beerTasting.jokers[memberId];
       delete quiz.beerTasting.jokers[mIdStr];
+      this.bumpMemberRev(quiz, memberId);
       this.saveTimbersportsQuiz(quiz);
       return { success: true, active: false, message: 'Goldener Kronkorken entfernt.' };
     }
     quiz.beerTasting.jokers[memberId] = bIdx;
     quiz.beerTasting.jokers[mIdStr] = bIdx;
+    this.bumpMemberRev(quiz, memberId);
     this.saveTimbersportsQuiz(quiz);
     return { success: true, active: true, message: `Goldener Kronkorken auf Bier #${bIdx + 1} gesetzt! 👑` };
   }
@@ -2730,10 +2821,12 @@ class DataStore {
     const currentJoker = quiz.trivia.jokers[memberId];
     if (currentJoker === qId) {
       delete quiz.trivia.jokers[memberId];
+      this.bumpMemberRev(quiz, memberId);
       this.saveTimbersportsQuiz(quiz);
       return { success: true, active: false, message: 'Holzfäller-Joker entfernt.' };
     }
     quiz.trivia.jokers[memberId] = qId;
+    this.bumpMemberRev(quiz, memberId);
     this.saveTimbersportsQuiz(quiz);
     return { success: true, active: true, message: `Holzfäller-Joker auf Frage #${qId} gesetzt! 🃏` };
   }
@@ -2753,6 +2846,7 @@ class DataStore {
     } else {
       quiz.sawContest.jokers[memberId] = Boolean(active);
     }
+    this.bumpMemberRev(quiz, memberId);
     this.saveTimbersportsQuiz(quiz);
     return { success: true, active: quiz.sawContest.jokers[memberId], message: 'Bullseye-Joker aktualisiert! 🎯' };
   }

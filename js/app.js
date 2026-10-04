@@ -4395,19 +4395,21 @@ document.addEventListener('DOMContentLoaded', () => {
     if (adminStatusBar) {
       if (canManage) {
         adminStatusBar.style.display = 'flex';
-        if (quiz.isUnlockedForAll) {
+        if (quiz.isArchived) {
+          statusDot.className = 'ts-status-dot';
+          statusText.textContent = '📦 Archiviert: Tab für niemanden sichtbar (auch Tim nicht)';
+        } else if (quiz.isUnlockedForAll) {
           statusDot.className = 'ts-status-dot live';
           statusText.textContent = '🌍 Live: Für alle 8 Freunde freigeschaltet';
-          btnUnlock.innerHTML = '<span>🔒</span> In Geheim-Modus versetzen';
-          btnUnlock.classList.remove('btn-secondary');
-          btnUnlock.classList.add('btn-primary');
         } else {
           statusDot.className = 'ts-status-dot';
           statusText.textContent = '🔒 Geheim-Modus: Nur für Tim & Admin sichtbar';
-          btnUnlock.innerHTML = '<span>🔓</span> Für alle Freunde freischalten';
-          btnUnlock.classList.remove('btn-primary');
-          btnUnlock.classList.add('btn-secondary');
         }
+
+        btnUnlock.innerHTML = quiz.isUnlockedForAll 
+          ? '<span>🔒</span> In Geheim-Modus versetzen' 
+          : '<span>🔓</span> Für alle Freunde freischalten';
+        btnUnlock.className = quiz.isUnlockedForAll ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-secondary';
 
         btnArchive.innerHTML = quiz.isArchived 
           ? '<span>📦</span> Tab archiviert (wieder einblenden)' 
@@ -4707,23 +4709,27 @@ document.addEventListener('DOMContentLoaded', () => {
               window._tsBeerTimerInterval = null;
               fdsAudio.playBuzzer();
               triggerHaptic('warning');
-              store.setBeerLocked(activeIdx, true);
+              if (canManage) {
+                store.setBeerLocked(activeIdx, true);
 
-              // Auto-advance logic:
-              if (activeIdx === 9) {
-                // End of Etappe 1: Halt and wait for Admin to reveal Etappe 1
-                showToast(`Etappe 1 beendet! Warten auf Auswertung durch den Spielleiter. 🏁`, '⏳');
-              } else if (activeIdx === 19) {
-                // End of Etappe 2: Halt and wait for Admin to reveal Etappe 2
-                showToast(`Etappe 2 beendet! Warten auf Auswertung durch den Spielleiter. 🏁`, '⏳');
-              } else if (activeIdx >= 24) {
-                // Tasting completely finished
-                showToast(`Biertasting komplett abgeschlossen! 🏆`, '🎉');
+                // Auto-advance logic for Admin only:
+                if (activeIdx === 9) {
+                  // End of Etappe 1: Halt and wait for Admin to reveal Etappe 1
+                  showToast(`Etappe 1 beendet! Warten auf Auswertung durch den Spielleiter. 🏁`, '⏳');
+                } else if (activeIdx === 19) {
+                  // End of Etappe 2: Halt and wait for Admin to reveal Etappe 2
+                  showToast(`Etappe 2 beendet! Warten auf Auswertung durch den Spielleiter. 🏁`, '⏳');
+                } else if (activeIdx >= 24) {
+                  // Tasting completely finished
+                  showToast(`Biertasting komplett abgeschlossen! 🏆`, '🎉');
+                } else {
+                  // Auto-advance to next beer
+                  const nextBeer = activeIdx + 1;
+                  showToast(`Zeit abgelaufen für Bier #${activeIdx + 1}! Weiter zu Bier #${nextBeer + 1} ➔`, '⏱️');
+                  store.setBeerTastingActiveBeer(nextBeer);
+                }
               } else {
-                // Auto-advance to next beer
-                const nextBeer = activeIdx + 1;
-                showToast(`Zeit abgelaufen für Bier #${activeIdx + 1}! Weiter zu Bier #${nextBeer + 1} ➔`, '⏱️');
-                store.setBeerTastingActiveBeer(nextBeer);
+                showToast(`Zeit abgelaufen für Bier #${activeIdx + 1}!`, '⏱️');
               }
               renderTimbersports();
             }
@@ -5884,29 +5890,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const tableContainer = document.getElementById('ts-saw-admin-table');
         if (tableContainer) {
-          tableContainer.innerHTML = members.map(m => {
-            const entry = (saw.entries && saw.entries[m.id]) || {};
-            const c1 = entry.cut1 !== null && entry.cut1 !== undefined ? entry.cut1 : '';
-            const c2 = entry.cut2 !== null && entry.cut2 !== undefined ? entry.cut2 : '';
-            const isJoker = Boolean(saw.jokers && saw.jokers[m.id]);
-            const jokerBadge = isJoker ? ' <span class="ts-joker-badge active" style="font-size:0.65rem; padding: 1px 6px;">🎯 Joker</span>' : '';
+          const isUserTyping = tableContainer.contains(document.activeElement);
+          if (!isUserTyping) {
+            tableContainer.innerHTML = members.map(m => {
+              const entry = (saw.entries && saw.entries[m.id]) || {};
+              const c1 = entry.cut1 !== null && entry.cut1 !== undefined ? entry.cut1 : '';
+              const c2 = entry.cut2 !== null && entry.cut2 !== undefined ? entry.cut2 : '';
+              const isJoker = Boolean(saw.jokers && saw.jokers[m.id]);
+              const jokerBadge = isJoker ? ' <span class="ts-joker-badge active" style="font-size:0.65rem; padding: 1px 6px;">🎯 Joker</span>' : '';
 
-            return `
-              <div class="ts-saw-admin-row">
-                <div style="display: flex; align-items: center; gap: 6px;">
-                  <span class="avatar-sm">${renderAvatar(m.avatar)}</span>
-                  <span style="font-weight: 700; font-size: 0.8rem;">${m.name}</span>
-                  ${jokerBadge}
+              return `
+                <div class="ts-saw-admin-row">
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <span class="avatar-sm">${renderAvatar(m.avatar)}</span>
+                    <span style="font-weight: 700; font-size: 0.8rem;">${m.name}</span>
+                    ${jokerBadge}
+                  </div>
+                  <div>
+                    <input type="number" class="form-input saw-input-c1" data-member-id="${m.id}" value="${c1}" placeholder="S1 (g)" style="padding: 6px 8px; font-size: 0.78rem;">
+                  </div>
+                  <div>
+                    <input type="number" class="form-input saw-input-c2" data-member-id="${m.id}" value="${c2}" placeholder="S2 (g)" style="padding: 6px 8px; font-size: 0.78rem;">
+                  </div>
                 </div>
-                <div>
-                  <input type="number" class="form-input saw-input-c1" data-member-id="${m.id}" value="${c1}" placeholder="S1 (g)" style="padding: 6px 8px; font-size: 0.78rem;">
-                </div>
-                <div>
-                  <input type="number" class="form-input saw-input-c2" data-member-id="${m.id}" value="${c2}" placeholder="S2 (g)" style="padding: 6px 8px; font-size: 0.78rem;">
-                </div>
-              </div>
-            `;
-          }).join('');
+              `;
+            }).join('');
+          }
         }
 
         const btnSave = document.getElementById('btn-save-saw-entries');

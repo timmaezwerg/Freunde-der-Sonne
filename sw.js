@@ -2,7 +2,7 @@
    Freunde der Sonne - Service Worker with Offline Cache & Push
    ========================================================= */
 
-const CACHE_NAME = 'fds-cache-v20261002-ts14';
+const CACHE_NAME = 'fds-cache-v20261004-ts15';
 const PRECACHE_ASSETS = [
   './',
   './index.html',
@@ -52,8 +52,8 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(req.url);
 
-  // Do not cache Supabase API calls, serverless routes, or large media streaming (.mp4)
-  if (url.hostname.includes('supabase.co') || url.pathname.startsWith('/api/') || url.pathname.endsWith('.mp4')) {
+  // Do not cache Supabase API calls or serverless routes
+  if (url.hostname.includes('supabase.co') || url.pathname.startsWith('/api/')) {
     return;
   }
 
