@@ -7096,6 +7096,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const btnTsResetAll = document.getElementById('btn-ts-reset-all');
+  if (btnTsResetAll) {
+    btnTsResetAll.addEventListener('click', () => {
+      if (confirm('Möchtest du wirklich alle Test-Eingaben (Biertipps, Sägen, Quiz, Lösungen, Joker) unwiderruflich auf Null zurücksetzen?\n\nDer Geheim-Modus bleibt dabei aktiv.')) {
+        store.resetTimbersportsAllEntries();
+        triggerHaptic('success');
+        showToast('Alle Timbersports-Eingaben auf Null zurückgesetzt! 🔄', '✨');
+        refreshActiveView();
+      }
+    });
+  }
+
   // Register Service Worker for PWA Offline Cache & Apple Web Push
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {

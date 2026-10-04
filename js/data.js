@@ -226,6 +226,7 @@ const BEER_PROFILES = {
 
 const DEFAULT_TIMBERSPORTS_QUIZ = {
   adminRev: 0,
+  resetAt: 0,
   memberRev: {},
   isUnlockedForAll: false, // Geheimmmodus: Anfangs nur für Tim & Admin sichtbar!
   isArchived: false,
@@ -1598,8 +1599,19 @@ class DataStore {
         if (timbersportsRes && timbersportsRes.data && timbersportsRes.data.scores) {
           const evt8 = this.getEvent(8);
           if (evt8) {
+            const curUser = this.getCurrentUserId();
+            const curKey = String(curUser);
+            const localMRev = (evt8.timbersportsQuiz && evt8.timbersportsQuiz.memberRev && Number(evt8.timbersportsQuiz.memberRev[curKey])) || 0;
+            const remoteMRev = (timbersportsRes.data.scores.memberRev && Number(timbersportsRes.data.scores.memberRev[curKey])) || 0;
+            const resetAt = (timbersportsRes.data.scores && Number(timbersportsRes.data.scores.resetAt)) || 0;
+
             evt8.timbersportsQuiz = this.mergeTimbersportsQuizzes(evt8.timbersportsQuiz, timbersportsRes.data.scores);
             this._lastTimbersportsRemoteTime = timbersportsRes.data.updated_at;
+
+            // Self-heal: If local device had an un-synced guess while offline, push it to cloud now
+            if (curUser && curUser !== 'admin' && localMRev > remoteMRev && localMRev > resetAt) {
+              this.pushTimbersportsToCloud(evt8.timbersportsQuiz);
+            }
           }
         }
         localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
@@ -1826,8 +1838,10 @@ class DataStore {
     const adminSource = incomingWinsAdmin ? incomingQuiz : baseQuiz;
     const result = JSON.parse(JSON.stringify(adminSource));
 
-    // Consolidate revisions
+    // Consolidate revisions & reset marker
     result.adminRev = Math.max(baseRev, incRev);
+    const maxResetAt = Math.max(Number(baseQuiz.resetAt) || 0, Number(incomingQuiz.resetAt) || 0);
+    if (maxResetAt > 0) result.resetAt = maxResetAt;
     result.memberRev = { ...(baseQuiz.memberRev || {}), ...(incomingQuiz.memberRev || {}) };
 
     // 1. Beer Tasting - Deep Merge Player Guesses & Jokers
@@ -1848,8 +1862,20 @@ class DataStore {
     ]);
 
     allMemberIds.forEach(mId => {
-      const bMRev = (baseQuiz.memberRev && Number(baseQuiz.memberRev[mId])) || 0;
-      const iMRev = (incomingQuiz.memberRev && Number(incomingQuiz.memberRev[mId])) || 0;
+      let bMRev = (baseQuiz.memberRev && Number(baseQuiz.memberRev[mId])) || 0;
+      let iMRev = (incomingQuiz.memberRev && Number(incomingQuiz.memberRev[mId])) || 0;
+
+      if (maxResetAt > 0) {
+        if (bMRev <= maxResetAt) bMRev = 0;
+        if (iMRev <= maxResetAt) iMRev = 0;
+      }
+
+      if (bMRev === 0 && iMRev === 0) {
+        delete result.beerTasting.guesses[mId];
+        delete result.beerTasting.jokers[mId];
+        if (result.memberRev) delete result.memberRev[mId];
+        return;
+      }
 
       if (iMRev > bMRev) {
         // Incoming player data is newer
@@ -1901,8 +1927,18 @@ class DataStore {
     ]);
 
     sawMemberIds.forEach(mId => {
-      const bMRev = (baseQuiz.memberRev && Number(baseQuiz.memberRev[mId])) || 0;
-      const iMRev = (incomingQuiz.memberRev && Number(incomingQuiz.memberRev[mId])) || 0;
+      let bMRev = (baseQuiz.memberRev && Number(baseQuiz.memberRev[mId])) || 0;
+      let iMRev = (incomingQuiz.memberRev && Number(incomingQuiz.memberRev[mId])) || 0;
+
+      if (maxResetAt > 0) {
+        if (bMRev <= maxResetAt) bMRev = 0;
+        if (iMRev <= maxResetAt) iMRev = 0;
+      }
+
+      if (bMRev === 0 && iMRev === 0) {
+        delete result.sawContest.jokers[mId];
+        return;
+      }
 
       if (iMRev > bMRev) {
         if (incSaw.jokers && incSaw.jokers[mId] !== undefined) {
@@ -1939,8 +1975,23 @@ class DataStore {
     ]);
 
     triviaMemberIds.forEach(mId => {
-      const bMRev = (baseQuiz.memberRev && Number(baseQuiz.memberRev[mId])) || 0;
-      const iMRev = (incomingQuiz.memberRev && Number(incomingQuiz.memberRev[mId])) || 0;
+      let bMRev = (baseQuiz.memberRev && Number(baseQuiz.memberRev[mId])) || 0;
+      let iMRev = (incomingQuiz.memberRev && Number(incomingQuiz.memberRev[mId])) || 0;
+
+      if (maxResetAt > 0) {
+        if (bMRev <= maxResetAt) bMRev = 0;
+        if (iMRev <= maxResetAt) iMRev = 0;
+      }
+
+      if (bMRev === 0 && iMRev === 0) {
+        delete result.trivia.jokers[mId];
+        (result.trivia.questions || []).forEach(q => {
+          if (result.trivia.answers && result.trivia.answers[q.id]) {
+            delete result.trivia.answers[q.id][mId];
+          }
+        });
+        return;
+      }
 
       if (iMRev > bMRev) {
         if (incTr.jokers && incTr.jokers[mId] !== undefined) {
@@ -2008,13 +2059,31 @@ class DataStore {
       const curKey = String(curUser);
       const localMRev = (evt8.timbersportsQuiz.memberRev && Number(evt8.timbersportsQuiz.memberRev[curKey])) || 0;
       const remoteMRev = (remoteQuiz.memberRev && Number(remoteQuiz.memberRev[curKey])) || 0;
-      if (localMRev > remoteMRev) {
+      const resetAt = Number(remoteQuiz.resetAt) || 0;
+      if (localMRev > remoteMRev && localMRev > resetAt) {
         this.pushTimbersportsToCloud(evt8.timbersportsQuiz);
       }
     }
 
     if (typeof window.fdsRefreshUI === 'function') {
       window.fdsRefreshUI();
+    }
+  }
+
+  async pushTimbersportsDirect(quiz) {
+    const client = window.fdsSupabase && window.fdsSupabase.getClient();
+    if (!client || !quiz) return;
+    try {
+      const res = await client.from('history_seasons').upsert({
+        year: 8888,
+        title: 'timbersports_live',
+        summary: 'Timbersports Live State',
+        scores: quiz,
+        updated_at: new Date().toISOString()
+      });
+      if (res.error) console.warn('pushTimbersportsDirect error:', res.error);
+    } catch (e) {
+      console.warn('pushTimbersportsDirect error:', e);
     }
   }
 
@@ -2304,6 +2373,31 @@ class DataStore {
     quiz.isArchived = Boolean(archived);
     this.bumpAdminRev(quiz);
     this.saveTimbersportsQuiz(quiz);
+    return true;
+  }
+
+  resetTimbersportsAllEntries() {
+    if (!this.canManageTimbersports()) return false;
+    const now = Date.now();
+    const cleanQuiz = JSON.parse(JSON.stringify(DEFAULT_TIMBERSPORTS_QUIZ));
+    cleanQuiz.adminRev = now;
+    cleanQuiz.resetAt = now;
+    cleanQuiz.memberRev = {};
+    cleanQuiz.isUnlockedForAll = false;
+    cleanQuiz.isArchived = false;
+    cleanQuiz.activeSubTab = 'beer';
+
+    // Preserve beerPool if customized
+    const curQuiz = this.getTimbersportsQuiz();
+    if (curQuiz && curQuiz.beerTasting && Array.isArray(curQuiz.beerTasting.beerPool) && curQuiz.beerTasting.beerPool.length > 0) {
+      cleanQuiz.beerTasting.beerPool = [...curQuiz.beerTasting.beerPool];
+    }
+
+    const evt8 = this.getEvent(8);
+    if (evt8) evt8.timbersportsQuiz = cleanQuiz;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
+    this.broadcastTimbersportsQuiz(cleanQuiz);
+    this.pushTimbersportsDirect(cleanQuiz);
     return true;
   }
 
