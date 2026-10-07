@@ -863,10 +863,6 @@ class DataStore {
     return { success: false, message: 'Falscher PIN-Code! Bitte erneut versuchen.' };
   }
 
-  logout() {
-    localStorage.removeItem(CURRENT_USER_KEY);
-  }
-
   isAdmin() {
     return this.getCurrentUserId() === 'admin';
   }
@@ -1634,6 +1630,117 @@ class DataStore {
     }
   }
 
+  mergeSingleEvent(localEvt, incomingEvt, options = {}) {
+    if (!localEvt) return incomingEvt ? JSON.parse(JSON.stringify(incomingEvt)) : null;
+    if (!incomingEvt) return localEvt ? JSON.parse(JSON.stringify(localEvt)) : null;
+
+    const preferLocalCurrentUser = Boolean(options.preferLocalCurrentUser);
+    const curUser = this.getCurrentUserId();
+    const curUserIdNum = (curUser && curUser !== 'admin') ? Number(curUser) : null;
+    const isAdmin = this.isAdmin();
+
+    // Clone incoming as baseline
+    const merged = JSON.parse(JSON.stringify(incomingEvt));
+
+    // 1. Completion & scores status
+    if (localEvt.status === 'completed' && incomingEvt.status !== 'completed') {
+      merged.status = localEvt.status;
+      merged.isFrozen = localEvt.isFrozen;
+      merged.scores = localEvt.scores || [];
+    } else if (localEvt.status === 'completed' && incomingEvt.status === 'completed') {
+      if ((!incomingEvt.scores || incomingEvt.scores.length === 0) && (localEvt.scores && localEvt.scores.length > 0)) {
+        merged.scores = localEvt.scores;
+      }
+    }
+
+    // 2. RSVPs smart merge: Ensure no player's RSVP is wiped by a stale client
+    const incomingRsvps = (incomingEvt.rsvps && typeof incomingEvt.rsvps === 'object') ? incomingEvt.rsvps : {};
+    const localRsvps = (localEvt.rsvps && typeof localEvt.rsvps === 'object') ? localEvt.rsvps : {};
+    const mergedRsvps = { ...incomingRsvps };
+
+    if (preferLocalCurrentUser && curUserIdNum !== null) {
+      if (localRsvps[curUserIdNum] !== undefined) {
+        mergedRsvps[curUserIdNum] = localRsvps[curUserIdNum];
+      } else {
+        delete mergedRsvps[curUserIdNum];
+      }
+    } else {
+      if (curUserIdNum !== null && localRsvps[curUserIdNum] !== undefined && mergedRsvps[curUserIdNum] === undefined) {
+        mergedRsvps[curUserIdNum] = localRsvps[curUserIdNum];
+      }
+      Object.keys(localRsvps).forEach(k => {
+        if (mergedRsvps[k] === undefined) {
+          mergedRsvps[k] = localRsvps[k];
+        }
+      });
+    }
+    merged.rsvps = mergedRsvps;
+
+    // 3. Pending Jokers smart merge:
+    const incJokers = Array.isArray(incomingEvt.pendingJokers) ? incomingEvt.pendingJokers : [];
+    const locJokers = Array.isArray(localEvt.pendingJokers) ? localEvt.pendingJokers : [];
+
+    if (preferLocalCurrentUser && curUserIdNum !== null && !isAdmin) {
+      const jokerSet = new Set(incJokers);
+      if (locJokers.includes(curUserIdNum)) {
+        jokerSet.add(curUserIdNum);
+      } else {
+        jokerSet.delete(curUserIdNum);
+      }
+      merged.pendingJokers = Array.from(jokerSet);
+    } else if (isAdmin && preferLocalCurrentUser) {
+      merged.pendingJokers = locJokers;
+    } else {
+      const jokerSet = new Set(incJokers);
+      if (curUserIdNum !== null && locJokers.includes(curUserIdNum)) {
+        jokerSet.add(curUserIdNum);
+      }
+      merged.pendingJokers = Array.from(jokerSet);
+    }
+
+    // 4. Packing list smart merge:
+    const incItems = Array.isArray(incomingEvt.packingList) ? incomingEvt.packingList : [];
+    const locItems = Array.isArray(localEvt.packingList) ? localEvt.packingList : [];
+    const maxLen = Math.max(incItems.length, locItems.length);
+    const mergedItems = [];
+    for (let i = 0; i < maxLen; i++) {
+      const inc = incItems[i];
+      const loc = locItems[i];
+      if (inc && loc) {
+        const text = (typeof inc === 'object' ? inc.text : inc) || (typeof loc === 'object' ? loc.text : loc);
+        const incBrought = typeof inc === 'object' ? inc.broughtBy : null;
+        const locBrought = typeof loc === 'object' ? loc.broughtBy : null;
+        let broughtBy = incBrought;
+        if (preferLocalCurrentUser && curUserIdNum !== null) {
+          if (locBrought === curUserIdNum || (locBrought === null && incBrought === curUserIdNum)) {
+            broughtBy = locBrought;
+          }
+        } else if (broughtBy === null && locBrought !== null) {
+          broughtBy = locBrought;
+        }
+        mergedItems.push({
+          text,
+          checked: Boolean((typeof inc === 'object' && inc.checked) || (typeof loc === 'object' && loc.checked)),
+          broughtBy
+        });
+      } else {
+        mergedItems.push(inc || loc);
+      }
+    }
+    merged.packingList = mergedItems;
+
+    // 5. Timbersports quiz merge (Event 8)
+    if (merged.id === 8 || localEvt.id === 8) {
+      if (localEvt.timbersportsQuiz && incomingEvt.timbersportsQuiz) {
+        merged.timbersportsQuiz = this.mergeTimbersportsQuizzes(localEvt.timbersportsQuiz, incomingEvt.timbersportsQuiz);
+      } else if (localEvt.timbersportsQuiz) {
+        merged.timbersportsQuiz = localEvt.timbersportsQuiz;
+      }
+    }
+
+    return merged;
+  }
+
   mergeRemoteData(remoteMembers, remoteEvents) {
     if (Array.isArray(remoteMembers) && remoteMembers.length > 0) {
       const unsyncedMembers = [];
@@ -1676,7 +1783,12 @@ class DataStore {
     }
 
     if (Array.isArray(remoteEvents) && remoteEvents.length > 0) {
-      this.state.events = remoteEvents.map(fromDbEvent);
+      const incomingEvents = remoteEvents.map(fromDbEvent);
+      this.state.events = incomingEvents.map(incEvt => {
+        const local = (this.state.events || []).find(e => e.id === incEvt.id);
+        return local ? this.mergeSingleEvent(local, incEvt) : incEvt;
+      });
+      this.syncWintergrillenOrganizer();
     }
   }
 
@@ -1870,7 +1982,7 @@ class DataStore {
         if (iMRev <= maxResetAt) iMRev = 0;
       }
 
-      if (bMRev === 0 && iMRev === 0) {
+      if (maxResetAt > 0 && bMRev === 0 && iMRev === 0) {
         delete result.beerTasting.guesses[mId];
         delete result.beerTasting.jokers[mId];
         if (result.memberRev) delete result.memberRev[mId];
@@ -1935,7 +2047,7 @@ class DataStore {
         if (iMRev <= maxResetAt) iMRev = 0;
       }
 
-      if (bMRev === 0 && iMRev === 0) {
+      if (maxResetAt > 0 && bMRev === 0 && iMRev === 0) {
         delete result.sawContest.jokers[mId];
         return;
       }
@@ -1983,7 +2095,7 @@ class DataStore {
         if (iMRev <= maxResetAt) iMRev = 0;
       }
 
-      if (bMRev === 0 && iMRev === 0) {
+      if (maxResetAt > 0 && bMRev === 0 && iMRev === 0) {
         delete result.trivia.jokers[mId];
         (result.trivia.questions || []).forEach(q => {
           if (result.trivia.answers && result.trivia.answers[q.id]) {
@@ -2119,8 +2231,39 @@ class DataStore {
     }
   }
 
+  async syncEventsAndMembersFromCloud(client) {
+    if (!client || !window.fdsSupabase || !window.fdsSupabase.isConfigured()) return;
+    const now = Date.now();
+    if (this._lastEventsSyncTime && (now - this._lastEventsSyncTime < 3000)) return;
+    this._lastEventsSyncTime = now;
+
+    try {
+      const [membersRes, eventsRes, activityRes] = await Promise.all([
+        client.from('members').select('*'),
+        client.from('events').select('*'),
+        client.from('history_seasons').select('scores').eq('year', 9999).maybeSingle()
+      ]);
+
+      if (!membersRes.error && !eventsRes.error && membersRes.data && eventsRes.data) {
+        this.mergeRemoteData(membersRes.data, eventsRes.data);
+        if (activityRes && activityRes.data && activityRes.data.scores) {
+          this.mergeActivityData(activityRes.data.scores);
+        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
+        if (typeof window.fdsRefreshUI === 'function') {
+          window.fdsRefreshUI();
+        }
+      }
+    } catch (err) {
+      console.warn('syncEventsAndMembersFromCloud error:', err);
+    }
+  }
+
   startLivePolling(client) {
     if (this._pollingInterval) clearInterval(this._pollingInterval);
+    if (this._eventsPollingInterval) clearInterval(this._eventsPollingInterval);
+
+    // 1. Timbersports fast polling (2.5s)
     this._pollingInterval = setInterval(async () => {
       if (document.hidden || !window.fdsSupabase || !window.fdsSupabase.isConfigured()) return;
       try {
@@ -2139,10 +2282,19 @@ class DataStore {
       } catch (err) {}
     }, 2500);
 
-    if (!this._hasVisibilityListener) {
-      this._hasVisibilityListener = true;
-      document.addEventListener('visibilitychange', () => {
+    // 2. Events & Members live polling (15s)
+    this._eventsPollingInterval = setInterval(() => {
+      if (!document.hidden) {
+        this.syncEventsAndMembersFromCloud(client);
+      }
+    }, 15000);
+
+    // 3. Wakeup / Tab switch listeners
+    if (!this._hasWakeupListeners) {
+      this._hasWakeupListeners = true;
+      const onWakeup = () => {
         if (!document.hidden && client) {
+          this.syncEventsAndMembersFromCloud(client);
           client.from('history_seasons')
             .select('scores, updated_at')
             .eq('year', 8888)
@@ -2155,8 +2307,16 @@ class DataStore {
                 }
               }
             }).catch(() => {});
+
+          // Self-heal realtime connection if dropped during sleep
+          if (this.realtimeChannel && (this.realtimeChannel.state === 'closed' || this.realtimeChannel.state === 'errored')) {
+            this.setupRealtimeSubscription(client);
+          }
         }
-      });
+      };
+
+      document.addEventListener('visibilitychange', onWakeup);
+      window.addEventListener('focus', onWakeup);
     }
   }
 
@@ -2197,17 +2357,7 @@ class DataStore {
           const updated = fromDbEvent(payload.event);
           const idx = this.state.events.findIndex(e => e.id === updated.id);
           if (idx !== -1) {
-            if (updated.id === 8 && this.state.events[idx].timbersportsQuiz) {
-              if (updated.timbersportsQuiz) {
-                updated.timbersportsQuiz = this.mergeTimbersportsQuizzes(
-                  this.state.events[idx].timbersportsQuiz,
-                  updated.timbersportsQuiz
-                );
-              } else {
-                updated.timbersportsQuiz = this.state.events[idx].timbersportsQuiz;
-              }
-            }
-            this.state.events[idx] = updated;
+            this.state.events[idx] = this.mergeSingleEvent(this.state.events[idx], updated);
           } else {
             this.state.events.push(updated);
           }
@@ -2237,21 +2387,11 @@ class DataStore {
           const updated = fromDbEvent(payload.new);
           const idx = this.state.events.findIndex(e => e.id === updated.id);
           if (idx !== -1) {
-            // Preserve in-progress Timbersports live state for Event 8 if updated DB row lacks recent progress
-            if (updated.id === 8 && this.state.events[idx].timbersportsQuiz) {
-              if (updated.timbersportsQuiz) {
-                updated.timbersportsQuiz = this.mergeTimbersportsQuizzes(
-                  this.state.events[idx].timbersportsQuiz,
-                  updated.timbersportsQuiz
-                );
-              } else {
-                updated.timbersportsQuiz = this.state.events[idx].timbersportsQuiz;
-              }
-            }
-            this.state.events[idx] = updated;
+            this.state.events[idx] = this.mergeSingleEvent(this.state.events[idx], updated);
           } else {
             this.state.events.push(updated);
           }
+          this.syncWintergrillenOrganizer();
           localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
           if (typeof window.fdsRefreshUI === 'function') window.fdsRefreshUI();
         }
@@ -2883,7 +3023,8 @@ class DataStore {
     const quiz = this.getTimbersportsQuiz();
     if (!quiz.beerTasting.jokers) quiz.beerTasting.jokers = {};
     const bIdx = Number(beerIndex);
-    if (quiz.beerTasting.lockedBeers && quiz.beerTasting.lockedBeers[bIdx]) {
+    // Same rules as saveBeerGuess: revealed stage, frozen beer or expired countdown all lock the joker
+    if (this.isBeerLocked(bIdx)) {
       return { success: false, message: 'Runde ist bereits beendet. Joker kann nicht mehr geändert werden.' };
     }
     const mIdStr = String(memberId);
@@ -3025,9 +3166,16 @@ class DataStore {
     });
 
     sawResults.sort((a, b) => a.diff - b.diff);
+    for (let i = 0; i < sawResults.length; i++) {
+      if (i > 0 && sawResults[i].diff === sawResults[i - 1].diff && sawResults[i].hasBoth) {
+        sawResults[i].rank = sawResults[i - 1].rank;
+      } else {
+        sawResults[i].rank = i + 1;
+      }
+    }
     const sawPoints = {};
-    sawResults.forEach((res, idx) => {
-      let base = res.hasBoth ? Math.max(1, 8 - idx) : 0;
+    sawResults.forEach((res) => {
+      let base = res.hasBoth ? Math.max(1, 9 - res.rank) : 0;
       if (res.jokerHit) {
         base += 2; // +2 Extra-Punkte für Treffer im Bullseye (<= 30g) mit Joker
       }
@@ -3072,9 +3220,13 @@ class DataStore {
     });
 
     standings.sort((a, b) => b.totalPoints - a.totalPoints);
-    standings.forEach((st, idx) => {
-      st.rank = idx + 1;
-    });
+    for (let i = 0; i < standings.length; i++) {
+      if (i > 0 && standings[i].totalPoints === standings[i - 1].totalPoints) {
+        standings[i].rank = standings[i - 1].rank;
+      } else {
+        standings[i].rank = i + 1;
+      }
+    }
 
     // 5. Fun-Awards (Titel des Tages)
     let bestBeerScore = -1;
@@ -3122,10 +3274,10 @@ class DataStore {
     const evt8 = this.getEvent(8);
     if (!evt8) return false;
 
-    const rawScores = standings.map((st, idx) => ({
+    const rawScores = standings.map((st) => ({
       playerId: st.member.id,
-      rank: idx + 1,
-      points: 8 - idx
+      rank: st.rank,
+      points: Math.max(1, 9 - st.rank)
     }));
 
     return this.saveEventScoring(8, rawScores, true);
@@ -3164,7 +3316,28 @@ class DataStore {
     const client = window.fdsSupabase && window.fdsSupabase.getClient();
     if (!client || !event) return;
     try {
-      const dbEvt = toDbEvent(event);
+      let toPush = event;
+      try {
+        const { data: remoteRow, error: fetchErr } = await client
+          .from('events')
+          .select('*')
+          .eq('id', event.id)
+          .maybeSingle();
+
+        if (!fetchErr && remoteRow) {
+          const remoteEvt = fromDbEvent(remoteRow);
+          toPush = this.mergeSingleEvent(event, remoteEvt, { preferLocalCurrentUser: true });
+          const idx = this.state.events.findIndex(e => e.id === toPush.id);
+          if (idx !== -1) {
+            this.state.events[idx] = toPush;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
+          }
+        }
+      } catch (mergeErr) {
+        console.warn('pushEventToCloud merge error:', mergeErr);
+      }
+
+      const dbEvt = toDbEvent(toPush);
       const res = await client.from('events').upsert(dbEvt);
       if (res.error) console.warn('pushEventToCloud error:', res.error);
 

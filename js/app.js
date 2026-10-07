@@ -5805,9 +5805,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         results.sort((a, b) => a.diff - b.diff);
+        for (let i = 0; i < results.length; i++) {
+          if (i > 0 && results[i].diff === results[i - 1].diff && results[i].hasBoth) {
+            results[i].rank = results[i - 1].rank;
+          } else {
+            results[i].rank = i + 1;
+          }
+        }
 
-        let rowsHtml = results.map((r, idx) => {
-          let rankPoints = r.hasBoth ? Math.max(1, 8 - idx) : 0;
+        let rowsHtml = results.map((r) => {
+          let rankPoints = r.hasBoth ? Math.max(1, 9 - r.rank) : 0;
           let jokerBonusBadge = '';
           if (r.jokerHit) {
             rankPoints += 2;
@@ -5818,7 +5825,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
           return `
             <tr style="border-bottom: 1px solid var(--border-subtle);">
-              <td style="padding: 8px 6px; font-weight: 800; color: ${idx === 0 ? 'var(--sun-gold)' : 'var(--text-muted)'};">#${idx + 1}</td>
+              <td style="padding: 8px 6px; font-weight: 800; color: ${r.rank === 1 ? 'var(--sun-gold)' : 'var(--text-muted)'};">#${r.rank}</td>
               <td style="padding: 8px 6px; display: flex; align-items: center; gap: 8px;">
                 <span class="avatar-sm">${renderAvatar(r.member.avatar)}</span>
                 <strong>${r.member.name}</strong> ${jokerBonusBadge}
@@ -6711,8 +6718,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const standingsCard = document.getElementById('ts-standings-card');
 
     if (standingsCard) {
-      let rowsHtml = standings.map((st, idx) => {
-        const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
+      let rowsHtml = standings.map((st) => {
+        const medal = st.rank === 1 ? '🥇' : st.rank === 2 ? '🥈' : st.rank === 3 ? '🥉' : `#${st.rank}`;
         const isMe = Number(currentUserId) === st.member.id;
 
         const beerJokerBadge = st.beerScore && st.beerScore.jokerBonus
@@ -6727,7 +6734,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         return `
           <tr style="border-bottom: 1px solid var(--border-subtle); background: ${isMe ? 'rgba(251, 191, 36, 0.08)' : 'transparent'};">
-            <td style="padding: 10px 6px; font-weight: 900; font-size: ${idx < 3 ? '1.1rem' : '0.85rem'}; color: ${idx === 0 ? 'var(--sun-gold)' : 'var(--text-muted)'};">
+            <td style="padding: 10px 6px; font-weight: 900; font-size: ${st.rank <= 3 ? '1.1rem' : '0.85rem'}; color: ${st.rank === 1 ? 'var(--sun-gold)' : 'var(--text-muted)'};">
               ${medal}
             </td>
             <td style="padding: 10px 6px; display: flex; align-items: center; gap: 8px;">

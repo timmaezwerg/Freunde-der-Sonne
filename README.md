@@ -9,6 +9,7 @@
 2. Klicke links im Menü auf **SQL Editor** ➔ **New query**.
 3. Öffne die Datei [supabase_schema.sql](./supabase_schema.sql), kopiere den gesamten Inhalt hinein und klicke auf **Run** (Ausführen).
    * Dadurch werden alle Tabellen (`members`, `events`, `history_seasons`), RLS-Rechte und Realtime-Abonnements angelegt und mit den echten 2026er-Ergebnissen befüllt.
+   * ⚠️ **Nur einmal bei der Ersteinrichtung ausführen!** Das Skript schreibt die Spieltage (Ergebnisse, Status, Joker, Zeit/Ort) per `ON CONFLICT … DO UPDATE` zurück auf den Stand der Datei. Ein erneuter Lauf überschreibt Live-Daten. Für Erweiterungen nur die gewünschten Einzelbefehle (z. B. `ALTER PUBLICATION …`) ausführen.
 4. Klicke links unten auf **Project Settings** ➔ **API** und kopiere:
    * **Project URL** (z. B. `https://xyz.supabase.co`)
    * **anon public Key** (z. B. `eyJhbGci...`)
@@ -36,7 +37,7 @@
 Du kannst das Projekt auch über die Vercel CLI oder direkt per Git-Import im Vercel Dashboard anlegen.
 
 ### 🔔 3. Web Push Notifications konfigurieren (Vercel Environment Variables)
-Damit Push-Nachrichten für Spieltags-Erinnerungen, Joker-Einsätze und Timbersports-Countdowns gesendet werden können, trage im Vercel Dashboard unter **Settings ➔ Environment Variables** ein:
+Push-Nachrichten werden aktuell bei **Spieltagsstart (Joker eingefroren)** und bei **Änderungen an Spieltag-Details** gesendet (plus ein Admin-Testbutton). Das Timbersports-Special löst bewusst **keine** Pushes aus, damit es im Geheim-Modus nicht verraten wird. Trage im Vercel Dashboard unter **Settings ➔ Environment Variables** ein:
 - `VAPID_PUBLIC_KEY`: Dein öffentlicher VAPID-Key (aus `js/vapid-config.js`)
 - `VAPID_PRIVATE_KEY`: Dein privater VAPID-Key
 - `VAPID_SUBJECT`: `mailto:spielleitung@freunde-der-sonne.app`

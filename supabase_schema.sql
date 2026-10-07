@@ -5,6 +5,12 @@
 -- 1. Öffne dein Supabase Projekt (https://supabase.com/dashboard)
 -- 2. Klicke links im Menü auf 'SQL Editor' -> 'New Query'
 -- 3. Füge dieses gesamte Skript ein und klicke auf 'Run' (Ausführen)
+--
+-- ⚠️ ACHTUNG: Nur bei der ERSTEINRICHTUNG komplett ausführen!
+--    Abschnitt 4c überschreibt die Spieltage (Ergebnisse, Status, Joker, Zeit, Ort)
+--    per ON CONFLICT ... DO UPDATE mit dem Stand dieser Datei. Ein erneuter Lauf auf
+--    der Live-Datenbank setzt laufende Daten zurück. Für Erweiterungen nur die
+--    gewünschten Einzelbefehle ausführen.
 -- ==============================================================================
 
 -- 1. Tabellen erstellen falls noch nicht vorhanden
