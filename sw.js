@@ -2,7 +2,7 @@
    Freunde der Sonne - Service Worker with Offline Cache & Push
    ========================================================= */
 
-const CACHE_NAME = 'fds-cache-v20261004-ts18';
+const CACHE_NAME = 'fds-cache-v20261011-ts19';
 const PRECACHE_ASSETS = [
   './',
   './index.html',
@@ -13,7 +13,8 @@ const PRECACHE_ASSETS = [
   './js/app.js',
   './js/supabase-config.js',
   './js/vapid-config.js',
-  './assets/app_icon.jpg'
+  './assets/app_icon.jpg',
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
 ];
 
 // Install: Precache App Shell
@@ -77,7 +78,7 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(req, { ignoreSearch: true }).then((cachedRes) => {
       const fetchPromise = fetch(req).then((networkRes) => {
-        if (networkRes && networkRes.status === 200) {
+        if (networkRes && (networkRes.status === 200 || networkRes.type === 'opaque')) {
           const resClone = networkRes.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(req, resClone));
         }
@@ -86,6 +87,11 @@ self.addEventListener('fetch', (event) => {
         // Network failure: return cached response if available or fallback
         return cachedRes;
       });
+
+      // Keep service worker alive on mobile/WebKit until background cache update completes
+      if (event.waitUntil) {
+        event.waitUntil(fetchPromise);
+      }
 
       return cachedRes || fetchPromise;
     })

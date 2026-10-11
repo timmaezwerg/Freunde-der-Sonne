@@ -124,8 +124,9 @@ module.exports = async function handler(req, res) {
           const errMsg = `${err.statusCode || 'ERR'}: ${err.body || err.message}`;
           console.warn('Push send error for endpoint:', sub.endpoint, errMsg);
           errors.push(errMsg);
-          // HTTP 400, 401, 403 (key mismatch/revoked) or 404, 410 (uninstalled/expired)
-          if ([400, 401, 403, 404, 410].includes(err.statusCode)) {
+          // Only prune on HTTP 404 (Not Found) or 410 (Gone / Unsubscribed)
+          // Do NOT prune on 400/401/403 to prevent wiping the subscription database on VAPID config errors
+          if ([404, 410].includes(err.statusCode)) {
             deadSubscriptions.push(sub.endpoint);
           }
         }

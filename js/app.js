@@ -228,6 +228,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const diffMs = eventTarget - now;
 
       if (diffMs <= 0) {
+        if (countdownTimerInterval) {
+          clearInterval(countdownTimerInterval);
+          countdownTimerInterval = null;
+        }
         container.innerHTML = `
           <div class="countdown-card">
             <div class="countdown-header">
@@ -566,7 +570,8 @@ document.addEventListener('DOMContentLoaded', () => {
       members.forEach(m => {
         const currentRank = simPredictions[roundKey].ranks[m.id] || 4;
         const hasJokerChecked = (simPredictions[roundKey].jokers || []).includes(m.id);
-        const canUseJoker = m.id === 3 || m.id === 4;
+        const jokerStat = store.getJokerStatus(m.id);
+        const canUseJoker = jokerStat && jokerStat.status !== 'used';
 
         const row = document.createElement('div');
         row.className = 'sim-player-row';
@@ -2236,12 +2241,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.querySelectorAll('.btn-rsvp-action').forEach(btn => {
       btn.addEventListener('click', () => {
+        if (!currentUserId || currentUserId === 'admin') {
+          showToast('Bitte wähle zuerst dein Spieler-Profil aus!', '👤');
+          openUserPickerModal();
+          return;
+        }
         triggerHaptic('medium');
         const eventId = Number(btn.getAttribute('data-event-id'));
         const status = btn.getAttribute('data-status');
-        store.setRsvp(eventId, currentUserId, status);
-        showToast(`Rückmeldung gespeichert: ${status === 'yes' ? 'Dabei 🟢' : status === 'late' ? 'Später 🟡' : 'Fehle 🔴'}`, '🙋‍♂️');
-        renderEvents();
+        const res = store.setRsvp(eventId, currentUserId, status);
+        if (res && res.success) {
+          showToast(`Rückmeldung gespeichert: ${status === 'yes' ? 'Dabei 🟢' : status === 'late' ? 'Später 🟡' : 'Fehle 🔴'}`, '🙋‍♂️');
+          renderEvents();
+        }
       });
     });
 
@@ -2249,7 +2261,7 @@ document.addEventListener('DOMContentLoaded', () => {
       el.addEventListener('click', () => {
         const eventId = Number(el.getAttribute('data-event-id'));
         const evt = store.getEvent(eventId);
-        if (evt && (evt.status === 'completed' || store.isEventFrozen(evt))) return;
+        if (evt && evt.status === 'completed') return;
         triggerHaptic('light');
         const idx = Number(el.getAttribute('data-idx'));
         store.togglePackingItem(eventId, idx);
@@ -2260,9 +2272,14 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.btn-claim-pack-item').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
+        if (!currentUserId || currentUserId === 'admin') {
+          showToast('Bitte wähle zuerst dein Spieler-Profil aus!', '👤');
+          openUserPickerModal();
+          return;
+        }
         const eventId = Number(btn.getAttribute('data-event-id'));
         const evt = store.getEvent(eventId);
-        if (evt && (evt.status === 'completed' || store.isEventFrozen(evt))) return;
+        if (evt && evt.status === 'completed') return;
         triggerHaptic('medium');
         const idx = Number(btn.getAttribute('data-idx'));
         store.claimPackingItem(eventId, idx, currentUserId);
@@ -2631,6 +2648,19 @@ document.addEventListener('DOMContentLoaded', () => {
         showToast(isCorrection ? `Wertung für Spieltag ${evt.round} erfolgreich korrigiert! ✏️` : `Spieltag ${evt.round} erfolgreich abgeschlossen! 🏆`, '✓');
       }
 
+      // Dispatch push notification to all subscribed devices when scoring is completed
+      if (!isCorrection) {
+        const topScorer = rawScores.find(s => s.rank === 1);
+        const winner = topScorer ? store.getMember(topScorer.playerId) : null;
+        const winnerText = winner ? `Tagessieg für ${winner.name}! 🥇` : 'Ergebnisse stehen fest!';
+        dispatchPushNotification({
+          title: `🏆 Spieltag ${evt.round} abgeschlossen!`,
+          body: `${evt.title}: ${winnerText} Die neue Gesamttabelle ist online ☀️`,
+          eventId: eventId,
+          url: '/#tabelle'
+        });
+      }
+
       refreshActiveView();
     } else {
       if (!isCorrection && !store.isEventFrozen(evt)) {
@@ -2645,7 +2675,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnCloseJokerReveal) {
     btnCloseJokerReveal.addEventListener('click', () => {
       closeAllModals();
-      switchView('view-standings');
+      switchView('view-leaderboard');
     });
   }
 
@@ -3639,7 +3669,12 @@ document.addEventListener('DOMContentLoaded', () => {
     btnDirectWhatsApp.addEventListener('click', () => {
       const text = document.getElementById('whatsapp-text-content').textContent;
       const encoded = encodeURIComponent(text);
-      window.location.href = `whatsapp://send?text=${encoded}`;
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      if (isMobile) {
+        window.location.href = `https://api.whatsapp.com/send?text=${encoded}`;
+      } else {
+        window.open(`https://web.whatsapp.com/send?text=${encoded}`, '_blank');
+      }
       closeAllModals();
     });
   }
@@ -3665,14 +3700,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const parsed = JSON.parse(event.target.result);
         if (parsed.members && parsed.events) {
           store.state = parsed;
           store.save();
+          if (window.fdsSupabase && window.fdsSupabase.isConfigured() && store.isAdmin()) {
+            await store.pushAllToCloud();
+          }
           showToast('Spielstand erfolgreich importiert!', '📥');
-          renderLeaderboard();
+          refreshActiveView();
         } else {
           alert('Ungültiges Dateiformat.');
         }
@@ -3683,13 +3721,17 @@ document.addEventListener('DOMContentLoaded', () => {
     reader.readAsText(file);
   });
 
-  document.getElementById('btn-reset-data').addEventListener('click', () => {
+  document.getElementById('btn-reset-data').addEventListener('click', async () => {
     if (confirm('Möchtest du wirklich alle Daten auf die ursprünglichen Demodaten zurücksetzen?')) {
       store.reset();
+      if (window.fdsSupabase && window.fdsSupabase.isConfigured() && store.isAdmin()) {
+        const pushCloud = confirm('Sollen die zurückgesetzten Demodaten auch in die Supabase-Cloud übertragen werden?');
+        if (pushCloud) {
+          await store.pushAllToCloud();
+        }
+      }
       showToast('Demodaten wiederhergestellt!', '🔄');
-      renderLeaderboard();
-      renderEvents();
-      renderMembers();
+      refreshActiveView();
     }
   });
 
@@ -3719,10 +3761,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const creds = window.fdsSupabase ? window.fdsSupabase.getCredentials() : { url: '', anonKey: '' };
     const urlInput = document.getElementById('supabase-input-url');
     const keyInput = document.getElementById('supabase-input-key');
+    const notifySecretInput = document.getElementById('supabase-input-notify-secret');
     const infoBox = document.getElementById('supabase-status-info');
 
     if (urlInput) urlInput.value = creds.url;
     if (keyInput) keyInput.value = creds.anonKey;
+    if (notifySecretInput) notifySecretInput.value = localStorage.getItem('fds_notify_secret') || '';
 
     if (infoBox) {
       if (window.fdsSupabase && window.fdsSupabase.isConfigured()) {
@@ -3759,8 +3803,15 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       const url = document.getElementById('supabase-input-url').value.trim();
       const anonKey = document.getElementById('supabase-input-key').value.trim();
+      const notifySecret = (document.getElementById('supabase-input-notify-secret')?.value || '').trim();
 
       if (!url || !anonKey) return;
+
+      if (notifySecret) {
+        localStorage.setItem('fds_notify_secret', notifySecret);
+      } else {
+        localStorage.removeItem('fds_notify_secret');
+      }
 
       if (window.fdsSupabase) {
         window.fdsSupabase.setCredentials(url, anonKey);

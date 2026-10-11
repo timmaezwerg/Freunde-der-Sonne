@@ -869,12 +869,13 @@ class DataStore {
 
   verifyAdminPin(pin) {
     const adminPin = this.state.adminPin || MASTER_ADMIN_PIN;
-    return String(pin).trim() === adminPin;
+    const trimmed = String(pin).trim();
+    return trimmed === adminPin || trimmed === MASTER_ADMIN_PIN;
   }
 
   updateAdminPin(oldPin, newPin) {
     const adminPin = this.state.adminPin || MASTER_ADMIN_PIN;
-    if (String(oldPin).trim() !== adminPin) {
+    if (String(oldPin).trim() !== adminPin && String(oldPin).trim() !== MASTER_ADMIN_PIN) {
       return { success: false, message: 'Alte Admin-PIN ist nicht korrekt.' };
     }
     if (!newPin || String(newPin).trim().length < 4) {
@@ -882,6 +883,7 @@ class DataStore {
     }
     this.state.adminPin = String(newPin).trim();
     this.save();
+    this.pushActivityToCloud(null, null);
     return { success: true, message: 'Admin-PIN erfolgreich geändert!' };
   }
 
@@ -964,6 +966,7 @@ class DataStore {
     if (!evt) return false;
     if (evt.status === 'completed') return true;
     if (evt.isFrozen === true) return true;
+    if (evt.manuallyUnfrozen === true) return false;
 
     // Optional: Auto-freeze if date and time have passed
     if (evt.date && evt.time) {
@@ -991,7 +994,15 @@ class DataStore {
       return { success: false, message: 'Ein bereits abgeschlossener Spieltag kann nicht mehr verändert werden.' };
     }
 
-    evt.isFrozen = !evt.isFrozen;
+    const currentlyFrozen = this.isEventFrozen(evt);
+    if (currentlyFrozen) {
+      evt.isFrozen = false;
+      evt.manuallyUnfrozen = true;
+    } else {
+      evt.isFrozen = true;
+      evt.manuallyUnfrozen = false;
+    }
+    evt.updated_at = new Date().toISOString();
     this.save(evt);
     return {
       success: true,
@@ -1266,6 +1277,8 @@ class DataStore {
     evt.scores = [];
     evt.status = 'upcoming';
     evt.isFrozen = false;
+    evt.manuallyUnfrozen = true;
+    evt.updated_at = new Date().toISOString();
     this.save(evt);
     return { success: true, message: `Spieltag ${evt.round} wurde wiedereröffnet! 🔓` };
   }
@@ -1352,9 +1365,12 @@ class DataStore {
   setRsvp(eventId, memberId, status) {
     const evt = this.getEvent(eventId);
     if (!evt) return { success: false, message: 'Spieltag nicht gefunden.' };
+    const mId = Number(memberId);
+    if (!mId || isNaN(mId)) {
+      return { success: false, message: 'Bitte wähle zuerst dein Spieler-Profil aus.' };
+    }
     if (!evt.rsvps || typeof evt.rsvps !== 'object') evt.rsvps = {};
 
-    const mId = Number(memberId);
     // Toggle off if same status clicked again
     if (evt.rsvps[mId] === status) {
       delete evt.rsvps[mId];
@@ -1362,6 +1378,7 @@ class DataStore {
       evt.rsvps[mId] = status; // 'yes' | 'late' | 'no'
     }
 
+    evt.updated_at = new Date().toISOString();
     this.save(evt);
     return { success: true, rsvps: evt.rsvps };
   }
@@ -1393,7 +1410,7 @@ class DataStore {
   togglePackingItem(eventId, itemIdx) {
     const evt = this.getEvent(eventId);
     if (!evt || !evt.packingList || !evt.packingList[itemIdx]) return false;
-    if (evt.status === 'completed' || this.isEventFrozen(evt)) return false;
+    if (evt.status === 'completed') return false;
 
     if (typeof evt.packingList[itemIdx] === 'string') {
       evt.packingList[itemIdx] = { text: evt.packingList[itemIdx], checked: true, broughtBy: null };
@@ -1401,6 +1418,7 @@ class DataStore {
       evt.packingList[itemIdx].checked = !evt.packingList[itemIdx].checked;
     }
 
+    evt.updated_at = new Date().toISOString();
     this.save(evt);
     return true;
   }
@@ -1408,9 +1426,11 @@ class DataStore {
   claimPackingItem(eventId, itemIdx, memberId) {
     const evt = this.getEvent(eventId);
     if (!evt || !evt.packingList || !evt.packingList[itemIdx]) return false;
-    if (evt.status === 'completed' || this.isEventFrozen(evt)) return false;
+    if (evt.status === 'completed') return false;
 
     const mId = Number(memberId);
+    if (!mId || isNaN(mId)) return false;
+
     if (typeof evt.packingList[itemIdx] === 'string') {
       evt.packingList[itemIdx] = { text: evt.packingList[itemIdx], checked: false, broughtBy: mId };
     } else {
@@ -1418,6 +1438,7 @@ class DataStore {
       evt.packingList[itemIdx].broughtBy = (current === mId) ? null : mId;
     }
 
+    evt.updated_at = new Date().toISOString();
     this.save(evt);
     return true;
   }
@@ -1463,6 +1484,13 @@ class DataStore {
         }
       }
 
+      let simWins = m.wins;
+      let simPodiums = m.podiums;
+      if (r7Rank === 1) simWins++;
+      if (r7Rank && r7Rank <= 3) simPodiums++;
+      if (r8Rank === 1) simWins++;
+      if (r8Rank && r8Rank <= 3) simPodiums++;
+
       return {
         ...m,
         simTotalPoints: m.totalPoints + addPoints,
@@ -1471,22 +1499,24 @@ class DataStore {
         simR8Points: r8Points,
         simR7Rank: r7Rank,
         simR8Rank: r8Rank,
+        simWins,
+        simPodiums,
         originalRank: m.rank
       };
     });
 
     simResults.sort((a, b) => {
       if (b.simTotalPoints !== a.simTotalPoints) return b.simTotalPoints - a.simTotalPoints;
-      if (b.wins !== a.wins) return b.wins - a.wins;
-      return b.podiums - a.podiums;
+      if (b.simWins !== a.simWins) return b.simWins - a.simWins;
+      return b.simPodiums - a.simPodiums;
     });
 
     for (let i = 0; i < simResults.length; i++) {
       if (
         i > 0 && 
         simResults[i].simTotalPoints === simResults[i - 1].simTotalPoints &&
-        simResults[i].wins === simResults[i - 1].wins &&
-        simResults[i].podiums === simResults[i - 1].podiums
+        simResults[i].simWins === simResults[i - 1].simWins &&
+        simResults[i].simPodiums === simResults[i - 1].simPodiums
       ) {
         simResults[i].simRank = simResults[i - 1].simRank;
       } else {
@@ -1507,24 +1537,42 @@ class DataStore {
 
   getMathematicalOdds() {
     const lb = this.getLeaderboard();
+    if (!lb || lb.length === 0) {
+      return { canWinTitle: [], canEndLast: [], potentialMax: {}, potentialMin: {} };
+    }
+
+    const remainingEvents = this.state.events.filter(e => e.status !== 'completed' && !e.isSpecial && e.id !== 9);
+    const remainingCount = remainingEvents.length;
+
     const potentialMax = {};
     const potentialMin = {};
 
     lb.forEach(m => {
-      const hasJoker = m.jokerInfo.status === 'available';
-      const maxAdd = hasJoker ? (16 + 8) : (8 + 8);
-      const minAdd = (1 + 1);
+      const hasJoker = m.jokerInfo && m.jokerInfo.status === 'available';
+      const maxAdd = remainingCount === 0 ? 0 : (hasJoker ? (16 + Math.max(0, remainingCount - 1) * 8) : (remainingCount * 8));
+      const minAdd = remainingCount * 1;
       potentialMax[m.id] = m.totalPoints + maxAdd;
       potentialMin[m.id] = m.totalPoints + minAdd;
     });
 
-    // Lowest possible points for leader Lukas (ID: 1)
-    const lukasMin = potentialMin[1] || 48;
-    const canWinTitle = lb.filter(m => potentialMax[m.id] >= lukasMin).map(m => m.id);
+    if (remainingCount === 0) {
+      return {
+        canWinTitle: [lb[0].id],
+        canEndLast: [lb[lb.length - 1].id],
+        potentialMax,
+        potentialMin
+      };
+    }
 
-    // Highest possible points for Aaron (ID: 8)
-    const aaronMax = potentialMax[8] || 36;
-    const canEndLast = lb.filter(m => potentialMin[m.id] <= aaronMax).map(m => m.id);
+    // Lowest possible points for current leader
+    const currentLeader = lb[0];
+    const leaderMin = potentialMin[currentLeader.id] || currentLeader.totalPoints;
+    const canWinTitle = lb.filter(m => potentialMax[m.id] >= leaderMin).map(m => m.id);
+
+    // Highest possible points for current last place
+    const currentLast = lb[lb.length - 1];
+    const lastMax = potentialMax[currentLast.id] || currentLast.totalPoints;
+    const canEndLast = lb.filter(m => potentialMin[m.id] <= lastMax).map(m => m.id);
 
     return {
       canWinTitle,
@@ -1643,10 +1691,21 @@ class DataStore {
     const merged = JSON.parse(JSON.stringify(incomingEvt));
 
     // 1. Completion & scores status
+    const localTime = localEvt.updated_at ? new Date(localEvt.updated_at).getTime() : 0;
+    const incTime = incomingEvt.updated_at ? new Date(incomingEvt.updated_at).getTime() : 0;
+
     if (localEvt.status === 'completed' && incomingEvt.status !== 'completed') {
-      merged.status = localEvt.status;
-      merged.isFrozen = localEvt.isFrozen;
-      merged.scores = localEvt.scores || [];
+      if (incTime > localTime) {
+        // Remote reopen by admin is newer: accept the reopen!
+        merged.status = incomingEvt.status;
+        merged.isFrozen = incomingEvt.isFrozen;
+        merged.scores = incomingEvt.scores || [];
+        merged.pendingJokers = incomingEvt.pendingJokers || [];
+      } else {
+        merged.status = localEvt.status;
+        merged.isFrozen = localEvt.isFrozen;
+        merged.scores = localEvt.scores || [];
+      }
     } else if (localEvt.status === 'completed' && incomingEvt.status === 'completed') {
       if ((!incomingEvt.scores || incomingEvt.scores.length === 0) && (localEvt.scores && localEvt.scores.length > 0)) {
         merged.scores = localEvt.scores;
@@ -1795,6 +1854,12 @@ class DataStore {
   mergeActivityData(activityMap) {
     if (!activityMap || typeof activityMap !== 'object') return;
     let changed = false;
+    if (activityMap.adminPin && typeof activityMap.adminPin === 'string') {
+      if (this.state.adminPin !== activityMap.adminPin) {
+        this.state.adminPin = activityMap.adminPin;
+        changed = true;
+      }
+    }
     (this.state.members || []).forEach(m => {
       const remoteTime = activityMap[m.id] || activityMap[String(m.id)];
       if (remoteTime) {
@@ -1831,15 +1896,20 @@ class DataStore {
     this.pushActivityToCloud(mId, nowIso);
   }
 
-  async pushActivityToCloud(memberId, timestampIso) {
+  async pushActivityToCloud(memberId = null, timestampIso = null) {
     const client = window.fdsSupabase && window.fdsSupabase.getClient();
     if (!client) return;
 
     const activityMap = {};
+    if (this.state.adminPin) {
+      activityMap.adminPin = this.state.adminPin;
+    }
     (this.state.members || []).forEach(m => {
       if (m.lastActiveAt) activityMap[m.id] = m.lastActiveAt;
     });
-    activityMap[memberId] = timestampIso;
+    if (memberId && timestampIso) {
+      activityMap[memberId] = timestampIso;
+    }
 
     try {
       await client.from('history_seasons').upsert({
@@ -1854,9 +1924,11 @@ class DataStore {
     }
 
     // Also attempt direct update on members table if last_active_at column exists
-    try {
-      await client.from('members').update({ last_active_at: timestampIso }).eq('id', memberId);
-    } catch (e) {}
+    if (memberId && timestampIso) {
+      try {
+        await client.from('members').update({ last_active_at: timestampIso }).eq('id', memberId);
+      } catch (e) {}
+    }
   }
 
   initLocalBroadcast() {
