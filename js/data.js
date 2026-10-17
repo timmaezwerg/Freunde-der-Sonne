@@ -272,7 +272,7 @@ const DEFAULT_TIMBERSPORTS_QUIZ = {
   sawContest: {
     targetWeight: 1000,
     entries: {}, // { [memberId]: { cut1: number|null, cut2: number|null } }
-    jokers: {}, // { [memberId]: boolean } -> 1x "Bullseye-Joker" (Abweichung <= 30g = +2 Bonuspunkte)
+    jokers: {}, // Legacy placeholder (Joker beim Sägen deaktiviert)
     revealed: false
   },
   trivia: {
@@ -3235,24 +3235,7 @@ class DataStore {
   }
 
   setSawJoker(memberId, active) {
-    if (memberId === 'admin') return { success: false, message: 'Admin nimmt nicht teil.' };
-    const quiz = this.getTimbersportsQuiz();
-    if (quiz.sawContest && quiz.sawContest.revealed) {
-      return { success: false, message: 'Ergebnisse bereits aufgedeckt! Joker kann nicht mehr geändert werden.' };
-    }
-    const entry = quiz.sawContest && quiz.sawContest.entries && (quiz.sawContest.entries[memberId] || quiz.sawContest.entries[String(memberId)]);
-    if (entry && (entry.cut1 !== null && entry.cut1 !== undefined)) {
-      return { success: false, message: 'Du hast bereits gesägt/gewogen! Der Joker muss vor dem ersten Schnitt gesetzt werden.' };
-    }
-    if (!quiz.sawContest.jokers) quiz.sawContest.jokers = {};
-    if (active === undefined) {
-      quiz.sawContest.jokers[memberId] = !quiz.sawContest.jokers[memberId];
-    } else {
-      quiz.sawContest.jokers[memberId] = Boolean(active);
-    }
-    this.bumpMemberRev(quiz, memberId);
-    this.saveTimbersportsQuiz(quiz);
-    return { success: true, active: quiz.sawContest.jokers[memberId], message: 'Bullseye-Joker aktualisiert! 🎯' };
+    return { success: false, message: 'Joker beim Sägewettbewerb ist deaktiviert.' };
   }
 
   calculateTimbersportsStandings() {
@@ -3262,7 +3245,7 @@ class DataStore {
     const saw = quiz.sawContest;
     const tr = quiz.trivia;
 
-    // 1. Beer Points per member
+    // 1. Beer Points per member (Modell 1: Platzierung 1-8 -> 8..1 Punkte)
     const beerScores = {};
     members.forEach(m => { beerScores[m.id] = { stage1: 0, stage2: 0, stage3: 0, jokerBonus: 0, total: 0 }; });
 
@@ -3278,7 +3261,7 @@ class DataStore {
             beerScores[m.id].total++;
             if (mJoker === i) {
               beerScores[m.id].jokerBonus++;
-              beerScores[m.id].total++;
+              beerScores[m.id].total++; // Goldener Kronkorken verdoppelt diesen Treffer!
             }
           }
         });
@@ -3296,7 +3279,7 @@ class DataStore {
             beerScores[m.id].total++;
             if (mJoker === i) {
               beerScores[m.id].jokerBonus++;
-              beerScores[m.id].total++;
+              beerScores[m.id].total++; // Goldener Kronkorken verdoppelt diesen Treffer!
             }
           }
         });
@@ -3314,14 +3297,29 @@ class DataStore {
             beerScores[m.id].total++;
             if (mJoker === i) {
               beerScores[m.id].jokerBonus++;
-              beerScores[m.id].total++;
+              beerScores[m.id].total++; // Goldener Kronkorken verdoppelt diesen Treffer!
             }
           }
         });
       }
     }
 
-    // 2. Saw Contest Rankings
+    const hasBeerActivity = Boolean(bt.stage1Revealed || bt.stage2Revealed || bt.stage3Revealed);
+    const beerRankList = members.map(m => ({ member: m, score: beerScores[m.id].total }));
+    beerRankList.sort((a, b) => b.score - a.score);
+    for (let i = 0; i < beerRankList.length; i++) {
+      if (i > 0 && beerRankList[i].score === beerRankList[i - 1].score) {
+        beerRankList[i].rank = beerRankList[i - 1].rank;
+      } else {
+        beerRankList[i].rank = i + 1;
+      }
+    }
+    const beerPoints = {};
+    beerRankList.forEach(item => {
+      beerPoints[item.member.id] = hasBeerActivity ? Math.max(1, 9 - item.rank) : 0;
+    });
+
+    // 2. Saw Contest Rankings (Modell 1: Platzierung 1-8 -> 8..1 Punkte, KEIN Joker)
     const sawResults = members.map(m => {
       const entry = saw.entries && saw.entries[m.id];
       const c1 = entry ? entry.cut1 : null;
@@ -3329,9 +3327,7 @@ class DataStore {
       const hasBoth = c1 !== null && c1 !== undefined && c2 !== null && c2 !== undefined;
       const totalWeight = hasBoth ? (c1 + c2) : null;
       const diff = hasBoth ? Math.abs(totalWeight - saw.targetWeight) : 999999;
-      const isJoker = Boolean(saw.jokers && saw.jokers[m.id]);
-      const jokerHit = isJoker && hasBoth && diff <= 30;
-      return { member: m, cut1: c1, cut2: c2, totalWeight, diff, hasBoth, isJoker, jokerHit };
+      return { member: m, cut1: c1, cut2: c2, totalWeight, diff, hasBoth };
     });
 
     sawResults.sort((a, b) => a.diff - b.diff);
@@ -3344,26 +3340,25 @@ class DataStore {
     }
     const sawPoints = {};
     sawResults.forEach((res) => {
-      let base = res.hasBoth ? Math.max(1, 9 - res.rank) : 0;
-      if (res.jokerHit) {
-        base += 2; // +2 Extra-Punkte für Treffer im Bullseye (<= 30g) mit Joker
-      }
-      sawPoints[res.member.id] = base;
+      sawPoints[res.member.id] = res.hasBoth ? Math.max(1, 9 - res.rank) : 0;
     });
 
-    // 3. Trivia points
+    // 3. Trivia points (Modell 1: Platzierung 1-8 -> 8..1 Punkte)
     const triviaScores = {};
     const triviaJokerHits = {};
     members.forEach(m => { triviaScores[m.id] = 0; triviaJokerHits[m.id] = 0; });
-    tr.questions.forEach(q => {
+    const hasTriviaActivity = Boolean(tr.revealed || (tr.questions && tr.questions.some(q => q.isResolved)));
+
+    (tr.questions || []).forEach(q => {
       const isCounted = Boolean(q.isResolved || tr.revealed);
       if (isCounted && q.correctAnswer) {
         members.forEach(m => {
           const ans = tr.answers && tr.answers[q.id] && tr.answers[q.id][m.id];
           if (ans === q.correctAnswer) {
             triviaScores[m.id]++;
-            if (tr.jokers && tr.jokers[m.id] === q.id) {
-              triviaScores[m.id]++; // +1 Bonuspunkt (Doppelte Punkte!)
+            const mJoker = tr.jokers && (tr.jokers[m.id] !== undefined ? tr.jokers[m.id] : tr.jokers[String(m.id)]);
+            if (mJoker === q.id) {
+              triviaScores[m.id]++; // Holzfäller-Joker verdoppelt diesen Treffer!
               triviaJokerHits[m.id]++;
             }
           }
@@ -3371,24 +3366,64 @@ class DataStore {
       }
     });
 
-    // 4. Combined Standings
+    const triviaRankList = members.map(m => ({ member: m, score: triviaScores[m.id] }));
+    triviaRankList.sort((a, b) => b.score - a.score);
+    for (let i = 0; i < triviaRankList.length; i++) {
+      if (i > 0 && triviaRankList[i].score === triviaRankList[i - 1].score) {
+        triviaRankList[i].rank = triviaRankList[i - 1].rank;
+      } else {
+        triviaRankList[i].rank = i + 1;
+      }
+    }
+    const triviaPoints = {};
+    triviaRankList.forEach(item => {
+      triviaPoints[item.member.id] = hasTriviaActivity ? Math.max(1, 9 - item.rank) : 0;
+    });
+
+    // 4. Combined Standings (Modell 1: Bier (1-8) + Sägen (1-8) + Quiz (1-8) = max. 24 Punkte)
     const standings = members.map(m => {
-      const bPts = beerScores[m.id].total;
+      const bPts = beerPoints[m.id] || 0;
       const sPts = sawPoints[m.id] || 0;
-      const tPts = triviaScores[m.id] || 0;
+      const tPts = triviaPoints[m.id] || 0;
       const total = bPts + sPts + tPts;
+      const sawDetail = sawResults.find(r => r.member.id === m.id);
+      const bRankItem = beerRankList.find(r => r.member.id === m.id);
+      const tRankItem = triviaRankList.find(r => r.member.id === m.id);
+
       return {
         member: m,
         beerScore: beerScores[m.id],
-        sawDetails: sawResults.find(r => r.member.id === m.id),
+        beerPoints: bPts,
+        beerRank: bRankItem ? bRankItem.rank : 8,
+        sawDetails: sawDetail,
         sawPoints: sPts,
-        triviaScore: tPts,
+        sawRank: sawDetail ? sawDetail.rank : 8,
+        rawTriviaScore: triviaScores[m.id],
+        triviaScore: triviaScores[m.id],
+        triviaPoints: tPts,
+        triviaRank: tRankItem ? tRankItem.rank : 8,
         triviaJokerHit: Boolean(triviaJokerHits[m.id] > 0),
         totalPoints: total
       };
     });
 
-    standings.sort((a, b) => b.totalPoints - a.totalPoints);
+    standings.sort((a, b) => {
+      if (b.totalPoints !== a.totalPoints) {
+        return b.totalPoints - a.totalPoints;
+      }
+      // Tie-breakers:
+      // 1. Raw score sum (beer raw hits + trivia raw hits)
+      const aRaw = (a.beerScore?.total || 0) + (a.rawTriviaScore || 0);
+      const bRaw = (b.beerScore?.total || 0) + (b.rawTriviaScore || 0);
+      if (bRaw !== aRaw) {
+        return bRaw - aRaw;
+      }
+      // 2. Saw precision (smaller diff)
+      const aDiff = a.sawDetails && a.sawDetails.hasBoth ? a.sawDetails.diff : 999999;
+      const bDiff = b.sawDetails && b.sawDetails.hasBoth ? b.sawDetails.diff : 999999;
+      return aDiff - bDiff;
+    });
+
     for (let i = 0; i < standings.length; i++) {
       if (i > 0 && standings[i].totalPoints === standings[i - 1].totalPoints) {
         standings[i].rank = standings[i - 1].rank;
@@ -3410,7 +3445,7 @@ class DataStore {
     standings.forEach(st => {
       if (st.beerScore.total > bestBeerScore && st.beerScore.total > 0) {
         bestBeerScore = st.beerScore.total;
-        beerSommelier = { member: st.member, value: `${st.beerScore.total} Biere` };
+        beerSommelier = { member: st.member, value: `${st.beerScore.total} Treffer` };
       }
       if (st.sawDetails && st.sawDetails.hasBoth) {
         if (st.sawDetails.diff < bestSawDiff) {
@@ -3422,9 +3457,9 @@ class DataStore {
           wildAxe = { member: st.member, value: `±${st.sawDetails.diff}g (${st.sawDetails.totalWeight}g)` };
         }
       }
-      if (st.triviaScore > bestTriviaScore && st.triviaScore > 0) {
-        bestTriviaScore = st.triviaScore;
-        triviaMaster = { member: st.member, value: `${st.triviaScore} Pkt.` };
+      if (st.rawTriviaScore > bestTriviaScore && st.rawTriviaScore > 0) {
+        bestTriviaScore = st.rawTriviaScore;
+        triviaMaster = { member: st.member, value: `${st.rawTriviaScore} Pkt.` };
       }
     });
 

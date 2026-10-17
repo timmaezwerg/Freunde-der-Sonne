@@ -4999,7 +4999,7 @@ document.addEventListener('DOMContentLoaded', () => {
           jokerBtnHtml = `
             <div class="ts-joker-banner-wrapper">
               <button type="button" class="ts-joker-btn active" id="btn-toggle-beer-joker">
-                <span>👑</span> Goldener Kronkorken aktiv! (+1 Bonuspunkt bei Treffer)
+                <span>👑</span> Goldener Kronkorken aktiv! (Punkte verdoppelt: 2P bei Treffer) ✓
               </button>
             </div>
           `;
@@ -5015,7 +5015,7 @@ document.addEventListener('DOMContentLoaded', () => {
           jokerBtnHtml = `
             <div class="ts-joker-banner-wrapper">
               <button type="button" class="ts-joker-btn" id="btn-toggle-beer-joker">
-                <span>👑</span> Kronkorken auf Bier #${activeIdx + 1} verschieben (+1 Bonus)
+                <span>👑</span> Kronkorken auf Bier #${activeIdx + 1} verschieben (Punkte-Verdoppler)
               </button>
               <div class="ts-joker-info-text">
                 <span class="ts-joker-badge">👑 Gesetzter Kronkorken</span> liegt aktuell bei Bier #${myJokerBeer + 1}
@@ -5026,7 +5026,7 @@ document.addEventListener('DOMContentLoaded', () => {
           jokerBtnHtml = `
             <div class="ts-joker-banner-wrapper">
               <button type="button" class="ts-joker-btn" id="btn-toggle-beer-joker">
-                <span>👑</span> Goldener Kronkorken für Bier #${activeIdx + 1} setzen (+1 Bonuspunkt)
+                <span>👑</span> Goldener Kronkorken für Bier #${activeIdx + 1} setzen (Doppelte Punkte!)
               </button>
             </div>
           `;
@@ -5710,7 +5710,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (isBullseye) {
             bullseyeBadgeHtml = `
               <div class="ts-bullseye-badge bullseye" style="margin-top: 8px;">
-                🎯 Bullseye getroffen! (±${diff}g)${isJoker ? ' • +2 Joker-Extrapunkte gesichert!' : ''}
+                🎯 Bullseye getroffen! (±${diff}g)
               </div>
             `;
           } else if (diff <= 100) {
@@ -5746,27 +5746,6 @@ document.addEventListener('DOMContentLoaded', () => {
               <div style="font-size: 0.82rem; color: var(--text-primary); margin-top: 2px;">
                 Schnitt 1 wiegt <strong>${c1} g</strong>. Für exakt 1.000g brauchst du bei Schnitt 2 idealerweise <strong>${diffToGoal > 0 ? diffToGoal + ' g' : '0 g'}</strong>! 🪵
               </div>
-            </div>
-          `;
-        }
-
-        let jokerBtnHtml = '';
-        if (!hasC1 && !isRevealed) {
-          jokerBtnHtml = `
-            <div style="margin-top: 10px;">
-              <button type="button" class="ts-joker-btn ${isJoker ? 'active' : ''}" id="btn-toggle-saw-joker">
-                <span class="joker-icon">🎯</span>
-                <div class="joker-text">
-                  <span class="joker-title">Bullseye-Wette (Joker) ${isJoker ? 'aktiviert! ✓' : ''}</span>
-                  <span class="joker-desc">${isJoker ? 'Aktiv: Gesamtabweichung ≤ 30g bringt dir +2 Extrapunkte!' : 'Tippe hier: Gesamtabweichung ≤ 30g bringt dir +2 Extrapunkte!'}</span>
-                </div>
-              </button>
-            </div>
-          `;
-        } else if (isJoker) {
-          jokerBtnHtml = `
-            <div style="margin-top: 8px;">
-              <span class="ts-joker-badge active">🎯 Bullseye-Wette gesetzt (Eingefroren)</span>
             </div>
           `;
         }
@@ -5807,24 +5786,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
           </div>
           ${resultText}
-          ${jokerBtnHtml}
         `;
-
-        const btnSawJoker = document.getElementById('btn-toggle-saw-joker');
-        if (btnSawJoker) {
-          btnSawJoker.onclick = () => {
-            const next = !isJoker;
-            const res = store.setSawJoker(currentUserId, next);
-            if (res.success) {
-              if (res.active) fdsAudio.playJoker();
-              triggerHaptic('success');
-              showToast(res.active ? '🎯 Bullseye-Wette aktiviert! Ziel: ≤ 30g Abweichung!' : 'Bullseye-Wette deaktiviert.', '🎯');
-              renderTimbersports();
-            } else {
-              showToast(res.message, '⚠️');
-            }
-          };
-        }
       }
     }
 
@@ -5836,8 +5798,6 @@ document.addEventListener('DOMContentLoaded', () => {
           const entry = (saw.entries && saw.entries[m.id]) || {};
           const c1 = entry.cut1 !== null && entry.cut1 !== undefined;
           const c2 = entry.cut2 !== null && entry.cut2 !== undefined;
-          const isJoker = Boolean(saw.jokers && saw.jokers[m.id]);
-          const jokerBadge = isJoker ? ' <span class="ts-joker-badge active" style="font-size:0.65rem; padding: 1px 6px;">🎯 Joker</span>' : '';
           let statusBadge = '';
           if (c1 && c2) {
             statusBadge = '<span style="color: #34d399; font-weight: 800;">Beide Schnitte gewogen 🪵</span>';
@@ -5851,7 +5811,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border-subtle); font-size: 0.8rem;">
               <div style="display: flex; align-items: center; gap: 8px;">
                 <span class="avatar-sm">${renderAvatar(m.avatar)}</span>
-                <strong>${m.name}</strong> ${jokerBadge}
+                <strong>${m.name}</strong>
               </div>
               <div>${statusBadge}</div>
             </div>
@@ -5874,9 +5834,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const hasBoth = c1 !== null && c1 !== undefined && c2 !== null && c2 !== undefined;
           const total = hasBoth ? (c1 + c2) : null;
           const diff = hasBoth ? Math.abs(total - saw.targetWeight) : 999999;
-          const isJ = Boolean(saw.jokers && saw.jokers[m.id]);
-          const jHit = isJ && hasBoth && diff <= 30;
-          return { member: m, cut1: c1, cut2: c2, total, diff, hasBoth, isJoker: isJ, jokerHit: jHit };
+          return { member: m, cut1: c1, cut2: c2, total, diff, hasBoth };
         });
 
         results.sort((a, b) => a.diff - b.diff);
@@ -5890,20 +5848,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let rowsHtml = results.map((r) => {
           let rankPoints = r.hasBoth ? Math.max(1, 9 - r.rank) : 0;
-          let jokerBonusBadge = '';
-          if (r.jokerHit) {
-            rankPoints += 2;
-            jokerBonusBadge = '<span class="ts-joker-badge active" style="margin-left: 4px;" title="Bullseye-Wette gewonnen (+2P)">🎯 +2P</span>';
-          } else if (r.isJoker) {
-            jokerBonusBadge = '<span class="ts-joker-badge" style="margin-left: 4px; opacity: 0.6;" title="Bullseye-Wette verfehlt">🎯</span>';
-          }
 
           return `
             <tr style="border-bottom: 1px solid var(--border-subtle);">
               <td style="padding: 8px 6px; font-weight: 800; color: ${r.rank === 1 ? 'var(--sun-gold)' : 'var(--text-muted)'};">#${r.rank}</td>
               <td style="padding: 8px 6px; display: flex; align-items: center; gap: 8px;">
                 <span class="avatar-sm">${renderAvatar(r.member.avatar)}</span>
-                <strong>${r.member.name}</strong> ${jokerBonusBadge}
+                <strong>${r.member.name}</strong>
               </td>
               <td style="padding: 8px 6px; text-align: center;">${r.cut1 ?? '–'}g</td>
               <td style="padding: 8px 6px; text-align: center;">${r.cut2 ?? '–'}g</td>
@@ -6393,7 +6344,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button type="button" class="ts-joker-btn active" id="btn-toggle-trivia-joker" ${isQFrozen ? 'disabled' : ''}>
                   <span class="joker-icon">🃏</span>
                   <div class="joker-text">
-                    <span class="joker-title">Holzfäller-Joker aktiv! (+1 Bonuspunkt bei Treffer) ✓</span>
+                    <span class="joker-title">Holzfäller-Joker aktiv! (Punkte verdoppelt: 2P bei Treffer) ✓</span>
                     <span class="joker-desc">${isQFrozen ? 'Für diese Frage eingeloggt.' : 'Klicke hier, um den Joker wieder zu entfernen.'}</span>
                   </div>
                 </button>
@@ -6402,13 +6353,13 @@ document.addEventListener('DOMContentLoaded', () => {
           } else if (!isQFrozen && !(otherJokerQ && store.isTriviaQuestionLocked(otherJokerQ.id))) {
             const jokerDesc = otherJokerQ
               ? `Aktuell gesetzt bei Frage #${questions.indexOf(otherJokerQ) + 1}. Klicke, um ihn hierhin zu verschieben.`
-              : 'Setze deinen 1x Joker auf deine sicherste Frage: doppelter Punkt bei Treffer!';
+              : 'Setze deinen 1x Joker auf deine sicherste Frage: doppelte Punkte (2P) bei richtiger Antwort!';
             jokerTriviaBtnHtml = `
               <div style="margin-top: 12px;">
                 <button type="button" class="ts-joker-btn" id="btn-toggle-trivia-joker">
                   <span class="joker-icon">🃏</span>
                   <div class="joker-text">
-                    <span class="joker-title">Holzfäller-Joker setzen (+1 Bonuspunkt)</span>
+                    <span class="joker-title">Holzfäller-Joker setzen (Punkte-Verdoppler)</span>
                     <span class="joker-desc">${jokerDesc}</span>
                   </div>
                 </button>
@@ -6798,14 +6749,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const isMe = Number(currentUserId) === st.member.id;
 
         const beerJokerBadge = st.beerScore && st.beerScore.jokerBonus
-          ? ` <span class="ts-joker-badge active" style="margin-left: 2px;" title="Goldener Kronkorken getroffen (+1P)">👑 +${st.beerScore.jokerBonus}</span>`
-          : '';
-        const sawJokerBadge = st.sawDetails && st.sawDetails.jokerHit
-          ? ` <span class="ts-joker-badge active" style="margin-left: 2px;" title="Bullseye-Wette gewonnen (+2P)">🎯 +2</span>`
+          ? ` <span class="ts-joker-badge active" style="margin-left: 2px;" title="Goldener Kronkorken verdoppelt (+1P)">👑 +${st.beerScore.jokerBonus}</span>`
           : '';
         const triviaJokerBadge = st.triviaJokerHit
           ? ` <span class="ts-joker-badge active" style="margin-left: 2px;" title="Holzfäller-Joker verdoppelt (+1P)">🃏 +1</span>`
           : '';
+
+        const beerSub = `${st.beerScore.total} Treffer${beerJokerBadge}`;
+        const sawDiff = st.sawDetails && st.sawDetails.hasBoth ? `±${st.sawDetails.diff}g` : '–';
+        const triviaSub = `${st.rawTriviaScore}/5 Treffer${triviaJokerBadge}`;
 
         return `
           <tr style="border-bottom: 1px solid var(--border-subtle); background: ${isMe ? 'rgba(251, 191, 36, 0.08)' : 'transparent'};">
@@ -6818,17 +6770,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 <strong>${st.member.name}</strong> ${isMe ? '<span style="font-size: 0.68rem; color: var(--sun-gold);">(Du)</span>' : ''}
               </div>
             </td>
-            <td style="padding: 10px 6px; text-align: center; color: var(--sun-gold); font-weight: 700;">
-              ${st.beerScore.total} P${beerJokerBadge}
+            <td style="padding: 10px 6px; text-align: center;">
+              <div style="font-weight: 800; color: var(--sun-gold); font-size: 0.95rem;">${st.beerPoints} P</div>
+              <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 1px;">${beerSub}</div>
             </td>
-            <td style="padding: 10px 6px; text-align: center; color: #34d399; font-weight: 700;">
-              ${st.sawPoints} P${sawJokerBadge}
+            <td style="padding: 10px 6px; text-align: center;">
+              <div style="font-weight: 800; color: #34d399; font-size: 0.95rem;">${st.sawPoints} P</div>
+              <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 1px;">${sawDiff}</div>
             </td>
-            <td style="padding: 10px 6px; text-align: center; color: #38bdf8; font-weight: 700;">
-              ${st.triviaScore} P${triviaJokerBadge}
+            <td style="padding: 10px 6px; text-align: center;">
+              <div style="font-weight: 800; color: #38bdf8; font-size: 0.95rem;">${st.triviaPoints} P</div>
+              <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 1px;">${triviaSub}</div>
             </td>
-            <td style="padding: 10px 6px; text-align: right; font-weight: 900; font-size: 1.05rem; color: #fff;">
-              ${st.totalPoints}
+            <td style="padding: 10px 6px; text-align: right;">
+              <span style="font-weight: 900; font-size: 1.15rem; color: #fff;">${st.totalPoints}</span>
+              <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700;"> / 24</span>
             </td>
           </tr>
         `;
@@ -6841,10 +6797,10 @@ document.addEventListener('DOMContentLoaded', () => {
               <tr style="color: var(--text-muted); font-size: 0.68rem; text-transform: uppercase; border-bottom: 1px solid var(--border-subtle);">
                 <th style="padding: 6px; text-align: left;">Platz</th>
                 <th style="padding: 6px; text-align: left;">Freund</th>
-                <th style="padding: 6px; text-align: center;">🍺 Bier</th>
-                <th style="padding: 6px; text-align: center;">🪚 Sägen</th>
-                <th style="padding: 6px; text-align: center;">🎯 Quiz</th>
-                <th style="padding: 6px; text-align: right;">Gesamt</th>
+                <th style="padding: 6px; text-align: center;" title="Biertasting: 1-8 Punkte je nach Platzierung">🍺 Bier (1-8)</th>
+                <th style="padding: 6px; text-align: center;" title="Sägewettbewerb: 1-8 Punkte je nach Genauigkeit">🪚 Sägen (1-8)</th>
+                <th style="padding: 6px; text-align: center;" title="Wissensquiz: 1-8 Punkte je nach Platzierung">🧠 Quiz (1-8)</th>
+                <th style="padding: 6px; text-align: right;" title="Gesamtpunkte (max. 24 Punkte)">Gesamt</th>
               </tr>
             </thead>
             <tbody>
