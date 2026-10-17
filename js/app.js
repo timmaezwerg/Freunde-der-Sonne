@@ -208,15 +208,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const container = document.getElementById('live-countdown-container');
     if (!container) return;
 
-    const upcomingEvents = store.getEvents().filter(e => e.status !== 'completed');
-    if (!upcomingEvents || upcomingEvents.length === 0) {
+    const nextEvent = store.getNextUpcomingEvent();
+    if (!nextEvent) {
       container.innerHTML = '';
-      if (countdownTimerInterval) clearInterval(countdownTimerInterval);
+      if (countdownTimerInterval) {
+        clearInterval(countdownTimerInterval);
+        countdownTimerInterval = null;
+      }
       return;
     }
 
-    const nextEvent = upcomingEvents[0];
     const organizer = store.getMember(nextEvent.organizerId) || { name: 'Gruppe' };
+    const isSpecial = Boolean(nextEvent.isSpecial || nextEvent.id === 9);
+    const headerTitle = isSpecial ? '🥩 Wintergrillen' : '⏳ Nächster Spieltag';
+    const eventNameFormatted = isSpecial
+      ? `🥩 ${nextEvent.title} (bei ${organizer.name})`
+      : `Spieltag ${nextEvent.round}: ${nextEvent.title} (bei ${organizer.name})`;
 
     function updateTimer() {
       const timeMatch = (nextEvent.time || '18:00').match(/(\d{1,2}):(\d{2})/);
@@ -233,17 +240,21 @@ document.addEventListener('DOMContentLoaded', () => {
           countdownTimerInterval = null;
         }
         container.innerHTML = `
-          <div class="countdown-card">
+          <div class="countdown-card" style="cursor: pointer;" title="Details zum Spieltag anzeigen">
             <div class="countdown-header">
               <span class="countdown-title">⚡ HEUTE / JETZT</span>
               <span style="font-size: 0.72rem; color: var(--sun-gold); font-weight: 700;">Live</span>
             </div>
-            <div class="countdown-event-name">${nextEvent.isSpecial ? '🥩' : `Spieltag ${nextEvent.round}:`} ${nextEvent.title} bei ${organizer.name}</div>
+            <div class="countdown-event-name">${isSpecial ? '🥩' : `Spieltag ${nextEvent.round}:`} ${nextEvent.title} bei ${organizer.name}</div>
             <div style="font-size: 0.8rem; color: var(--sun-gold); font-weight: 700; text-align: center; padding: 4px;">
               Viel Erfolg allen Freunden der Sonne! ☀️
             </div>
           </div>
         `;
+        const card = container.querySelector('.countdown-card');
+        if (card) {
+          card.onclick = () => switchView('view-events');
+        }
         return;
       }
 
@@ -264,13 +275,13 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       container.innerHTML = `
-        <div class="countdown-card">
+        <div class="countdown-card" style="cursor: pointer;" title="Details zum Spieltag anzeigen">
           <div class="countdown-header">
-            <span class="countdown-title">⏳ Nächster Spieltag</span>
+            <span class="countdown-title">${headerTitle}</span>
             <span style="font-size: 0.72rem; color: var(--sun-gold); font-weight: 700;">${formatDate(nextEvent.date)} • ${nextEvent.time}</span>
           </div>
           <div class="countdown-event-name">
-            ${nextEvent.isSpecial ? '🥩' : `Spieltag ${nextEvent.round}:`} ${nextEvent.title} (bei ${organizer.name})
+            ${eventNameFormatted}
           </div>
           <div class="countdown-grid">
             <div class="countdown-box">
@@ -292,6 +303,11 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         </div>
       `;
+
+      const card = container.querySelector('.countdown-card');
+      if (card) {
+        card.onclick = () => switchView('view-events');
+      }
     }
 
     if (countdownTimerInterval) clearInterval(countdownTimerInterval);
@@ -1733,7 +1749,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Find the next upcoming event to highlight
-    const nextUpcoming = store.getEvents().find(e => e.status !== 'completed');
+    const nextUpcoming = store.getNextUpcomingEvent();
 
     events.forEach(evt => {
       const organizer = store.getMember(evt.organizerId) || { name: 'Unbekannt', avatar: '👤' };
@@ -3534,7 +3550,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function generateWhatsAppText() {
     const leaderboard = store.getLeaderboard();
     const completedEvents = store.getEvents().filter(e => e.status === 'completed' && !e.isSpecial && e.id !== 9);
-    const nextUpcoming = store.getEvents().find(e => e.status !== 'completed');
+    const nextUpcoming = store.getNextUpcomingEvent();
 
     let text = `☀️ *FREUNDE DER SONNE 2026* ☀️\n`;
     text += `Stand nach Spieltag ${completedEvents.length} von 8:\n\n`;

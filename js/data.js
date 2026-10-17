@@ -719,6 +719,9 @@ class DataStore {
               if (!evt8.timbersportsQuiz.trivia) evt8.timbersportsQuiz.trivia = JSON.parse(JSON.stringify(DEFAULT_TIMBERSPORTS_QUIZ.trivia));
             }
           }
+          if (Array.isArray(this.state.events)) {
+            this.state.events.sort((a, b) => (Number(a.round) || Number(a.id)) - (Number(b.round) || Number(b.id)));
+          }
           this.syncWintergrillenOrganizer();
         }
       } catch (e) {
@@ -781,7 +784,43 @@ class DataStore {
 
   getEvents() {
     this.syncWintergrillenOrganizer();
+    if (this.state && Array.isArray(this.state.events)) {
+      this.state.events.sort((a, b) => (Number(a.round) || Number(a.id)) - (Number(b.round) || Number(b.id)));
+    }
     return this.state.events;
+  }
+
+  getNextUpcomingEvent() {
+    const events = this.getEvents();
+    if (!Array.isArray(events) || events.length === 0) return null;
+
+    // 1. Regular season matchdays (1 to 8) that are not completed
+    const regularUpcoming = events.filter(e => e.status !== 'completed' && !e.isSpecial && e.id !== 9);
+    if (regularUpcoming.length > 0) {
+      regularUpcoming.sort((a, b) => {
+        const timeA = (a.time || '18:00').match(/\d{1,2}:\d{2}/)?.[0] || '18:00';
+        const timeB = (b.time || '18:00').match(/\d{1,2}:\d{2}/)?.[0] || '18:00';
+        const dateA = a.date ? new Date(`${a.date}T${timeA}:00`).getTime() : 0;
+        const dateB = b.date ? new Date(`${b.date}T${timeB}:00`).getTime() : 0;
+        return (dateA - dateB) || ((Number(a.round) || Number(a.id)) - (Number(b.round) || Number(b.id)));
+      });
+      return regularUpcoming[0];
+    }
+
+    // 2. If all 8 regular matchdays are completed, return Wintergrillen / special event
+    const specialUpcoming = events.filter(e => e.status !== 'completed');
+    if (specialUpcoming.length > 0) {
+      specialUpcoming.sort((a, b) => {
+        const timeA = (a.time || '18:00').match(/\d{1,2}:\d{2}/)?.[0] || '18:00';
+        const timeB = (b.time || '18:00').match(/\d{1,2}:\d{2}/)?.[0] || '18:00';
+        const dateA = a.date ? new Date(`${a.date}T${timeA}:00`).getTime() : 0;
+        const dateB = b.date ? new Date(`${b.date}T${timeB}:00`).getTime() : 0;
+        return (dateA - dateB) || ((Number(a.round) || Number(a.id)) - (Number(b.round) || Number(b.id)));
+      });
+      return specialUpcoming[0];
+    }
+
+    return null;
   }
 
   getEvent(id) {
@@ -1849,6 +1888,7 @@ class DataStore {
         const local = (this.state.events || []).find(e => e.id === incEvt.id);
         return local ? this.mergeSingleEvent(local, incEvt) : incEvt;
       });
+      this.state.events.sort((a, b) => (Number(a.round) || Number(a.id)) - (Number(b.round) || Number(b.id)));
       this.syncWintergrillenOrganizer();
     }
   }
@@ -2325,8 +2365,8 @@ class DataStore {
 
     try {
       const [membersRes, eventsRes, activityRes] = await Promise.all([
-        client.from('members').select('*'),
-        client.from('events').select('*'),
+        client.from('members').select('*').order('id', { ascending: true }),
+        client.from('events').select('*').order('id', { ascending: true }),
         client.from('history_seasons').select('scores').eq('year', 9999).maybeSingle()
       ]);
 
@@ -2447,6 +2487,7 @@ class DataStore {
           } else {
             this.state.events.push(updated);
           }
+          this.state.events.sort((a, b) => (Number(a.round) || Number(a.id)) - (Number(b.round) || Number(b.id)));
           this.syncWintergrillenOrganizer();
           localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
           if (typeof window.fdsRefreshUI === 'function') window.fdsRefreshUI();
@@ -2477,6 +2518,7 @@ class DataStore {
           } else {
             this.state.events.push(updated);
           }
+          this.state.events.sort((a, b) => (Number(a.round) || Number(a.id)) - (Number(b.round) || Number(b.id)));
           this.syncWintergrillenOrganizer();
           localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
           if (typeof window.fdsRefreshUI === 'function') window.fdsRefreshUI();
