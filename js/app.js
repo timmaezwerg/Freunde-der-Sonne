@@ -4254,6 +4254,22 @@ document.addEventListener('DOMContentLoaded', () => {
           osc.stop(c.currentTime + 0.08);
         } catch (e) {}
       },
+      playWheelTick() {
+        const c = getCtx();
+        if (!c) return;
+        try {
+          const osc = c.createOscillator();
+          const gain = c.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(620, c.currentTime);
+          gain.gain.setValueAtTime(0.09, c.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.025);
+          osc.connect(gain);
+          gain.connect(c.destination);
+          osc.start();
+          osc.stop(c.currentTime + 0.025);
+        } catch (e) {}
+      },
       playBuzzer() {
         const c = getCtx();
         if (!c) return;
@@ -5055,146 +5071,373 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       const isAll3StagesRevealed = Boolean(bt.stage1Revealed && bt.stage2Revealed && bt.stage3Revealed);
+      const allPool = bt.beerPool || [];
+      const availableBeers = allPool.filter(b => !usedBeersMap[b] || b === myCurrentGuess);
 
-      if (gridEl) {
-        let gridHtml = '';
+      let filterMode = localStorage.getItem('fds_beer_filter_mode') || 'available';
+      let viewMode = localStorage.getItem('fds_beer_view_mode') || 'wheel';
 
-        (bt.beerPool || []).forEach(beerName => {
-          const isSelected = myCurrentGuess === beerName;
-          const isUsed = Boolean(usedBeersMap[beerName]);
-          const usedNum = usedBeersMap[beerName];
+      const controlsEl = document.getElementById('ts-beer-picker-controls');
+      const wheelContainerEl = document.getElementById('ts-beer-wheel-container');
+      const wheelCylinderEl = document.getElementById('ts-wheel-cylinder');
+      const btnToggleFilter = document.getElementById('btn-toggle-beer-filter');
+      const filterBtnText = document.getElementById('ts-filter-btn-text');
+      const btnViewWheel = document.getElementById('btn-view-wheel');
+      const btnViewGrid = document.getElementById('btn-view-grid');
 
-          if (isStageRevealed) {
-            const isCorrectGuess = Boolean(sol && isSelected && myCurrentGuess === sol);
-            const isWrongGuess = Boolean(sol && isSelected && myCurrentGuess !== sol);
-            const isTrueSolution = Boolean(sol && beerName === sol);
-            const steckbriefBtn = isAll3StagesRevealed
-              ? `<button type="button" class="btn btn-sm btn-secondary btn-beer-card-steckbrief" data-beer="${beerName}" style="padding: 2px 8px; font-size: 0.72rem; margin-left: auto;">ℹ️ Steckbrief</button>`
-              : '';
+      if (isStageRevealed) {
+        // In stage reveal mode: hide wheel & picker controls, show grid with full solution breakdown
+        if (controlsEl) controlsEl.style.display = 'none';
+        if (wheelContainerEl) wheelContainerEl.style.display = 'none';
+        if (gridEl) gridEl.style.display = 'flex';
+      } else {
+        // Active guessing mode: show controls
+        if (controlsEl) {
+          controlsEl.style.display = 'flex';
 
-            if (isCorrectGuess) {
-              gridHtml += `
-                <div class="ts-beer-opt revealed-correct">
-                  <span class="beer-emoji">🍺</span>
-                  <span class="beer-name">${beerName}</span>
-                  <span class="revealed-badge">✓ Dein Treffer! (+1)</span>
-                  ${steckbriefBtn}
-                </div>
-              `;
-            } else if (isWrongGuess) {
-              gridHtml += `
-                <div class="ts-beer-opt revealed-wrong">
-                  <span class="beer-emoji">🍺</span>
-                  <span class="beer-name">${beerName}</span>
-                  <span class="revealed-badge">✗ Dein Tipp (falsch)</span>
-                  ${steckbriefBtn}
-                </div>
-              `;
-            } else if (isTrueSolution) {
-              gridHtml += `
-                <div class="ts-beer-opt revealed-correct">
-                  <span class="beer-emoji">🍺</span>
-                  <span class="beer-name">${beerName}</span>
-                  <span class="revealed-badge">✓ Wahre Lösung</span>
-                  ${steckbriefBtn}
-                </div>
-              `;
+          if (btnToggleFilter && filterBtnText) {
+            if (filterMode === 'available') {
+              btnToggleFilter.className = 'ts-picker-filter-btn active-filter';
+              filterBtnText.textContent = `Nur offene Biere (${availableBeers.length})`;
             } else {
-              gridHtml += `
-                <div class="ts-beer-opt" style="opacity: 0.35; ${isAll3StagesRevealed ? 'cursor:pointer;' : 'pointer-events: none;'}">
-                  <span class="beer-emoji">🍺</span>
-                  <span class="beer-name">${beerName}</span>
-                  ${steckbriefBtn}
-                </div>
-              `;
+              btnToggleFilter.className = 'ts-picker-filter-btn all-mode';
+              filterBtnText.textContent = 'Alle 25 Biere';
             }
-          } else if (isSelected) {
-            gridHtml += `
-              <div class="ts-beer-opt selected" data-beer="${beerName}" style="${isRoundLocked ? 'cursor:default;' : ''}">
-                <span class="beer-emoji">🍺</span>
-                <span class="beer-name">${beerName}</span>
-                <span class="pick-indicator">${isRoundLocked ? '🔒 Eingeloggt' : '✓ Gewählt'}</span>
-              </div>
-            `;
-          } else if (isUsed) {
-            gridHtml += `
-              <div class="ts-beer-opt used" data-beer="${beerName}" data-used-num="${usedNum}" title="Bereits bei Bier #${usedNum} getippt">
-                <span class="beer-emoji">🍺</span>
-                <span class="beer-name">${beerName}</span>
-                <span class="used-badge">🔒 Bei Bier #${usedNum} gewählt</span>
-              </div>
-            `;
-          } else if (isRoundLocked) {
-            gridHtml += `
-              <div class="ts-beer-opt" style="opacity: 0.45; pointer-events: none;">
-                <span class="beer-emoji">🍺</span>
-                <span class="beer-name">${beerName}</span>
-              </div>
-            `;
-          } else {
-            gridHtml += `
-              <div class="ts-beer-opt" data-beer="${beerName}">
-                <span class="beer-emoji">🍺</span>
-                <span class="beer-name">${beerName}</span>
-              </div>
-            `;
-          }
-        });
-        gridEl.innerHTML = gridHtml;
-
-        // Wire Joker button
-        const btnJoker = document.getElementById('btn-toggle-beer-joker');
-        if (btnJoker) {
-          btnJoker.onclick = () => {
-            const res = store.setBeerJoker(currentUserId, activeIdx);
-            if (res.success) {
-              if (res.active) fdsAudio.playJoker();
-              showToast(res.message, res.active ? '👑' : 'ℹ️');
+            btnToggleFilter.onclick = () => {
+              filterMode = filterMode === 'available' ? 'all' : 'available';
+              localStorage.setItem('fds_beer_filter_mode', filterMode);
+              fdsAudio.playWheelTick();
+              triggerHaptic('light');
               renderTimbersports();
-            } else {
-              showToast(res.message, '⚠️');
-            }
-          };
-        }
+            };
+          }
 
-        // Wire Steckbrief buttons
-        gridEl.querySelectorAll('.btn-beer-card-steckbrief').forEach(btn => {
-          btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const bName = btn.getAttribute('data-beer');
-            openBeerSteckbrief(bName);
-          });
-        });
+          if (btnViewWheel && btnViewGrid) {
+            btnViewWheel.className = `ts-view-switch-btn ${viewMode === 'wheel' ? 'active' : ''}`;
+            btnViewGrid.className = `ts-view-switch-btn ${viewMode === 'grid' ? 'active' : ''}`;
 
-        // Wire Used beers click feedback
-        gridEl.querySelectorAll('.ts-beer-opt.used').forEach(opt => {
-          opt.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const bName = opt.getAttribute('data-beer');
-            const uNum = opt.getAttribute('data-used-num');
-            triggerHaptic('warning');
-            showToast(`„${bName}“ hast du bereits bei Bier #${uNum} eingeloggt! Jedes Bier darf nur einmal gewählt werden.`, '🔒');
-          });
-        });
-
-        if (!isRoundLocked) {
-          gridEl.querySelectorAll('.ts-beer-opt:not(.used):not([disabled])').forEach(opt => {
-            opt.addEventListener('click', () => {
-              const bName = opt.getAttribute('data-beer');
-              if (!bName) return;
-              const res = store.saveBeerGuess(currentUserId, activeIdx, bName);
-              if (res.success) {
-                fdsAudio.playPlopp();
-                triggerHaptic('success');
-                showToast(`Bier #${activeIdx + 1}: ${bName} eingeloggt! 🍺`, '✓');
+            btnViewWheel.onclick = () => {
+              if (viewMode !== 'wheel') {
+                viewMode = 'wheel';
+                localStorage.setItem('fds_beer_view_mode', 'wheel');
+                fdsAudio.playWheelTick();
+                triggerHaptic('light');
                 renderTimbersports();
+              }
+            };
+
+            btnViewGrid.onclick = () => {
+              if (viewMode !== 'grid') {
+                viewMode = 'grid';
+                localStorage.setItem('fds_beer_view_mode', 'grid');
+                fdsAudio.playWheelTick();
+                triggerHaptic('light');
+                renderTimbersports();
+              }
+            };
+          }
+        }
+      }
+
+      const displayList = (filterMode === 'available' && !isStageRevealed) ? availableBeers : allPool;
+
+      // 1. Render Interactive iOS Wheel Picker (when !isStageRevealed && viewMode === 'wheel')
+      if (wheelContainerEl && !isStageRevealed && viewMode === 'wheel') {
+        wheelContainerEl.style.display = 'block';
+        if (gridEl) gridEl.style.display = 'none';
+
+        if (wheelCylinderEl) {
+          wheelCylinderEl.innerHTML = displayList.map((beerName, idx) => {
+            const isChosen = myCurrentGuess === beerName;
+            const isUsed = Boolean(usedBeersMap[beerName] && beerName !== myCurrentGuess);
+            const usedNum = usedBeersMap[beerName];
+            let badgeHtml = '';
+            if (isChosen) {
+              badgeHtml = '<span class="item-badge badge-chosen">✓ Dein Tipp</span>';
+            } else if (isUsed) {
+              badgeHtml = `<span class="item-badge badge-used">🔒 Bier #${usedNum}</span>`;
+            }
+
+            return `
+              <div class="ts-wheel-item ${isChosen ? 'current-pick' : ''} ${isUsed ? 'used-beer' : ''}" data-beer="${beerName}" data-index="${idx}">
+                <span class="item-emoji">🍺</span>
+                <span class="item-text">${beerName}</span>
+                ${badgeHtml}
+              </div>
+            `;
+          }).join('');
+
+          let focusIdx = 0;
+          if (myCurrentGuess && displayList.includes(myCurrentGuess)) {
+            focusIdx = displayList.indexOf(myCurrentGuess);
+          }
+
+          const wheelItems = wheelCylinderEl.querySelectorAll('.ts-wheel-item');
+          const commitBtn = document.getElementById('btn-wheel-commit-guess');
+          const commitIcon = document.getElementById('btn-wheel-commit-icon');
+          const commitText = document.getElementById('btn-wheel-commit-text');
+          const steckbriefBtn = document.getElementById('btn-wheel-open-steckbrief');
+          const btnWheelUp = document.getElementById('ts-wheel-btn-up');
+          const btnWheelDown = document.getElementById('ts-wheel-btn-down');
+
+          function updateWheelCommitBtn(fIdx) {
+            const focusedBeer = displayList[fIdx];
+            if (!focusedBeer) return;
+            const isChosen = myCurrentGuess === focusedBeer;
+            const isUsed = Boolean(usedBeersMap[focusedBeer] && focusedBeer !== myCurrentGuess);
+            const usedNum = usedBeersMap[focusedBeer];
+
+            if (steckbriefBtn) {
+              steckbriefBtn.onclick = () => openBeerSteckbrief(focusedBeer);
+            }
+
+            if (!commitBtn) return;
+
+            if (isRoundLocked) {
+              commitBtn.className = 'btn ts-wheel-commit-btn is-disabled';
+              commitBtn.disabled = true;
+              if (commitIcon) commitIcon.textContent = '🔒';
+              if (commitText) commitText.textContent = `Runde beendet (${focusedBeer})`;
+              commitBtn.onclick = null;
+            } else if (isChosen) {
+              commitBtn.className = 'btn ts-wheel-commit-btn is-chosen';
+              commitBtn.disabled = false;
+              if (commitIcon) commitIcon.textContent = '✓';
+              if (commitText) commitText.textContent = `„${focusedBeer}“ ist eingeloggt`;
+              commitBtn.onclick = () => {
+                showToast(`„${focusedBeer}“ ist bereits dein eingelogter Tipp für Bier #${activeIdx + 1}!`, '✓');
+              };
+            } else if (isUsed) {
+              commitBtn.className = 'btn ts-wheel-commit-btn is-disabled';
+              commitBtn.disabled = true;
+              if (commitIcon) commitIcon.textContent = '🔒';
+              if (commitText) commitText.textContent = `Bereits bei Bier #${usedNum} gewählt`;
+              commitBtn.onclick = null;
+            } else {
+              commitBtn.className = 'btn btn-primary ts-wheel-commit-btn';
+              commitBtn.disabled = false;
+              if (commitIcon) commitIcon.textContent = '🍺';
+              if (commitText) commitText.textContent = `„${focusedBeer}“ einloggen`;
+              commitBtn.onclick = () => {
+                const res = store.saveBeerGuess(currentUserId, activeIdx, focusedBeer);
+                if (res.success) {
+                  fdsAudio.playPlopp();
+                  triggerHaptic('success');
+                  showToast(`Bier #${activeIdx + 1}: ${focusedBeer} eingeloggt! 🍺`, '✓');
+                  renderTimbersports();
+                } else {
+                  triggerHaptic('warning');
+                  showToast(res.message, '⚠️');
+                }
+              };
+            }
+          }
+
+          function updateWheelVisuals(fIdx) {
+            wheelItems.forEach((wItem, i) => {
+              const diff = Math.abs(i - fIdx);
+              if (diff === 0) {
+                wItem.classList.add('active-item');
+                wItem.style.transform = 'scale(1.05)';
+                wItem.style.opacity = '1';
+              } else if (diff === 1) {
+                wItem.classList.remove('active-item');
+                wItem.style.transform = 'scale(0.92) rotateX(16deg)';
+                wItem.style.opacity = '0.6';
               } else {
-                triggerHaptic('warning');
-                showToast(res.message, '⚠️');
+                wItem.classList.remove('active-item');
+                wItem.style.transform = 'scale(0.8) rotateX(32deg)';
+                wItem.style.opacity = '0.28';
               }
             });
+            updateWheelCommitBtn(fIdx);
+          }
+
+          let lastTickIdx = focusIdx;
+          wheelCylinderEl.onscroll = () => {
+            const cur = Math.min(displayList.length - 1, Math.max(0, Math.round(wheelCylinderEl.scrollTop / 44)));
+            if (cur !== lastTickIdx) {
+              lastTickIdx = cur;
+              fdsAudio.playWheelTick();
+              triggerHaptic('selection');
+            }
+            updateWheelVisuals(cur);
+          };
+
+          // Tapping item on wheel
+          wheelItems.forEach((wItem, i) => {
+            wItem.onclick = (e) => {
+              e.stopPropagation();
+              const cur = Math.min(displayList.length - 1, Math.max(0, Math.round(wheelCylinderEl.scrollTop / 44)));
+              if (cur === i) {
+                if (commitBtn && !commitBtn.disabled) commitBtn.click();
+              } else {
+                wheelCylinderEl.scrollTo({ top: i * 44, behavior: 'smooth' });
+              }
+            };
+          });
+
+          // Up / Down Steppers
+          if (btnWheelUp) {
+            btnWheelUp.onclick = () => wheelCylinderEl.scrollBy({ top: -44, behavior: 'smooth' });
+          }
+          if (btnWheelDown) {
+            btnWheelDown.onclick = () => wheelCylinderEl.scrollBy({ top: 44, behavior: 'smooth' });
+          }
+
+          wheelCylinderEl.scrollTop = focusIdx * 44;
+          updateWheelVisuals(focusIdx);
+          requestAnimationFrame(() => {
+            if (wheelCylinderEl) wheelCylinderEl.scrollTop = focusIdx * 44;
           });
         }
+      }
+
+      // 2. Render Grid View (when isStageRevealed OR viewMode === 'grid')
+      if (gridEl) {
+        if (!isStageRevealed && viewMode === 'wheel') {
+          gridEl.style.display = 'none';
+        } else {
+          gridEl.style.display = 'flex';
+          let gridHtml = '';
+
+          displayList.forEach(beerName => {
+            const isSelected = myCurrentGuess === beerName;
+            const isUsed = Boolean(usedBeersMap[beerName] && beerName !== myCurrentGuess);
+            const usedNum = usedBeersMap[beerName];
+
+            if (isStageRevealed) {
+              const isCorrectGuess = Boolean(sol && isSelected && myCurrentGuess === sol);
+              const isWrongGuess = Boolean(sol && isSelected && myCurrentGuess !== sol);
+              const isTrueSolution = Boolean(sol && beerName === sol);
+              const steckbriefBtn = isAll3StagesRevealed
+                ? `<button type="button" class="btn btn-sm btn-secondary btn-beer-card-steckbrief" data-beer="${beerName}" style="padding: 2px 8px; font-size: 0.72rem; margin-left: auto;">ℹ️ Steckbrief</button>`
+                : '';
+
+              if (isCorrectGuess) {
+                gridHtml += `
+                  <div class="ts-beer-opt revealed-correct">
+                    <span class="beer-emoji">🍺</span>
+                    <span class="beer-name">${beerName}</span>
+                    <span class="revealed-badge">✓ Dein Treffer! (+1)</span>
+                    ${steckbriefBtn}
+                  </div>
+                `;
+              } else if (isWrongGuess) {
+                gridHtml += `
+                  <div class="ts-beer-opt revealed-wrong">
+                    <span class="beer-emoji">🍺</span>
+                    <span class="beer-name">${beerName}</span>
+                    <span class="revealed-badge">✗ Dein Tipp (falsch)</span>
+                    ${steckbriefBtn}
+                  </div>
+                `;
+              } else if (isTrueSolution) {
+                gridHtml += `
+                  <div class="ts-beer-opt revealed-correct">
+                    <span class="beer-emoji">🍺</span>
+                    <span class="beer-name">${beerName}</span>
+                    <span class="revealed-badge">✓ Wahre Lösung</span>
+                    ${steckbriefBtn}
+                  </div>
+                `;
+              } else {
+                gridHtml += `
+                  <div class="ts-beer-opt" style="opacity: 0.35; ${isAll3StagesRevealed ? 'cursor:pointer;' : 'pointer-events: none;'}">
+                    <span class="beer-emoji">🍺</span>
+                    <span class="beer-name">${beerName}</span>
+                    ${steckbriefBtn}
+                  </div>
+                `;
+              }
+            } else if (isSelected) {
+              gridHtml += `
+                <div class="ts-beer-opt selected" data-beer="${beerName}" style="${isRoundLocked ? 'cursor:default;' : ''}">
+                  <span class="beer-emoji">🍺</span>
+                  <span class="beer-name">${beerName}</span>
+                  <span class="pick-indicator">${isRoundLocked ? '🔒 Eingeloggt' : '✓ Gewählt'}</span>
+                </div>
+              `;
+            } else if (isUsed) {
+              gridHtml += `
+                <div class="ts-beer-opt used" data-beer="${beerName}" data-used-num="${usedNum}" title="Bereits bei Bier #${usedNum} getippt">
+                  <span class="beer-emoji">🍺</span>
+                  <span class="beer-name">${beerName}</span>
+                  <span class="used-badge">🔒 Bei Bier #${usedNum} gewählt</span>
+                </div>
+              `;
+            } else if (isRoundLocked) {
+              gridHtml += `
+                <div class="ts-beer-opt" style="opacity: 0.45; pointer-events: none;">
+                  <span class="beer-emoji">🍺</span>
+                  <span class="beer-name">${beerName}</span>
+                </div>
+              `;
+            } else {
+              gridHtml += `
+                <div class="ts-beer-opt" data-beer="${beerName}">
+                  <span class="beer-emoji">🍺</span>
+                  <span class="beer-name">${beerName}</span>
+                </div>
+              `;
+            }
+          });
+          gridEl.innerHTML = gridHtml;
+
+          // Wire Steckbrief buttons in grid
+          gridEl.querySelectorAll('.btn-beer-card-steckbrief').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const bName = btn.getAttribute('data-beer');
+              openBeerSteckbrief(bName);
+            });
+          });
+
+          // Wire Used beers click feedback
+          gridEl.querySelectorAll('.ts-beer-opt.used').forEach(opt => {
+            opt.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const bName = opt.getAttribute('data-beer');
+              const uNum = opt.getAttribute('data-used-num');
+              triggerHaptic('warning');
+              showToast(`„${bName}“ hast du bereits bei Bier #${uNum} eingeloggt! Jedes Bier darf nur einmal gewählt werden.`, '🔒');
+            });
+          });
+
+          if (!isRoundLocked) {
+            gridEl.querySelectorAll('.ts-beer-opt:not(.used):not([disabled])').forEach(opt => {
+              opt.addEventListener('click', () => {
+                const bName = opt.getAttribute('data-beer');
+                if (!bName) return;
+                const res = store.saveBeerGuess(currentUserId, activeIdx, bName);
+                if (res.success) {
+                  fdsAudio.playPlopp();
+                  triggerHaptic('success');
+                  showToast(`Bier #${activeIdx + 1}: ${bName} eingeloggt! 🍺`, '✓');
+                  renderTimbersports();
+                } else {
+                  triggerHaptic('warning');
+                  showToast(res.message, '⚠️');
+                }
+              });
+            });
+          }
+        }
+      }
+
+      // Wire Joker button
+      const btnJoker = document.getElementById('btn-toggle-beer-joker');
+      if (btnJoker) {
+        btnJoker.onclick = () => {
+          const res = store.setBeerJoker(currentUserId, activeIdx);
+          if (res.success) {
+            if (res.active) fdsAudio.playJoker();
+            showToast(res.message, res.active ? '👑' : 'ℹ️');
+            renderTimbersports();
+          } else {
+            showToast(res.message, '⚠️');
+          }
+        };
       }
     }
 

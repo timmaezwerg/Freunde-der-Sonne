@@ -462,6 +462,53 @@
             <!-- Dedicated Joker Slot for Goldener Kronkorken (Outside Beer List) -->
             <div id="ts-beer-joker-slot" class="ts-beer-joker-slot" style="display: none;"></div>
 
+            <!-- View & Filter Controls Bar (Visible during active guessing) -->
+            <div class="ts-beer-picker-controls" id="ts-beer-picker-controls" style="display: none;">
+              <!-- Filter Mode Button: Available vs All -->
+              <button type="button" class="ts-picker-filter-btn active-filter" id="btn-toggle-beer-filter" title="Zwischen offenen und allen Bieren wechseln">
+                <span class="filter-dot"></span>
+                <span id="ts-filter-btn-text">Nur offene Biere (25)</span>
+              </button>
+
+              <!-- View Switcher: Wheel vs Grid -->
+              <div class="ts-picker-view-switch">
+                <button type="button" class="ts-view-switch-btn active" id="btn-view-wheel" title="iOS-Rad">
+                  <span>🎡</span> Rad
+                </button>
+                <button type="button" class="ts-view-switch-btn" id="btn-view-grid" title="Kachel-Raster">
+                  <span>📋</span> Raster
+                </button>
+              </div>
+            </div>
+
+            <!-- Interactive 3D Wheel Picker Container -->
+            <div class="ts-beer-wheel-container" id="ts-beer-wheel-container" style="display: none;">
+              <div class="ts-wheel-housing" id="ts-wheel-housing">
+                <div class="ts-wheel-lens">
+                  <div class="ts-wheel-lens-accent-left">▶</div>
+                  <div class="ts-wheel-lens-accent-right">◀</div>
+                </div>
+                <div class="ts-wheel-fade-top"></div>
+                <div class="ts-wheel-fade-bottom"></div>
+                <div class="ts-wheel-stepper-up" id="ts-wheel-btn-up" title="Vorheriges Bier">▲</div>
+                <div class="ts-wheel-stepper-down" id="ts-wheel-btn-down" title="Nächstes Bier">▼</div>
+                <div class="ts-wheel-cylinder" id="ts-wheel-cylinder">
+                  <!-- Dynamically populated wheel items -->
+                </div>
+              </div>
+
+              <!-- Wheel Action Bar (Below the Drum) -->
+              <div class="ts-wheel-action-bar" id="ts-wheel-action-bar">
+                <button type="button" class="btn btn-primary ts-wheel-commit-btn" id="btn-wheel-commit-guess">
+                  <span id="btn-wheel-commit-icon">🍺</span>
+                  <span id="btn-wheel-commit-text">Bier einloggen</span>
+                </button>
+                <button type="button" class="btn btn-secondary ts-wheel-steckbrief-btn" id="btn-wheel-open-steckbrief" title="Steckbrief zu diesem Bier ansehen">
+                  ℹ️
+                </button>
+              </div>
+            </div>
+
             <!-- Beer Options Grid (25 Beers) with Strikethrough for already used beers -->
             <div class="ts-beer-grid" id="ts-beer-options-grid">
               <!-- Rendered dynamically -->
