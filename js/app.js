@@ -4987,6 +4987,14 @@ document.addEventListener('DOMContentLoaded', () => {
               </button>
             </div>
           `;
+        } else if (myJokerBeer !== undefined && myJokerBeer !== null && store.isBeerLocked(myJokerBeer)) {
+          jokerBtnHtml = `
+            <div class="ts-joker-banner-wrapper">
+              <div class="ts-joker-info-text">
+                <span class="ts-joker-badge">👑 Kronkorken eingelöst</span> liegt fest auf Bier #${myJokerBeer + 1}
+              </div>
+            </div>
+          `;
         } else if (myJokerBeer !== undefined && myJokerBeer !== null) {
           jokerBtnHtml = `
             <div class="ts-joker-banner-wrapper">
@@ -6375,7 +6383,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </button>
               </div>
             `;
-          } else if (!isQFrozen) {
+          } else if (!isQFrozen && !(otherJokerQ && store.isTriviaQuestionLocked(otherJokerQ.id))) {
             const jokerDesc = otherJokerQ
               ? `Aktuell gesetzt bei Frage #${questions.indexOf(otherJokerQ) + 1}. Klicke, um ihn hierhin zu verschieben.`
               : 'Setze deinen 1x Joker auf deine sicherste Frage: doppelter Punkt bei Treffer!';

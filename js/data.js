@@ -1655,6 +1655,8 @@ class DataStore {
             // Self-heal: If local device had an un-synced guess while offline, push it to cloud now
             if (curUser && curUser !== 'admin' && localMRev > remoteMRev && localMRev > resetAt) {
               this.pushTimbersportsToCloud(evt8.timbersportsQuiz);
+            } else if (curUser === 'admin' && (Number(evt8.timbersportsQuiz && evt8.timbersportsQuiz.adminRev) || 0) > (Number(timbersportsRes.data.scores.adminRev) || 0)) {
+              this.pushTimbersportsToCloud(evt8.timbersportsQuiz);
             }
           }
         }
@@ -2007,7 +2009,10 @@ class DataStore {
     if (!quiz) return;
     if (!quiz.memberRev) quiz.memberRev = {};
     const key = String(memberId);
-    quiz.memberRev[key] = Math.max(Date.now(), (Number(quiz.memberRev[key]) || 0) + 1);
+    // Always stay above resetAt: otherwise a device whose clock lags behind the admin's
+    // would produce revisions <= resetAt and the merge would silently drop fresh tips.
+    const resetFloor = (Number(quiz.resetAt) || 0) + 1;
+    quiz.memberRev[key] = Math.max(Date.now(), (Number(quiz.memberRev[key]) || 0) + 1, resetFloor);
   }
 
   mergeTimbersportsQuizzes(baseQuiz, incomingQuiz) {
@@ -2245,6 +2250,15 @@ class DataStore {
       const remoteMRev = (remoteQuiz.memberRev && Number(remoteQuiz.memberRev[curKey])) || 0;
       const resetAt = Number(remoteQuiz.resetAt) || 0;
       if (localMRev > remoteMRev && localMRev > resetAt) {
+        this.pushTimbersportsToCloud(evt8.timbersportsQuiz);
+      }
+    } else if (curUser === 'admin') {
+      // Admin self-heal: the cloud write is a non-atomic read-merge-upsert, so a concurrent
+      // player push can overwrite an admin change (countdown start, reveal, reset ...).
+      // If our local admin revision is ahead of what we just received, push it again.
+      const localARev = Number(evt8.timbersportsQuiz.adminRev) || 0;
+      const remoteARev = Number(remoteQuiz.adminRev) || 0;
+      if (localARev > remoteARev) {
         this.pushTimbersportsToCloud(evt8.timbersportsQuiz);
       }
     }
@@ -2497,7 +2511,7 @@ class DataStore {
     if (!evt8) return JSON.parse(JSON.stringify(DEFAULT_TIMBERSPORTS_QUIZ));
     if (!evt8.timbersportsQuiz) {
       evt8.timbersportsQuiz = JSON.parse(JSON.stringify(DEFAULT_TIMBERSPORTS_QUIZ));
-      this.save(evt8);
+      this.save();
     }
     if (evt8.timbersportsQuiz.beerTasting) {
       if (!Array.isArray(evt8.timbersportsQuiz.beerTasting.lockedBeers)) {
@@ -2537,7 +2551,10 @@ class DataStore {
     const evt8 = this.getEvent(8);
     if (!evt8) return false;
     evt8.timbersportsQuiz = quiz;
-    this.save(evt8);
+    // Local persistence only: the quiz lives in history_seasons (year 8888) and toDbEvent()
+    // strips it anyway. Pushing event 8 to the events table on every tip only caused
+    // extra writes, event_sync broadcasts and full UI re-renders on all devices.
+    this.save();
 
     // Instant local & remote broadcast
     this.broadcastTimbersportsQuiz(quiz);
@@ -3101,6 +3118,11 @@ class DataStore {
     }
     const mIdStr = String(memberId);
     const currentJoker = quiz.beerTasting.jokers[memberId] !== undefined ? quiz.beerTasting.jokers[memberId] : quiz.beerTasting.jokers[mIdStr];
+    // A joker on an already finished beer is committed – otherwise it could be moved away
+    // after a stage reveal showed that the tip was wrong.
+    if (currentJoker !== undefined && currentJoker !== null && Number(currentJoker) !== bIdx && this.isBeerLocked(currentJoker)) {
+      return { success: false, message: `Dein Kronkorken liegt bereits fest auf Bier #${Number(currentJoker) + 1} – die Runde ist beendet.` };
+    }
     if (currentJoker === bIdx) {
       delete quiz.beerTasting.jokers[memberId];
       delete quiz.beerTasting.jokers[mIdStr];
@@ -3115,17 +3137,49 @@ class DataStore {
     return { success: true, active: true, message: `Goldener Kronkorken auf Bier #${bIdx + 1} gesetzt! 👑` };
   }
 
+  isTriviaQuestionLocked(questionId) {
+    const quiz = this.getTimbersportsQuiz();
+    const tr = quiz.trivia;
+    if (!tr) return true;
+    const qId = Number(questionId);
+    const q = (tr.questions || []).find(x => x.id === qId);
+    if (!q) return true;
+    if (q.isFrozen || q.isResolved || tr.revealed || tr.isFrozen) return true;
+    const cd = tr.countdown;
+    if (cd && cd.activeQuestionId === qId && cd.endsAt && Date.now() >= cd.endsAt) return true;
+    return false;
+  }
+
   setTriviaJoker(memberId, questionId) {
     if (memberId === 'admin') return { success: false, message: 'Admin nimmt nicht teil.' };
     const quiz = this.getTimbersportsQuiz();
     if (!quiz.trivia.jokers) quiz.trivia.jokers = {};
+    const currentJoker = quiz.trivia.jokers[memberId] !== undefined ? quiz.trivia.jokers[memberId] : quiz.trivia.jokers[String(memberId)];
+    const hasCurrent = currentJoker !== undefined && currentJoker !== null;
+
+    // null/undefined = remove joker (UI passes null to toggle off)
+    if (questionId === null || questionId === undefined) {
+      if (!hasCurrent) return { success: true, active: false, message: 'Kein Holzfäller-Joker gesetzt.' };
+      if (this.isTriviaQuestionLocked(currentJoker)) {
+        return { success: false, message: 'Frage ist bereits beendet. Joker kann nicht mehr entfernt werden.' };
+      }
+      delete quiz.trivia.jokers[memberId];
+      delete quiz.trivia.jokers[String(memberId)];
+      this.bumpMemberRev(quiz, memberId);
+      this.saveTimbersportsQuiz(quiz);
+      return { success: true, active: false, message: 'Holzfäller-Joker entfernt.' };
+    }
+
     const qId = Number(questionId);
     const q = quiz.trivia.questions.find(x => x.id === qId);
     if (!q) return { success: false, message: 'Frage nicht gefunden.' };
-    if (q.isFrozen || q.isResolved || quiz.trivia.revealed) {
+    if (this.isTriviaQuestionLocked(qId)) {
       return { success: false, message: 'Frage ist bereits beendet. Joker nicht mehr möglich.' };
     }
-    const currentJoker = quiz.trivia.jokers[memberId];
+    // A joker on an already finished question is committed (answer is visible after freeze)
+    if (hasCurrent && Number(currentJoker) !== qId && this.isTriviaQuestionLocked(currentJoker)) {
+      return { success: false, message: 'Dein Joker liegt bereits fest auf einer beendeten Frage.' };
+    }
     if (currentJoker === qId) {
       delete quiz.trivia.jokers[memberId];
       this.bumpMemberRev(quiz, memberId);
@@ -3139,6 +3193,7 @@ class DataStore {
   }
 
   setSawJoker(memberId, active) {
+    if (memberId === 'admin') return { success: false, message: 'Admin nimmt nicht teil.' };
     const quiz = this.getTimbersportsQuiz();
     if (quiz.sawContest && quiz.sawContest.revealed) {
       return { success: false, message: 'Ergebnisse bereits aufgedeckt! Joker kann nicht mehr geändert werden.' };
