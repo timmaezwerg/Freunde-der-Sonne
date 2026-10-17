@@ -4161,6 +4161,56 @@ body.auth-locked #modal-select-user .sheet-handle {
   flex-wrap: wrap;
 }
 
+.ts-picker-segmented-group {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: var(--radius-pill);
+  padding: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  gap: 2px;
+}
+
+.ts-seg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: var(--radius-pill);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.ts-seg-btn:hover {
+  color: #fff;
+}
+
+.ts-seg-btn.active {
+  background: var(--sun-gold);
+  color: #111827;
+  font-weight: 800;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.35);
+}
+
+.ts-seg-btn.active .filter-dot {
+  background: #111827;
+  box-shadow: none;
+}
+
+.ts-seg-btn .filter-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 6px rgba(52, 211, 153, 0.7);
+}
+
 .ts-picker-filter-btn {
   display: inline-flex;
   align-items: center;
@@ -4400,15 +4450,22 @@ body.auth-locked #modal-select-user .sheet-handle {
 }
 
 .ts-wheel-item.used-beer {
-  opacity: 0.3;
-  color: var(--text-muted);
-  text-decoration: line-through;
+  opacity: 0.35;
+  color: #9ca3af;
+}
+
+.ts-wheel-item.used-beer .item-text {
+  text-decoration: line-through !important;
+  opacity: 0.75;
 }
 
 .ts-wheel-item.used-beer.active-item {
-  opacity: 0.6;
-  text-decoration: none;
-  color: #9ca3af;
+  color: #d1d5db;
+}
+
+.ts-wheel-item.used-beer.active-item .item-text {
+  text-decoration: line-through !important;
+  opacity: 0.9;
 }
 
 .ts-wheel-item .item-emoji {
@@ -4436,8 +4493,9 @@ body.auth-locked #modal-select-user .sheet-handle {
 }
 
 .ts-wheel-item .item-badge.badge-used {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text-muted);
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.35);
 }
 
 /* Action Bar below the Wheel */

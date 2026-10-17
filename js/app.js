@@ -4923,6 +4923,12 @@ document.addEventListener('DOMContentLoaded', () => {
         jokerSlotEl.style.display = 'none';
       }
 
+      const controlsEl = document.getElementById('ts-beer-picker-controls');
+      const wheelContainerEl = document.getElementById('ts-beer-wheel-container');
+      if (controlsEl) controlsEl.style.display = 'none';
+      if (wheelContainerEl) wheelContainerEl.style.display = 'none';
+      if (gridEl) gridEl.style.display = 'flex';
+
       if (gridEl) {
         let gridHtml = '';
         activeMembers.forEach(m => {
@@ -5080,8 +5086,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const controlsEl = document.getElementById('ts-beer-picker-controls');
       const wheelContainerEl = document.getElementById('ts-beer-wheel-container');
       const wheelCylinderEl = document.getElementById('ts-wheel-cylinder');
-      const btnToggleFilter = document.getElementById('btn-toggle-beer-filter');
-      const filterBtnText = document.getElementById('ts-filter-btn-text');
+      const btnFilterAvailable = document.getElementById('btn-filter-available');
+      const btnFilterAll = document.getElementById('btn-filter-all');
+      const filterCountEl = document.getElementById('ts-filter-count');
       const btnViewWheel = document.getElementById('btn-view-wheel');
       const btnViewGrid = document.getElementById('btn-view-grid');
 
@@ -5092,60 +5099,78 @@ document.addEventListener('DOMContentLoaded', () => {
         if (gridEl) gridEl.style.display = 'flex';
       } else {
         // Active guessing mode: show controls
-        if (controlsEl) {
-          controlsEl.style.display = 'flex';
+        if (controlsEl) controlsEl.style.display = 'flex';
 
-          if (btnToggleFilter && filterBtnText) {
-            if (filterMode === 'available') {
-              btnToggleFilter.className = 'ts-picker-filter-btn active-filter';
-              filterBtnText.textContent = `Nur offene Biere (${availableBeers.length})`;
-            } else {
-              btnToggleFilter.className = 'ts-picker-filter-btn all-mode';
-              filterBtnText.textContent = 'Alle 25 Biere';
-            }
-            btnToggleFilter.onclick = () => {
-              filterMode = filterMode === 'available' ? 'all' : 'available';
-              localStorage.setItem('fds_beer_filter_mode', filterMode);
+        // Update count badge of available beers
+        if (filterCountEl) {
+          filterCountEl.textContent = String(availableBeers.length);
+        }
+
+        // Wire segmented filter buttons: Offen vs Alle
+        if (btnFilterAvailable && btnFilterAll) {
+          btnFilterAvailable.classList.toggle('active', filterMode === 'available');
+          btnFilterAll.classList.toggle('active', filterMode === 'all');
+
+          btnFilterAvailable.onclick = () => {
+            if (filterMode !== 'available') {
+              filterMode = 'available';
+              localStorage.setItem('fds_beer_filter_mode', 'available');
               fdsAudio.playWheelTick();
               triggerHaptic('light');
               renderTimbersports();
-            };
-          }
+            }
+          };
 
-          if (btnViewWheel && btnViewGrid) {
-            btnViewWheel.className = `ts-view-switch-btn ${viewMode === 'wheel' ? 'active' : ''}`;
-            btnViewGrid.className = `ts-view-switch-btn ${viewMode === 'grid' ? 'active' : ''}`;
+          btnFilterAll.onclick = () => {
+            if (filterMode !== 'all') {
+              filterMode = 'all';
+              localStorage.setItem('fds_beer_filter_mode', 'all');
+              fdsAudio.playWheelTick();
+              triggerHaptic('light');
+              renderTimbersports();
+            }
+          };
+        }
 
-            btnViewWheel.onclick = () => {
-              if (viewMode !== 'wheel') {
-                viewMode = 'wheel';
-                localStorage.setItem('fds_beer_view_mode', 'wheel');
-                fdsAudio.playWheelTick();
-                triggerHaptic('light');
-                renderTimbersports();
-              }
-            };
+        // Wire segmented view buttons: Rad vs Raster
+        if (btnViewWheel && btnViewGrid) {
+          btnViewWheel.classList.toggle('active', viewMode === 'wheel');
+          btnViewGrid.classList.toggle('active', viewMode === 'grid');
 
-            btnViewGrid.onclick = () => {
-              if (viewMode !== 'grid') {
-                viewMode = 'grid';
-                localStorage.setItem('fds_beer_view_mode', 'grid');
-                fdsAudio.playWheelTick();
-                triggerHaptic('light');
-                renderTimbersports();
-              }
-            };
-          }
+          btnViewWheel.onclick = () => {
+            if (viewMode !== 'wheel') {
+              viewMode = 'wheel';
+              localStorage.setItem('fds_beer_view_mode', 'wheel');
+              fdsAudio.playWheelTick();
+              triggerHaptic('light');
+              renderTimbersports();
+            }
+          };
+
+          btnViewGrid.onclick = () => {
+            if (viewMode !== 'grid') {
+              viewMode = 'grid';
+              localStorage.setItem('fds_beer_view_mode', 'grid');
+              fdsAudio.playWheelTick();
+              triggerHaptic('light');
+              renderTimbersports();
+            }
+          };
         }
       }
 
       const displayList = (filterMode === 'available' && !isStageRevealed) ? availableBeers : allPool;
 
+      // Ensure strictly mutually exclusive visibility between wheel and grid
+      if (wheelContainerEl) {
+        wheelContainerEl.style.display = (!isStageRevealed && viewMode === 'wheel') ? 'block' : 'none';
+      }
+      if (gridEl) {
+        gridEl.style.display = (isStageRevealed || viewMode === 'grid') ? 'flex' : 'none';
+      }
+
       // 1. Render Interactive iOS Wheel Picker (when !isStageRevealed && viewMode === 'wheel')
       if (wheelContainerEl && !isStageRevealed && viewMode === 'wheel') {
-        wheelContainerEl.style.display = 'block';
-        if (gridEl) gridEl.style.display = 'none';
-
         if (wheelCylinderEl) {
           wheelCylinderEl.innerHTML = displayList.map((beerName, idx) => {
             const isChosen = myCurrentGuess === beerName;
@@ -5170,6 +5195,11 @@ document.addEventListener('DOMContentLoaded', () => {
           let focusIdx = 0;
           if (myCurrentGuess && displayList.includes(myCurrentGuess)) {
             focusIdx = displayList.indexOf(myCurrentGuess);
+          } else {
+            const firstAvailableIdx = displayList.findIndex(b => !usedBeersMap[b]);
+            if (firstAvailableIdx !== -1) {
+              focusIdx = firstAvailableIdx;
+            }
           }
 
           const wheelItems = wheelCylinderEl.querySelectorAll('.ts-wheel-item');
@@ -5236,18 +5266,19 @@ document.addEventListener('DOMContentLoaded', () => {
           function updateWheelVisuals(fIdx) {
             wheelItems.forEach((wItem, i) => {
               const diff = Math.abs(i - fIdx);
+              const isUsed = wItem.classList.contains('used-beer');
               if (diff === 0) {
                 wItem.classList.add('active-item');
                 wItem.style.transform = 'scale(1.05)';
-                wItem.style.opacity = '1';
+                wItem.style.opacity = isUsed ? '0.65' : '1';
               } else if (diff === 1) {
                 wItem.classList.remove('active-item');
                 wItem.style.transform = 'scale(0.92) rotateX(16deg)';
-                wItem.style.opacity = '0.6';
+                wItem.style.opacity = isUsed ? '0.35' : '0.6';
               } else {
                 wItem.classList.remove('active-item');
                 wItem.style.transform = 'scale(0.8) rotateX(32deg)';
-                wItem.style.opacity = '0.28';
+                wItem.style.opacity = isUsed ? '0.18' : '0.28';
               }
             });
             updateWheelCommitBtn(fIdx);
@@ -5270,7 +5301,15 @@ document.addEventListener('DOMContentLoaded', () => {
               e.stopPropagation();
               const cur = Math.min(displayList.length - 1, Math.max(0, Math.round(wheelCylinderEl.scrollTop / 44)));
               if (cur === i) {
-                if (commitBtn && !commitBtn.disabled) commitBtn.click();
+                if (commitBtn && !commitBtn.disabled) {
+                  commitBtn.click();
+                } else {
+                  const bName = displayList[i];
+                  if (usedBeersMap[bName] && bName !== myCurrentGuess) {
+                    triggerHaptic('warning');
+                    showToast(`„${bName}“ hast du bereits bei Bier #${usedBeersMap[bName]} eingeloggt!`, '🔒');
+                  }
+                }
               } else {
                 wheelCylinderEl.scrollTo({ top: i * 44, behavior: 'smooth' });
               }

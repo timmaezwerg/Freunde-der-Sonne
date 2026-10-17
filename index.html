@@ -464,18 +464,22 @@
 
             <!-- View & Filter Controls Bar (Visible during active guessing) -->
             <div class="ts-beer-picker-controls" id="ts-beer-picker-controls" style="display: none;">
-              <!-- Filter Mode Button: Available vs All -->
-              <button type="button" class="ts-picker-filter-btn active-filter" id="btn-toggle-beer-filter" title="Zwischen offenen und allen Bieren wechseln">
-                <span class="filter-dot"></span>
-                <span id="ts-filter-btn-text">Nur offene Biere (25)</span>
-              </button>
+              <!-- Filter Segmented Switch: Available vs All -->
+              <div class="ts-picker-segmented-group" id="ts-filter-segmented-group">
+                <button type="button" class="ts-seg-btn active" id="btn-filter-available" title="Nur noch offene Biere anzeigen">
+                  <span class="filter-dot"></span> Offen (<span id="ts-filter-count">25</span>)
+                </button>
+                <button type="button" class="ts-seg-btn" id="btn-filter-all" title="Alle 25 Biere anzeigen (inkl. gewählte)">
+                  Alle (25)
+                </button>
+              </div>
 
               <!-- View Switcher: Wheel vs Grid -->
-              <div class="ts-picker-view-switch">
-                <button type="button" class="ts-view-switch-btn active" id="btn-view-wheel" title="iOS-Rad">
+              <div class="ts-picker-segmented-group">
+                <button type="button" class="ts-seg-btn active" id="btn-view-wheel" title="3D-Rad">
                   <span>🎡</span> Rad
                 </button>
-                <button type="button" class="ts-view-switch-btn" id="btn-view-grid" title="Kachel-Raster">
+                <button type="button" class="ts-seg-btn" id="btn-view-grid" title="Kachel-Raster">
                   <span>📋</span> Raster
                 </button>
               </div>
