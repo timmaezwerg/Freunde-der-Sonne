@@ -3608,7 +3608,7 @@ body.auth-locked #modal-select-user .sheet-handle {
 }
 
 .ts-trivia-question-text {
-  font-size: 1.05rem;
+  font-size: 1.15rem;
   font-weight: 800;
   color: #fff;
   line-height: 1.45;
@@ -3665,17 +3665,10 @@ body.auth-locked #modal-select-user .sheet-handle {
 
 /* Trivia Options Grid & High-Contrast Interactive Buttons */
 .ts-trivia-options-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
-  margin: 16px 0 12px 0;
-}
-
-@media (min-width: 600px) {
-  .ts-trivia-options-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  margin: 16px 0 14px 0;
 }
 
 .ts-trivia-opt-btn {
@@ -3683,16 +3676,14 @@ body.auth-locked #modal-select-user .sheet-handle {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 14px;
   background: rgba(255, 255, 255, 0.05);
   border: 1.5px solid rgba(255, 255, 255, 0.14);
   border-radius: var(--radius-sm, 12px);
-  padding: 13px 16px;
+  padding: 14px 16px;
+  min-height: 56px;
   color: #ffffff !important;
   font-family: inherit;
-  font-size: 0.95rem;
-  font-weight: 600;
-  text-align: left;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
@@ -3704,7 +3695,7 @@ body.auth-locked #modal-select-user .sheet-handle {
 .ts-trivia-opt-btn .ts-trivia-opt-content {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   flex: 1;
   min-width: 0;
 }
@@ -3713,31 +3704,42 @@ body.auth-locked #modal-select-user .sheet-handle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.1);
   color: #ffffff !important;
   font-weight: 800;
-  font-size: 0.82rem;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  font-size: 0.92rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  flex-shrink: 0;
   transition: all 0.2s ease;
 }
 
 .ts-trivia-opt-btn .ts-trivia-opt-text {
   flex: 1;
-  word-break: break-word;
-  line-height: 1.35;
+  font-size: 1.02rem;
+  font-weight: 600;
+  line-height: 1.44;
   color: #ffffff !important;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  text-align: left;
 }
 
 .ts-trivia-opt-btn .ts-trivia-opt-icon {
-  font-size: 1.1rem;
+  font-size: 1.25rem;
   font-weight: 800;
-  min-width: 24px;
+  min-width: 26px;
   text-align: right;
   color: var(--text-muted);
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 /* Hover state during active countdown */
@@ -3815,17 +3817,21 @@ body.auth-locked #modal-select-user .sheet-handle {
 /* Neutral options after countdown (neither selected nor correct) */
 .ts-trivia-opt-btn.neutral,
 .ts-trivia-opt-btn:disabled:not(.correct):not(.wrong):not(.selected) {
-  opacity: 0.72;
-  background: rgba(255, 255, 255, 0.03) !important;
-  border-color: rgba(255, 255, 255, 0.09) !important;
-  color: rgba(255, 255, 255, 0.85) !important;
+  opacity: 0.85;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.11) !important;
+  color: #ffffff !important;
   cursor: default;
 }
 
 .ts-trivia-opt-btn:disabled:not(.correct):not(.wrong):not(.selected) .ts-trivia-opt-letter {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.7) !important;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.ts-trivia-opt-btn:disabled:not(.correct):not(.wrong):not(.selected) .ts-trivia-opt-text {
+  color: rgba(255, 255, 255, 0.92) !important;
 }
 
 /* --- Jokers (Goldener Kronkorken, Bullseye-Wette, Holzfäller-Joker) --- */
