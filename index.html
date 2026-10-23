@@ -549,27 +549,17 @@
                 </div>
               </div>
 
-              <!-- Duration Presets -->
+              <!-- Duration Presets (30s & 60s) -->
               <div class="ts-admin-timer-presets">
                 <span class="ts-timer-preset-label">Dauer:</span>
-                <button type="button" class="ts-timer-chip" data-secs="30">30s</button>
-                <button type="button" class="ts-timer-chip" data-secs="45">45s</button>
-                <button type="button" class="ts-timer-chip active" data-secs="60">60s</button>
-                <button type="button" class="ts-timer-chip" data-secs="90">90s</button>
-                <button type="button" class="ts-timer-chip" data-secs="120">120s</button>
-                <div class="ts-timer-custom-wrap">
-                  <input type="number" id="ts-admin-custom-secs" class="form-input" min="5" max="600" value="60" style="width: 65px; padding: 3px 6px; text-align: center; font-size: 0.85rem;" />
-                  <span style="font-size: 0.75rem; color: var(--text-muted);">s</span>
-                </div>
+                <button type="button" class="ts-timer-chip ts-beer-timer-chip" data-secs="30">30s</button>
+                <button type="button" class="ts-timer-chip ts-beer-timer-chip active" data-secs="60">60s</button>
               </div>
 
               <!-- Timer Action Buttons -->
               <div class="ts-admin-timer-actions">
                 <button type="button" class="btn btn-primary" id="btn-start-beer-countdown" style="flex: 2;">
                   <span>▶️</span> Start (<span id="btn-timer-dur-label">60</span>s)
-                </button>
-                <button type="button" class="btn btn-secondary" id="btn-extend-beer-countdown" style="flex: 1;" title="+30 Sekunden hinzufügen">
-                  <span>➕</span> +30s
                 </button>
                 <button type="button" class="btn btn-secondary" id="btn-stop-beer-countdown" style="flex: 1; border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;" title="Countdown stoppen & Runde schließen">
                   <span>⏹️</span> Stopp
@@ -703,34 +693,23 @@
               <span class="ts-admin-timer-status" id="ts-trivia-admin-status-badge">Bereit</span>
             </div>
 
-            <!-- Timer Configuration -->
-            <div class="ts-timer-config-row">
-              <div class="ts-timer-chips-group">
-                <button type="button" class="ts-timer-chip ts-trivia-timer-chip" data-secs="15">15s</button>
-                <button type="button" class="ts-timer-chip ts-trivia-timer-chip" data-secs="20">20s</button>
-                <button type="button" class="ts-timer-chip ts-trivia-timer-chip active" data-secs="30">30s</button>
-                <button type="button" class="ts-timer-chip ts-trivia-timer-chip" data-secs="45">45s</button>
-                <button type="button" class="ts-timer-chip ts-trivia-timer-chip" data-secs="60">60s</button>
-              </div>
-              <div class="ts-timer-custom-box">
-                <input type="number" class="form-input" id="input-trivia-timer-custom" min="5" max="300" value="30" style="width: 60px; padding: 4px 6px; text-align: center; font-size: 0.8rem;">
-                <span style="font-size: 0.72rem; color: var(--text-muted);">Sek</span>
-              </div>
+            <!-- Duration Presets (30s & 60s) -->
+            <div class="ts-admin-timer-presets" style="margin-bottom: 10px;">
+              <span class="ts-timer-preset-label">Dauer:</span>
+              <button type="button" class="ts-timer-chip ts-trivia-timer-chip active" data-secs="30">30s</button>
+              <button type="button" class="ts-timer-chip ts-trivia-timer-chip" data-secs="60">60s</button>
             </div>
 
             <!-- Action Buttons -->
-            <div class="ts-timer-actions-grid" style="margin-top: 10px;">
-              <button type="button" class="btn btn-gold" id="btn-start-trivia-timer">
-                <span>⏱️</span> <span id="btn-start-trivia-timer-text">Frage scharf schalten & starten</span>
+            <div class="ts-admin-timer-actions">
+              <button type="button" class="btn btn-gold" id="btn-start-trivia-timer" style="flex: 2;">
+                <span>⏱️</span> <span id="btn-start-trivia-timer-text">Start (<span id="btn-trivia-dur-label">30</span>s)</span>
               </button>
-              <button type="button" class="btn btn-secondary" id="btn-stop-trivia-timer">
-                <span>⏹️</span> Stopp & Sperren
+              <button type="button" class="btn btn-secondary" id="btn-stop-trivia-timer" style="flex: 1; border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;" title="Frage stoppen & Antworten sperren">
+                <span>⏹️</span> Stopp
               </button>
-              <button type="button" class="btn btn-outline" id="btn-extend-trivia-timer">
-                <span>+15s</span>
-              </button>
-              <button type="button" class="btn btn-outline" id="btn-reset-trivia-timer">
-                <span>🔄</span> Reset
+              <button type="button" class="btn btn-secondary" id="btn-reset-trivia-timer" style="flex: 0 0 auto;" title="Timer zurücksetzen">
+                <span>🔄</span>
               </button>
             </div>
 
@@ -739,7 +718,7 @@
               <button type="button" class="btn btn-sm btn-secondary" id="btn-prev-trivia-q">
                 <span>◀</span> Vorherige
               </button>
-              <span style="font-size: 0.78rem; font-weight: 700; color: var(--sun-gold);" id="ts-trivia-admin-qindicator">Frage 1 von 5</span>
+              <span style="font-size: 0.78rem; font-weight: 700; color: var(--sun-gold);" id="ts-trivia-admin-qindicator">Frage 1 von 10</span>
               <button type="button" class="btn btn-sm btn-primary" id="btn-next-trivia-q">
                 Nächste <span>▶</span>
               </button>

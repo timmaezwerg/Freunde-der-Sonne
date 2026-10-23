@@ -225,6 +225,7 @@ const BEER_PROFILES = {
 };
 
 const DEFAULT_TIMBERSPORTS_QUIZ = {
+  _resetV20261023b: true,
   adminRev: 0,
   resetAt: 0,
   memberRev: {},
@@ -281,6 +282,7 @@ const DEFAULT_TIMBERSPORTS_QUIZ = {
     countdown: null,
     revealed: false,
     jokers: {}, // { [memberId]: questionId } -> 1x "Holzfäller-Joker" (+1 Bonuspunkt bei Treffer)
+    answers: {},
     questions: [
       {
         id: 1,
@@ -2118,6 +2120,7 @@ class DataStore {
     const result = JSON.parse(JSON.stringify(adminSource));
 
     // Consolidate revisions & reset marker
+    result._resetV20261023b = Boolean(baseQuiz._resetV20261023b || incomingQuiz._resetV20261023b);
     result.adminRev = Math.max(baseRev, incRev);
     const maxResetAt = Math.max(Number(baseQuiz.resetAt) || 0, Number(incomingQuiz.resetAt) || 0);
     if (maxResetAt > 0) result.resetAt = maxResetAt;
@@ -2622,6 +2625,29 @@ class DataStore {
       evt8.timbersportsQuiz = JSON.parse(JSON.stringify(DEFAULT_TIMBERSPORTS_QUIZ));
       this.save();
     }
+    // Auto-reset test data migration for fresh user testing
+    if (!evt8.timbersportsQuiz._resetV20261023b) {
+      const now = Date.now();
+      const cleanQuiz = JSON.parse(JSON.stringify(DEFAULT_TIMBERSPORTS_QUIZ));
+      cleanQuiz._resetV20261023b = true;
+      cleanQuiz.adminRev = now;
+      cleanQuiz.resetAt = now;
+      cleanQuiz.memberRev = {};
+      cleanQuiz.isUnlockedForAll = false;
+      cleanQuiz.isArchived = false;
+      cleanQuiz.activeSubTab = 'beer';
+      if (evt8.timbersportsQuiz.beerTasting && Array.isArray(evt8.timbersportsQuiz.beerTasting.beerPool) && evt8.timbersportsQuiz.beerTasting.beerPool.length > 0) {
+        cleanQuiz.beerTasting.beerPool = [...evt8.timbersportsQuiz.beerTasting.beerPool];
+      }
+      evt8.timbersportsQuiz = cleanQuiz;
+      try {
+        localStorage.removeItem('fds_beer_filter_mode');
+        localStorage.removeItem('fds_beer_view_mode');
+      } catch (e) {}
+      this.save();
+      this.broadcastTimbersportsQuiz(cleanQuiz);
+      this.pushTimbersportsDirect(cleanQuiz);
+    }
     if (evt8.timbersportsQuiz.beerTasting) {
       if (!Array.isArray(evt8.timbersportsQuiz.beerTasting.lockedBeers)) {
         evt8.timbersportsQuiz.beerTasting.lockedBeers = Array(25).fill(false);
@@ -2638,6 +2664,7 @@ class DataStore {
     if (evt8.timbersportsQuiz.trivia) {
       const tr = evt8.timbersportsQuiz.trivia;
       if (!tr.jokers) tr.jokers = {};
+      if (!tr.answers) tr.answers = {};
       if (tr.activeQuestionId === undefined || tr.activeQuestionId === null) {
         tr.activeQuestionId = tr.questions && tr.questions.length > 0 ? tr.questions[0].id : 1;
       }
@@ -2727,6 +2754,7 @@ class DataStore {
     if (!this.canManageTimbersports()) return false;
     const now = Date.now();
     const cleanQuiz = JSON.parse(JSON.stringify(DEFAULT_TIMBERSPORTS_QUIZ));
+    cleanQuiz._resetV20261023b = true;
     cleanQuiz.adminRev = now;
     cleanQuiz.resetAt = now;
     cleanQuiz.memberRev = {};
@@ -2739,6 +2767,11 @@ class DataStore {
     if (curQuiz && curQuiz.beerTasting && Array.isArray(curQuiz.beerTasting.beerPool) && curQuiz.beerTasting.beerPool.length > 0) {
       cleanQuiz.beerTasting.beerPool = [...curQuiz.beerTasting.beerPool];
     }
+
+    try {
+      localStorage.removeItem('fds_beer_filter_mode');
+      localStorage.removeItem('fds_beer_view_mode');
+    } catch (e) {}
 
     const evt8 = this.getEvent(8);
     if (evt8) evt8.timbersportsQuiz = cleanQuiz;

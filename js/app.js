@@ -5662,10 +5662,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 1. Timer Controls
         const timerStatusBadge = document.getElementById('ts-admin-timer-status-badge');
-        const customSecsInput = document.getElementById('ts-admin-custom-secs');
         const timerDurLabel = document.getElementById('btn-timer-dur-label');
         const btnStartTimer = document.getElementById('btn-start-beer-countdown');
-        const btnExtendTimer = document.getElementById('btn-extend-beer-countdown');
         const btnStopTimer = document.getElementById('btn-stop-beer-countdown');
         const btnResetTimer = document.getElementById('btn-reset-beer-countdown');
 
@@ -5682,42 +5680,23 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
 
-        // Timer presets chips
-        document.querySelectorAll('.ts-timer-chip').forEach(chip => {
+        // Timer presets chips (30s & 60s)
+        document.querySelectorAll('.ts-beer-timer-chip').forEach(chip => {
           chip.onclick = () => {
-            document.querySelectorAll('.ts-timer-chip').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.ts-beer-timer-chip').forEach(c => c.classList.remove('active'));
             chip.classList.add('active');
-            const secs = chip.getAttribute('data-secs');
-            if (customSecsInput) customSecsInput.value = secs;
+            const secs = chip.getAttribute('data-secs') || '60';
             if (timerDurLabel) timerDurLabel.textContent = secs;
           };
         });
 
-        if (customSecsInput) {
-          customSecsInput.oninput = () => {
-            const val = customSecsInput.value;
-            if (timerDurLabel) timerDurLabel.textContent = val || '60';
-            document.querySelectorAll('.ts-timer-chip').forEach(c => {
-              c.classList.toggle('active', c.getAttribute('data-secs') === val);
-            });
-          };
-        }
-
         if (btnStartTimer) {
           btnStartTimer.onclick = () => {
-            const secs = customSecsInput ? Number(customSecsInput.value) || 60 : 60;
+            const activeChip = document.querySelector('.ts-beer-timer-chip.active');
+            const secs = activeChip ? (Number(activeChip.getAttribute('data-secs')) || 60) : 60;
             store.startBeerCountdown(activeIdx, secs);
             triggerHaptic('success');
             showToast(`Verkostungs-Countdown gestartet (${secs}s)! ⏱️`, '🍺');
-            renderTimbersports();
-          };
-        }
-
-        if (btnExtendTimer) {
-          btnExtendTimer.onclick = () => {
-            store.extendBeerCountdown(30);
-            triggerHaptic('light');
-            showToast('Countdown um +30s verlängert! ⏱️', '✓');
             renderTimbersports();
           };
         }
@@ -6908,13 +6887,14 @@ document.addEventListener('DOMContentLoaded', () => {
           }).join('');
         }
 
-        // Wire Chips
-        const customInput = document.getElementById('input-trivia-timer-custom');
+        // Wire Chips (30s & 60s)
+        const triviaDurLabel = document.getElementById('btn-trivia-dur-label');
         document.querySelectorAll('.ts-trivia-timer-chip').forEach(chip => {
           chip.onclick = () => {
             document.querySelectorAll('.ts-trivia-timer-chip').forEach(c => c.classList.remove('active'));
             chip.classList.add('active');
-            if (customInput) customInput.value = chip.getAttribute('data-secs');
+            const secs = chip.getAttribute('data-secs') || '30';
+            if (triviaDurLabel) triviaDurLabel.textContent = secs;
           };
         });
 
@@ -6922,7 +6902,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const btnStart = document.getElementById('btn-start-trivia-timer');
         if (btnStart) {
           btnStart.onclick = () => {
-            const dur = customInput ? Number(customInput.value) || 30 : 30;
+            const activeChip = document.querySelector('.ts-trivia-timer-chip.active');
+            const dur = activeChip ? (Number(activeChip.getAttribute('data-secs')) || 30) : 30;
             store.startTriviaCountdown(activeQId, dur);
             fdsAudio.playPlopp();
             triggerHaptic('success');
@@ -6938,17 +6919,6 @@ document.addEventListener('DOMContentLoaded', () => {
             store.stopTriviaCountdown();
             triggerHaptic('warning');
             showToast(`Frage #${activeIdx + 1} gestoppt & gesperrt! ⏹️`, '⚠️');
-            renderTimbersports();
-          };
-        }
-
-        // Wire Extend
-        const btnExtend = document.getElementById('btn-extend-trivia-timer');
-        if (btnExtend) {
-          btnExtend.onclick = () => {
-            store.extendTriviaCountdown(15);
-            triggerHaptic('light');
-            showToast('Timer um +15s verlängert! ⏱️', '✓');
             renderTimbersports();
           };
         }
