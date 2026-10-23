@@ -326,6 +326,56 @@ const DEFAULT_TIMBERSPORTS_QUIZ = {
         funFact: 'Die 2 Meter lange Zugsäge hat rasiermesserscharfe Zähne, die von Hand millimetergenau gefeilt werden. Während des Sägens sprüht ein Helfer Petroleum auf das Blatt, damit es nicht klemmt.',
         isFrozen: false,
         isResolved: false
+      },
+      {
+        id: 6,
+        text: 'Wie hoch ist der Stuttgarter Fernsehturm bis zur Antennenspitze?',
+        options: ['Ca. 175 Meter', 'Ca. 195 Meter', 'Ca. 217 Meter', 'Ca. 245 Meter'],
+        correctAnswer: 'Ca. 217 Meter',
+        funFact: 'Der 1956 eröffnete Stuttgarter Fernsehturm war der weltweit allererste Fernsehturm aus Stahlbeton und gilt als architektonisches Vorbild für Sendetürme weltweit. Seine Gesamthöhe beträgt genau 216,61 Meter!',
+        isFrozen: false,
+        isResolved: false
+      },
+      {
+        id: 7,
+        text: 'Wie viele Zuschauer fasst die MHP Arena des VfB Stuttgart bei nationalen Pflichtspielen nach dem Umbau zur EM 2024?',
+        options: ['52.400 Zuschauer', '57.500 Zuschauer', '60.058 Zuschauer', '64.200 Zuschauer'],
+        correctAnswer: '60.058 Zuschauer',
+        funFact: 'Nach dem Umbau der Haupttribüne für die UEFA EURO 2024 fasst das Stadion des VfB Stuttgart bei Bundesliga-Spielen exakt 60.058 Zuschauer (international 54.812 Sitzplätze)!',
+        isFrozen: false,
+        isResolved: false
+      },
+      {
+        id: 8,
+        text: 'Warum werden traditionelle schwäbische Maultaschen humorvoll auch als "Herrgottsb\'scheißerle" bezeichnet?',
+        options: [
+          'Weil Mönche das Fleisch in der Fastenzeit im Teigmantel vor Gottes Augen versteckten',
+          'Weil der Teig früher heimlich mit billigem Mehl gestreckt wurde',
+          'Weil sie sonntags gebacken statt in Brühe gekocht wurden',
+          'Weil ein Stuttgarter Hofkoch den Fürsten mit falschem Trüffel täuschte'
+        ],
+        correctAnswer: 'Weil Mönche das Fleisch in der Fastenzeit im Teigmantel vor Gottes Augen versteckten',
+        funFact: 'Der Legende nach erfanden die Mönche des Klosters Maulbronn die Maultasche: Um während der Fastenzeit Fleisch essen zu können, hackten sie es klein, mischten es mit Spinat und Kräutern und versteckten es im Nudelteigmantel – vor den Augen des lieben Herrgotts!',
+        isFrozen: false,
+        isResolved: false
+      },
+      {
+        id: 9,
+        text: 'Stuttgart ist berühmt für seine vielen historischen Freilufttreppen ("Stäffele") an den Hängen. Wie viele gibt es schätzungsweise im Stadtgebiet?',
+        options: ['Rund 80 Stäffele', 'Rund 160 Stäffele', 'Über 400 Stäffele', 'Über 950 Stäffele'],
+        correctAnswer: 'Über 400 Stäffele',
+        funFact: 'Stuttgart zählt über 400 Stäffele mit zusammen mehr als 20 Kilometern Stufenlänge! Sie wurden im 19. Jahrhundert angelegt, damit die Stuttgarter Weinbauern ihre steilen Weinberge an den Kesselhängen bewirtschaften konnten.',
+        isFrozen: false,
+        isResolved: false
+      },
+      {
+        id: 10,
+        text: 'Wodurch wurde das Cannstatter Volksfest (Wasen) im Jahr 1818 historisch ins Leben gerufen?',
+        options: ['Als Erntedankfest nach einer verheerenden Hungersnot', 'Zur feierlichen Eröffnung der ersten württembergischen Eisenbahn', 'Als Jubiläumsturnier der Stuttgarter Bierbrauer', 'Zur königlichen Hochzeit auf Schloss Solitude'],
+        correctAnswer: 'Als Erntedankfest nach einer verheerenden Hungersnot',
+        funFact: 'Nach dem Vulkanausbruch des Tambora 1815 folgte 1816 ein weltweites „Jahr ohne Sommer“ mit Hungersnöten. Als 1818 endlich wieder eine reiche Ernte gelang, stiftete König Wilhelm I. von Württemberg den Cannstatter Wasen als großes Dank- und Volksfest!',
+        isFrozen: false,
+        isResolved: false
       }
     ],
     answers: {} // { [questionId]: { [memberId]: "Answer" } }
@@ -2194,6 +2244,23 @@ class DataStore {
     if (!result.trivia) result.trivia = {};
     if (!result.trivia.answers) result.trivia.answers = {};
     if (!result.trivia.jokers) result.trivia.jokers = {};
+    if (!Array.isArray(result.trivia.questions)) {
+      result.trivia.questions = JSON.parse(JSON.stringify(DEFAULT_TIMBERSPORTS_QUIZ.trivia.questions));
+    } else {
+      DEFAULT_TIMBERSPORTS_QUIZ.trivia.questions.forEach(defQ => {
+        const existing = result.trivia.questions.find(x => x.id === defQ.id);
+        if (!existing) {
+          result.trivia.questions.push(JSON.parse(JSON.stringify(defQ)));
+        } else {
+          if (!existing.isResolved) {
+            existing.text = defQ.text;
+            existing.options = defQ.options;
+            existing.correctAnswer = defQ.correctAnswer;
+          }
+          if (defQ.funFact) existing.funFact = defQ.funFact;
+        }
+      });
+    }
     const baseTr = baseQuiz.trivia || {};
     const incTr = incomingQuiz.trivia || {};
 
@@ -2578,12 +2645,21 @@ class DataStore {
         tr.revealed = false;
       }
       if (Array.isArray(tr.questions)) {
-        tr.questions.forEach(q => {
-          if (!q.funFact) {
-            const defQ = DEFAULT_TIMBERSPORTS_QUIZ.trivia.questions.find(x => x.id === q.id);
-            if (defQ && defQ.funFact) q.funFact = defQ.funFact;
+        DEFAULT_TIMBERSPORTS_QUIZ.trivia.questions.forEach(defQ => {
+          const existing = tr.questions.find(x => x.id === defQ.id);
+          if (!existing) {
+            tr.questions.push(JSON.parse(JSON.stringify(defQ)));
+          } else {
+            if (!existing.isResolved) {
+              existing.text = defQ.text;
+              existing.options = defQ.options;
+              existing.correctAnswer = defQ.correctAnswer;
+            }
+            if (defQ.funFact) existing.funFact = defQ.funFact;
           }
         });
+      } else {
+        tr.questions = JSON.parse(JSON.stringify(DEFAULT_TIMBERSPORTS_QUIZ.trivia.questions));
       }
     }
     return evt8.timbersportsQuiz;
