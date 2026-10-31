@@ -532,17 +532,26 @@ const INITIAL_EVENTS = [
   {
     id: 7,
     round: 7,
-    title: 'Spieltag 7 (Überraschungs-Event)',
+    title: 'Mauritius Minigames',
     organizerId: 7, // Gabi
-    date: '2026-10-09',
+    date: '2026-10-03',
     time: '16:00 Uhr',
-    location: 'Wird von Gabi bekannt gegeben',
-    description: 'Der vorletzte Spieltag der Saison 2026! Tobi und Sven haben noch ihren Joker im Ärmel – wer greift nach der Krone oder wendet das Wintergrillen ab?',
+    location: 'Stuttgart Hauptbahnhof, Arnulf-Klett-Platz 2, 70173 Stuttgart, Baden-Württemberg',
+    description: 'Möge der Spieltag so Premium wie die Orga werden!',
     packingList: ['Gute Laune', 'Details folgen'],
-    status: 'upcoming',
-    isFrozen: false,
+    status: 'completed',
+    isFrozen: true,
     pendingJokers: [],
-    scores: []
+    scores: [
+      { playerId: 1, rank: 1, basePoints: 8, points: 8, jokerApplied: false },  // Lukas (8)
+      { playerId: 4, rank: 2, basePoints: 7, points: 7, jokerApplied: false },  // Tobi (7)
+      { playerId: 7, rank: 3, basePoints: 6, points: 6, jokerApplied: false },  // Gabi (6)
+      { playerId: 5, rank: 4, basePoints: 5, points: 5, jokerApplied: false },  // Tomi (5)
+      { playerId: 8, rank: 5, basePoints: 4, points: 4, jokerApplied: false },  // Aaron (4)
+      { playerId: 3, rank: 6, basePoints: 3, points: 6, jokerApplied: true },   // Sven (6 ⚡)
+      { playerId: 6, rank: 7, basePoints: 2, points: 2, jokerApplied: false },  // Tim (2)
+      { playerId: 2, rank: 8, basePoints: 0, points: 0, jokerApplied: false }   // Oli (0 - abwesend)
+    ]
   },
   {
     id: 8,
@@ -550,14 +559,23 @@ const INITIAL_EVENTS = [
     title: 'Großes Saison-Finale 2026',
     organizerId: 6, // Tim
     date: '2026-10-30',
-    time: '18:30 Uhr',
-    location: 'Wird von Tim bekannt gegeben',
+    time: '17:00 Uhr',
+    location: 'Bad Cannstatt (Stuttgart, Baden-Württemberg)',
     description: 'Das große Saison-Finale 2026 bei Tim! Wer wird neuer Sonnenkönig 👑 und wer muss als Tabellenletzter das Wintergrillen 🥩 für die Gruppe ausrichten?',
     packingList: ['Feierlaune', 'Details folgen'],
-    status: 'upcoming',
-    isFrozen: false,
+    status: 'completed',
+    isFrozen: true,
     pendingJokers: [],
-    scores: [],
+    scores: [
+      { playerId: 2, rank: 1, basePoints: 8, points: 8, jokerApplied: false },   // Oli (8)
+      { playerId: 4, rank: 2, basePoints: 7, points: 14, jokerApplied: true },  // Tobi (14 ⚡ Joker nachgetragen)
+      { playerId: 7, rank: 3, basePoints: 6, points: 6, jokerApplied: false },   // Gabi (6)
+      { playerId: 1, rank: 4, basePoints: 5, points: 5, jokerApplied: false },   // Lukas (5)
+      { playerId: 5, rank: 5, basePoints: 4, points: 4, jokerApplied: false },   // Tomi (4)
+      { playerId: 6, rank: 6, basePoints: 3, points: 3, jokerApplied: false },   // Tim (3)
+      { playerId: 8, rank: 7, basePoints: 2, points: 2, jokerApplied: false },   // Aaron (2)
+      { playerId: 3, rank: 8, basePoints: 1, points: 1, jokerApplied: false }    // Sven (1)
+    ],
     timbersportsQuiz: JSON.parse(JSON.stringify(DEFAULT_TIMBERSPORTS_QUIZ))
   },
   {
@@ -565,7 +583,7 @@ const INITIAL_EVENTS = [
     round: 9,
     isSpecial: true,
     title: 'Traditionelles Wintergrillen 2026',
-    organizerId: 5, // Automatically last place after round 8; initially current 8th place (Tomi)
+    organizerId: 8, // Automatically last place after round 8; final 8th place (Aaron)
     isOrganizerOverridden: false,
     date: '2026-11-21',
     time: '17:00 Uhr',
@@ -3534,10 +3552,21 @@ class DataStore {
     });
 
     for (let i = 0; i < standings.length; i++) {
-      if (i > 0 && standings[i].totalPoints === standings[i - 1].totalPoints) {
-        standings[i].rank = standings[i - 1].rank;
+      if (i > 0) {
+        const prev = standings[i - 1];
+        const curr = standings[i];
+        const prevRaw = (prev.beerScore?.total || 0) + (prev.rawTriviaScore || 0);
+        const currRaw = (curr.beerScore?.total || 0) + (curr.rawTriviaScore || 0);
+        const prevDiff = prev.sawDetails && prev.sawDetails.hasBoth ? prev.sawDetails.diff : 999999;
+        const currDiff = curr.sawDetails && curr.sawDetails.hasBoth ? curr.sawDetails.diff : 999999;
+
+        if (curr.totalPoints === prev.totalPoints && currRaw === prevRaw && currDiff === prevDiff) {
+          curr.rank = prev.rank;
+        } else {
+          curr.rank = i + 1;
+        }
       } else {
-        standings[i].rank = i + 1;
+        standings[i].rank = 1;
       }
     }
 

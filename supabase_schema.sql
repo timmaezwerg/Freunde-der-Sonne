@@ -242,19 +242,39 @@ VALUES
   ]'::jsonb
 ),
 (
-  7, 7, 'Spieltag 7 (Überraschungs-Event)', 7, '2026-10-09', '18:00 Uhr', 'Wird von Gabi bekannt gegeben',
-  'Der vorletzte Spieltag der Saison 2026! Tobi und Sven haben noch ihren Joker im Ärmel – wer greift nach der Krone oder wendet das Wintergrillen ab?',
+  7, 7, 'Mauritius Minigames', 7, '2026-10-03', '16:00 Uhr', 'Stuttgart Hauptbahnhof, Arnulf-Klett-Platz 2, 70173 Stuttgart, Baden-Württemberg',
+  'Möge der Spieltag so Premium wie die Orga werden!',
   '["Gute Laune", "Details folgen"]'::jsonb,
-  'upcoming', false, '[]'::jsonb, '[]'::jsonb
+  'completed', true, '[]'::jsonb,
+  '[
+     {"playerId": 1, "rank": 1, "basePoints": 8, "points": 8, "jokerApplied": false},
+     {"playerId": 4, "rank": 2, "basePoints": 7, "points": 7, "jokerApplied": false},
+     {"playerId": 7, "rank": 3, "basePoints": 6, "points": 6, "jokerApplied": false},
+     {"playerId": 5, "rank": 4, "basePoints": 5, "points": 5, "jokerApplied": false},
+     {"playerId": 8, "rank": 5, "basePoints": 4, "points": 4, "jokerApplied": false},
+     {"playerId": 3, "rank": 6, "basePoints": 3, "points": 6, "jokerApplied": true},
+     {"playerId": 6, "rank": 7, "basePoints": 2, "points": 2, "jokerApplied": false},
+     {"playerId": 2, "rank": 8, "basePoints": 0, "points": 0, "jokerApplied": false}
+   ]'::jsonb
 ),
 (
-  8, 8, 'Großes Saison-Finale 2026', 6, '2026-10-30', '18:30 Uhr', 'Wird von Tim bekannt gegeben',
+  8, 8, 'Großes Saison-Finale 2026', 6, '2026-10-30', '17:00 Uhr', 'Bad Cannstatt (Stuttgart, Baden-Württemberg)',
   'Das große Saison-Finale 2026 bei Tim! Wer wird neuer Sonnenkönig 👑 und wer muss als Tabellenletzter das Wintergrillen 🥩 für die Gruppe ausrichten?',
   '["Feierlaune", "Details folgen"]'::jsonb,
-  'upcoming', false, '[]'::jsonb, '[]'::jsonb
+  'completed', true, '[]'::jsonb,
+  '[
+     {"playerId": 2, "rank": 1, "basePoints": 8, "points": 8, "jokerApplied": false},
+     {"playerId": 4, "rank": 2, "basePoints": 7, "points": 14, "jokerApplied": true},
+     {"playerId": 7, "rank": 3, "basePoints": 6, "points": 6, "jokerApplied": false},
+     {"playerId": 1, "rank": 4, "basePoints": 5, "points": 5, "jokerApplied": false},
+     {"playerId": 5, "rank": 5, "basePoints": 4, "points": 4, "jokerApplied": false},
+     {"playerId": 6, "rank": 6, "basePoints": 3, "points": 3, "jokerApplied": false},
+     {"playerId": 8, "rank": 7, "basePoints": 2, "points": 2, "jokerApplied": false},
+     {"playerId": 3, "rank": 8, "basePoints": 1, "points": 1, "jokerApplied": false}
+   ]'::jsonb
 ),
 (
-  9, 9, 'Traditionelles Wintergrillen 2026', 5, '2026-11-21', '17:00 Uhr', 'Wird vom Grillmeister bekannt gegeben',
+  9, 9, 'Traditionelles Wintergrillen 2026', 8, '2026-11-21', '17:00 Uhr', 'Wird vom Grillmeister bekannt gegeben',
   'Das traditionelle Wintergrillen der Freunde der Sonne 🥩🔥! Der Tabellenletzte der Saison 2026 muss für die gesamte Truppe grillen und die Getränke stellen. Keine Spieltags-Wertung, keine Joker – einfach ein legendärer Jahresabschluss!',
   '["Riesiger Hunger", "Durst auf Bier & Glühwein", "Winterjacke & Handschuhe"]'::jsonb,
   'upcoming', false, '[]'::jsonb, '[]'::jsonb
