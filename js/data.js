@@ -568,7 +568,7 @@ const INITIAL_EVENTS = [
     pendingJokers: [],
     scores: [
       { playerId: 2, rank: 1, basePoints: 8, points: 8, jokerApplied: false },   // Oli (8)
-      { playerId: 4, rank: 2, basePoints: 7, points: 14, jokerApplied: true },  // Tobi (14 ⚡ Joker nachgetragen)
+      { playerId: 4, rank: 1, basePoints: 8, points: 16, jokerApplied: true },  // Tobi (16 ⚡ Joker nachgetragen)
       { playerId: 7, rank: 3, basePoints: 6, points: 6, jokerApplied: false },   // Gabi (6)
       { playerId: 1, rank: 4, basePoints: 5, points: 5, jokerApplied: false },   // Lukas (5)
       { playerId: 5, rank: 5, basePoints: 4, points: 4, jokerApplied: false },   // Tomi (4)

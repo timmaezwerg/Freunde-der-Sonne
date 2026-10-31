@@ -264,7 +264,7 @@ VALUES
   'completed', true, '[]'::jsonb,
   '[
      {"playerId": 2, "rank": 1, "basePoints": 8, "points": 8, "jokerApplied": false},
-     {"playerId": 4, "rank": 2, "basePoints": 7, "points": 14, "jokerApplied": true},
+     {"playerId": 4, "rank": 1, "basePoints": 8, "points": 16, "jokerApplied": true},
      {"playerId": 7, "rank": 3, "basePoints": 6, "points": 6, "jokerApplied": false},
      {"playerId": 1, "rank": 4, "basePoints": 5, "points": 5, "jokerApplied": false},
      {"playerId": 5, "rank": 5, "basePoints": 4, "points": 4, "jokerApplied": false},
